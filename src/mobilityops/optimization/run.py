@@ -196,9 +196,12 @@ def scenario_report(
     *,
     coverage: float = 0.85,
     multipliers: dict[int, float] | None = None,
+    t: DemandTensor | None = None,
+    preds: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
-    t = load_demand(settings.db_path)
-    preds = load_predictions(settings)
+    """One what-if. ``t``/``preds`` may be passed in by a caller that already holds them cached."""
+    t = t if t is not None else load_demand(settings.db_path)
+    preds = preds if preds is not None else load_predictions(settings)
     ts = pd.Timestamp(when)
     if ts not in t.days:
         raise ValueError(

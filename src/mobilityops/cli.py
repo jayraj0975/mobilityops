@@ -287,6 +287,22 @@ def cmd_optimize_report(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
+    """Start the HTTP API (binds to localhost unless told otherwise)."""
+    import uvicorn
+
+    from mobilityops.api.app import create_app
+
+    if args.host not in ("127.0.0.1", "localhost", "::1") and settings.api_key is None:
+        print(
+            "refusing to listen on a non-local address without MOBILITYOPS_API_KEY set",
+            file=sys.stderr,
+        )
+        return 2
+    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_config=None)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -334,6 +350,10 @@ def build_parser() -> argparse.ArgumentParser:
     orr = sub.add_parser("optimize-report", help="render the latest backtest as Markdown")
     orr.add_argument("--out", default="reports/optimization.md")
     orr.set_defaults(func=cmd_optimize_report)
+    sv = sub.add_parser("serve", help="start the HTTP API")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.set_defaults(func=cmd_serve)
     return p
 
 

@@ -33,6 +33,8 @@ class Settings:
     log_level: str
     anthropic_api_key: str | None
     llm_model: str | None
+    api_key: str | None = None  # if set, every /api/v1 request must send it as X-API-Key
+    cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -47,12 +49,21 @@ class Settings:
             )
         key = (e.get("ANTHROPIC_API_KEY") or "").strip() or None
         model = (e.get("MOBILITYOPS_LLM_MODEL") or "").strip() or None
+        api_key = (e.get("MOBILITYOPS_API_KEY") or "").strip() or None
+        origins = tuple(
+            o.strip() for o in (e.get("MOBILITYOPS_CORS_ORIGINS") or "").split(",") if o.strip()
+        )
+        if "*" in origins:
+            raise ConfigError("MOBILITYOPS_CORS_ORIGINS must list explicit origins, not '*'")
+        extra = {"cors_origins": origins} if origins else {}
         return cls(
             data_dir=Path(e.get("MOBILITYOPS_DATA_DIR", "./data")).expanduser().resolve(),
             mode=mode,  # type: ignore[arg-type]
             log_level=level,
             anthropic_api_key=key,
             llm_model=model,
+            api_key=api_key,
+            **extra,
         )
 
     # ---- derived paths: raw inputs and outputs are separated per mode -------------------
@@ -86,10 +97,11 @@ class Settings:
 
     def __repr__(self) -> str:  # never leak the key through logs or tracebacks
         key = "set" if self.anthropic_api_key else "unset"
+        api = "set" if self.api_key else "unset"
         return (
             f"Settings(mode={self.mode!r}, data_dir={str(self.data_dir)!r}, "
             f"log_level={self.log_level!r}, anthropic_api_key=<{key}>, "
-            f"llm_model={self.llm_model!r})"
+            f"llm_model={self.llm_model!r}, api_key=<{api}>)"
         )
 
 
