@@ -97,7 +97,7 @@ export function SeriesChart({
         <XAxis dataKey="x" tick={{ fill: C.text, fontSize: 12 }} minTickGap={32} />
         <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} />
         <Tooltip />
-        <Line type="monotone" dataKey="y" name={yLabel} stroke={C.main} dot={false} strokeWidth={2} />
+        <Line isAnimationActive={false} type="monotone" dataKey="y" name={yLabel} stroke={C.main} dot={false} strokeWidth={2} />
       </LineChart>
     </Figure>
   );
@@ -129,10 +129,10 @@ export function BandChart({
         <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} />
         <Tooltip />
         <Legend />
-        <Area dataKey="band" name="Interval" stroke="none" fill={C.band} fillOpacity={0.5} />
-        <Line dataKey="forecast" name="Forecast" stroke={C.main} dot={false} strokeWidth={2} />
+        <Area isAnimationActive={false} dataKey="band" name="Interval" stroke="none" fill={C.band} fillOpacity={0.5} />
+        <Line isAnimationActive={false} dataKey="forecast" name="Forecast" stroke={C.main} dot={false} strokeWidth={2} />
         {showActual && (
-          <Line dataKey="actual" name="Actual" stroke={C.second} strokeDasharray="5 3" dot={false} strokeWidth={2} />
+          <Line isAnimationActive={false} dataKey="actual" name="Actual" stroke={C.second} strokeDasharray="5 3" dot={false} strokeWidth={2} />
         )}
       </ComposedChart>
     </Figure>
@@ -160,7 +160,7 @@ export function BarsChart({
         <XAxis dataKey="x" tick={{ fill: C.text, fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={80} />
         <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} />
         <Tooltip />
-        <Bar dataKey="y" name={yLabel} fill={C.main} />
+        <Bar isAnimationActive={false} dataKey="y" name={yLabel} fill={C.main} />
       </BarChart>
     </Figure>
   );

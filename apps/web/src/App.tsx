@@ -17,8 +17,15 @@ export default function App() {
   const meta = useAsync((s) => api.meta(s), []);
   const zones = useAsync((s) => api.zones(s), []);
   const main = useRef<HTMLElement>(null);
+  const first = useRef(true);
 
+  // Move focus to the content when the section changes, but not on first load: that would take
+  // the first Tab stop away from the "Skip to content" link.
   useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
     main.current?.focus();
   }, [route]);
 

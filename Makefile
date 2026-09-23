@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup sample test test-all lint format typecheck check audit clean web-install web-types web-check web-build serve e2e-live
+.PHONY: help setup sample test test-all lint format typecheck check audit clean web-install web-types web-check web-build serve e2e-live e2e-browser
 
 help:            ## Show available commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  make %-10s %s\n",$$1,$$2}'
@@ -55,3 +55,6 @@ serve:           ## Start the API (and the built UI at /) on http://127.0.0.1:80
 
 e2e-live:        ## Run the UI against a live API: E2E_API_URL=http://127.0.0.1:8000 make e2e-live
 	cd apps/web && npm run test:live
+
+e2e-browser:     ## Real-browser tests + accessibility scans: start `make serve` first, then E2E_BASE=... make e2e-browser
+	cd apps/web && npx playwright install chromium && npm run e2e
