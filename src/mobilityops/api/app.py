@@ -40,6 +40,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from mobilityops import __version__
+from mobilityops.analyst.agent import Analyst, tool_catalog
+from mobilityops.analyst.llm import AnthropicPlanner
+from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
 from mobilityops.api.services import NotReady, Services
@@ -91,6 +94,12 @@ def _error(code: str, message: str, status: int, request: Request, **extra: Any)
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     services = Services(settings)
+    planner: Planner = (
+        AnthropicPlanner(settings.anthropic_api_key, settings.llm_model)  # type: ignore[arg-type]
+        if settings.llm_configured
+        else RulePlanner()
+    )
+    analyst = Analyst(services, planner)
     app = FastAPI(
         title="MobilityOps API",
         version=__version__,
@@ -102,6 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ),
     )
     app.state.services = services
+    app.state.analyst = analyst
 
     app.add_middleware(
         CORSMiddleware,
@@ -545,6 +555,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             services.solver_slots.release()
         return s.ScenarioResponse(**{k: rep[k] for k in s.ScenarioResponse.model_fields})
+
+    # ---------------------------------------------------------------------- analyst
+    @api.get("/analyst/status", response_model=s.AnalystStatus, tags=["analyst"])
+    def analyst_status() -> s.AnalystStatus:
+        llm = settings.llm_configured
+        return s.AnalystStatus(
+            planner=planner.name,
+            llm_configured=llm,
+            llm_status=(
+                "UNVERIFIED: configured but never validated against the live service"
+                if llm
+                else "not configured (no key): deterministic planner in use"
+            ),
+            tools=len(tool_catalog()),
+            note="Answers are built only from read-only tool results and checked for grounding.",
+        )
+
+    @api.get("/analyst/tools", tags=["analyst"])
+    def analyst_tools() -> list[dict[str, Any]]:
+        return tool_catalog()
+
+    @api.post("/analyst/ask", response_model=s.AnalystResponse, tags=["analyst"])
+    def analyst_ask(req: s.AnalystRequest) -> Any:
+        """Ask a question. Refusals, clarifications and partial answers are normal results."""
+        ans = analyst.ask(req.question)
+        return s.AnalystResponse(
+            question=ans.question,
+            status=ans.status,
+            mode=ans.mode,
+            intent=ans.intent,
+            data_label=ans.data_label,
+            statements=[
+                s.AnalystStatement(kind=x.kind, text=x.text, fact_ids=list(x.fact_ids))
+                for x in ans.statements
+            ],
+            tools_used=[s.AnalystToolTrace(**t.__dict__) for t in ans.tools_used],
+            warnings=ans.warnings,
+            grounding=ans.grounding,
+        )
 
     app.include_router(ops)
     app.include_router(api)

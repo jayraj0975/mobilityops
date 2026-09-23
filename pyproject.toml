@@ -57,6 +57,9 @@ ignore = ["S101"]           # asserts are how pytest works
 # User-facing code (api, ai, analytics) is NOT exempt and must use bound parameters.
 "src/mobilityops/transform/**" = ["S608"]
 "src/mobilityops/quality/**" = ["S608"]
+# declarative tables (one fact per line; one intent rule per line) read better unwrapped
+"src/mobilityops/analyst/tools.py" = ["E501"]
+"src/mobilityops/analyst/planner.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

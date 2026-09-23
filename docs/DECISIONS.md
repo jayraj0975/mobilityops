@@ -186,3 +186,28 @@ actual demand, and compare with no repositioning and with an unattainable oracle
 **Consequences.** Results are conditional on stated assumptions and a sensitivity table is part of
 the report. Optimality is checked against brute force on small instances. Demand is served only in
 the zone where a vehicle stands (no spill-over), which overstates the value of exact placement.
+
+---
+
+## ADR-012: The analyst only selects tools; sentences and numbers come from tool facts
+
+**Context.** An AI analyst that writes free text can invent numbers, follow injected instructions,
+or state causes the data cannot support. No LLM key exists, and the analyst must still work offline.
+
+**Decision.**
+1. A planner (deterministic rules, or an LLM when a key is set) only chooses among 13 fixed
+   read-only tools and their arguments. Arguments are validated and bounded by the tool layer.
+2. Every tool returns *facts* (named values with display strings). Answer sentences are built from
+   facts, each labelled FACT / INTERPRETATION / ASSUMPTION / LIMITATION, and cite the facts used.
+3. A grounding check rejects any FACT/INTERPRETATION sentence containing a number or date that is
+   not in the facts it cites; the sentence is replaced by a notice, not shown.
+4. The planner never sees tool outputs, so data (zone names, event text) cannot inject
+   instructions. Requests to modify data, run code/SQL, reveal secrets or instructions, or ask about
+   other services are refused before planning; instruction-override phrasing is flagged and ignored.
+5. Ambiguity produces a clarification (which zone? which date?), and every default the planner
+   applies (for example "no period given: last 7 days") is stated as an ASSUMPTION.
+6. The response shows the tools used with their arguments and returned facts. No chain of thought.
+
+**Consequences.** Answers are less fluent than free text but traceable. LLM mode exists but is
+`UNVERIFIED`: it has only been tested against a mocked transport. The rule planner is limited to
+the intents it encodes; the benchmark (Phase 10) measures where it fails.

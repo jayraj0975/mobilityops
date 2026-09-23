@@ -288,3 +288,50 @@ class ScenarioResponse(Model):
     best_attainable_service_share: float | None
     moves: list[Move]
     solver: dict[str, Any]
+
+
+# --------------------------------------------------------------------------------- analyst
+class AnalystRequest(Model):
+    question: str = Field(min_length=1, max_length=500)
+
+
+class AnalystStatement(Model):
+    kind: Literal["FACT", "INTERPRETATION", "ASSUMPTION", "LIMITATION"]
+    text: str
+    fact_ids: list[str]
+
+
+class AnalystFact(Model):
+    id: str
+    label: str
+    value: str
+
+
+class AnalystToolTrace(Model):
+    call_id: str
+    name: str
+    args: dict[str, Any]
+    ok: bool
+    error: str | None
+    facts: list[AnalystFact]
+    data: dict[str, Any]
+
+
+class AnalystResponse(Model):
+    question: str
+    status: Literal["answered", "partial", "clarify", "refused", "no_data"]
+    mode: str
+    intent: str
+    data_label: str
+    statements: list[AnalystStatement]
+    tools_used: list[AnalystToolTrace]
+    warnings: list[str]
+    grounding: dict[str, int]
+
+
+class AnalystStatus(Model):
+    planner: str
+    llm_configured: bool
+    llm_status: str
+    tools: int
+    note: str
