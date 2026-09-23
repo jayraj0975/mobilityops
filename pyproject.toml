@@ -53,6 +53,10 @@ ignore = ["S101"]           # asserts are how pytest works
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "B011"]
+# Pipeline SQL is built only from server-controlled, escaped values (see sqlutil.quote_literal).
+# User-facing code (api, ai, analytics) is NOT exempt and must use bound parameters.
+"src/mobilityops/transform/**" = ["S608"]
+"src/mobilityops/quality/**" = ["S608"]
 
 [tool.mypy]
 python_version = "3.12"

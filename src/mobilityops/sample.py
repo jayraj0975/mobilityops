@@ -81,6 +81,7 @@ class SampleFiles:
     weather: Path
     zones_geojson: Path
     ground_truth: Path
+    meta: Path
 
 
 def _zone_profiles(n_zones: int) -> np.ndarray:
@@ -241,6 +242,7 @@ def generate_sample(out_dir: Path, spec: SampleSpec | None = None) -> SampleFile
         weather=out_dir / "weather_daily.csv",
         zones_geojson=out_dir / "zones.geojson",
         ground_truth=out_dir / "ground_truth.json",
+        meta=out_dir / "sample_meta.json",
     )
     trips.to_parquet(files.trips, index=False)
     lookup.to_csv(files.zone_lookup, index=False)
@@ -258,4 +260,17 @@ def generate_sample(out_dir: Path, spec: SampleSpec | None = None) -> SampleFile
         "rate_model": "lambda[hour, zone] = base * hour_profile * dow * rain * event",
     }
     files.ground_truth.write_text(json.dumps(truth, indent=2))
+    start = pd.Timestamp(spec.start)
+    files.meta.write_text(
+        json.dumps(
+            {
+                "label": SYNTHETIC_LABEL,
+                "window": {
+                    "start": start.date().isoformat(),
+                    "end": (start + pd.Timedelta(days=spec.n_days)).date().isoformat(),
+                },
+            },
+            indent=2,
+        )
+    )
     return files
