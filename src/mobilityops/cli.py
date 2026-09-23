@@ -199,6 +199,94 @@ def cmd_anomaly_report(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_optimize_backtest(settings: Settings, args: argparse.Namespace) -> int:
+    """Backtest repositioning plans against actual demand (SIMULATED, assumption-driven)."""
+    from mobilityops.optimization.run import run_backtest
+
+    try:
+        rep = run_backtest(settings, sensitivity=not args.no_sensitivity)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"cannot run: {exc}", file=sys.stderr)
+        return 1
+    print(f"[{rep['data_label']}] {rep['label']}")
+    print(f"{rep['windows_scored']} day-windows over {rep['days']} days")
+    for name, v in rep["planners"].items():
+        print(
+            f"  {name:<20} served share {v['served_share']:.2%}  "
+            f"moved/window {v['vehicles_moved_per_window']:.0f}"
+        )
+    d = rep["lightgbm_vs_none"]
+    print(
+        f"  LightGBM plan vs no repositioning: {100 * d['point']:+.2f} pp "
+        f"(95% CI {100 * d['ci95'][0]:+.2f} to {100 * d['ci95'][1]:+.2f})"
+    )
+    return 0
+
+
+def cmd_optimize(settings: Settings, args: argparse.Namespace) -> int:
+    """Run one repositioning what-if for a date and window (SIMULATED)."""
+    from datetime import date as _date
+
+    from mobilityops.optimization.model import RebalanceParams
+    from mobilityops.optimization.run import optimization_dir, scenario_report
+    from mobilityops.optimization.scenario import Window
+
+    try:
+        mult = {}
+        for item in args.surge or []:
+            zone, factor = item.split(":")
+            mult[int(zone)] = float(factor)
+        params = RebalanceParams(
+            max_km=args.max_km,
+            max_move_share=args.max_move_share,
+            min_service_share=args.min_service,
+        )
+        rep = scenario_report(
+            settings,
+            _date.fromisoformat(args.date),
+            Window(args.start_hour, args.end_hour),
+            params,
+            coverage=args.coverage,
+            multipliers=mult or None,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"cannot run: {exc}", file=sys.stderr)
+        return 1
+    out = optimization_dir(settings)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"scenario_{args.date}.json").write_text(json.dumps(rep, indent=2, default=str))
+    print(f"[{rep['data_label']}] {rep['label']}")
+    print(f"{rep['context']['date']} {rep['context']['window']}: status {rep['status']}")
+    print(f"  {rep['message']}")
+    if rep["status"] in ("optimal", "feasible_time_limit"):
+        print(
+            f"  served share {rep['service_share_before']:.2%} -> {rep['service_share_after']:.2%}"
+            f" with {rep['vehicles_moved']} of {rep['fleet']} vehicles moved "
+            f"({rep['km_total']:.0f} km)"
+        )
+        for m in rep["moves"][:5]:
+            print(f"  move {m['vehicles']} x {m['from_name']} -> {m['to_name']} ({m['km']} km)")
+    return 0
+
+
+def cmd_optimize_report(settings: Settings, args: argparse.Namespace) -> int:
+    """Render the latest repositioning backtest as Markdown."""
+    from pathlib import Path
+
+    from mobilityops.optimization.report import render
+    from mobilityops.optimization.run import optimization_dir
+
+    src = optimization_dir(settings) / "backtest.json"
+    if not src.exists():
+        print("no backtest yet; run `optimize-backtest` first", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(json.loads(src.read_text())))
+    print(f"wrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -230,6 +318,22 @@ def build_parser() -> argparse.ArgumentParser:
     ar = sub.add_parser("anomaly-report", help="render the latest anomaly report as Markdown")
     ar.add_argument("--out", default="reports/anomalies.md")
     ar.set_defaults(func=cmd_anomaly_report)
+    ob = sub.add_parser("optimize-backtest", help="backtest repositioning plans (SIMULATED)")
+    ob.add_argument("--no-sensitivity", action="store_true")
+    ob.set_defaults(func=cmd_optimize_backtest)
+    op = sub.add_parser("optimize", help="one repositioning what-if (SIMULATED)")
+    op.add_argument("--date", required=True, help="YYYY-MM-DD, an out-of-sample day")
+    op.add_argument("--start-hour", type=int, default=17)
+    op.add_argument("--end-hour", type=int, default=20)
+    op.add_argument("--coverage", type=float, default=0.85)
+    op.add_argument("--max-km", type=float, default=6.0)
+    op.add_argument("--max-move-share", type=float, default=0.30)
+    op.add_argument("--min-service", type=float, default=None, help="required served share")
+    op.add_argument("--surge", nargs="*", help="demand shocks as ZONE_ID:FACTOR, e.g. 79:1.5")
+    op.set_defaults(func=cmd_optimize)
+    orr = sub.add_parser("optimize-report", help="render the latest backtest as Markdown")
+    orr.add_argument("--out", default="reports/optimization.md")
+    orr.set_defaults(func=cmd_optimize_report)
     return p
 
 

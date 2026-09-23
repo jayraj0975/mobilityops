@@ -10,6 +10,9 @@ import math
 from collections.abc import Sequence
 from itertools import pairwise
 
+import numpy as np
+import numpy.typing as npt
+
 Ring = Sequence[Sequence[float]]
 
 
@@ -52,3 +55,12 @@ def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     dphi, dlmb = p2 - p1, math.radians(lon2 - lon1)
     h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
     return 2 * r * math.asin(math.sqrt(h))
+
+
+def haversine_matrix_km(lon: npt.ArrayLike, lat: npt.ArrayLike) -> np.ndarray:
+    """All-pairs great-circle distances in km (NaN where either point is NaN)."""
+    lo, la = np.radians(np.asarray(lon, dtype=float)), np.radians(np.asarray(lat, dtype=float))
+    dphi = la[:, None] - la[None, :]
+    dlmb = lo[:, None] - lo[None, :]
+    h = np.sin(dphi / 2) ** 2 + np.cos(la)[:, None] * np.cos(la)[None, :] * np.sin(dlmb / 2) ** 2
+    return np.asarray(2 * 6371.0088 * np.arcsin(np.sqrt(h)))

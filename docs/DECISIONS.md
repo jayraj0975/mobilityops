@@ -167,3 +167,22 @@ more for 3+ hours in busy zones are found 60-100% of the time; a 0.5x drop for 3
 of the time at the default threshold (65% at threshold 4 for 6 hours). Drops are structurally harder
 than surges. Explanations are template text that says a deviation *coincided with* calendar,
 weather or other-zone context, and never asserts a cause.
+
+---
+
+## ADR-011: Optimization outputs are simulations, and infeasibility is a result
+
+**Context.** The open data contain no fleet, dispatch or vehicle-location information, so any
+"rebalancing" result depends on assumed supply, vehicle capacity and repositioning cost.
+
+**Decision.** Repositioning is a mixed-integer linear program (`scipy.optimize.milp`, HiGHS): move
+whole vehicles between zones at most `max_km` apart, within a budget of moved vehicles, to maximise
+served trips minus a small per-km cost. Every result carries the label *SIMULATED SCENARIO under
+explicit assumptions* and echoes its assumptions. A request the model cannot satisfy (for example a
+99% service level) returns status `infeasible` with the best attainable level, never a silent
+best-effort plan. Plans are evaluated retrospectively: plan with a forecast, score against the
+actual demand, and compare with no repositioning and with an unattainable oracle.
+
+**Consequences.** Results are conditional on stated assumptions and a sensitivity table is part of
+the report. Optimality is checked against brute force on small instances. Demand is served only in
+the zone where a vehicle stands (no spill-over), which overstates the value of exact placement.

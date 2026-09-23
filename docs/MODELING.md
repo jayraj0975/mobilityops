@@ -141,3 +141,58 @@ MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-eval     # needed first
 MOBILITYOPS_MODE=real python -m mobilityops.cli anomalies
 MOBILITYOPS_MODE=real python -m mobilityops.cli anomaly-report --out reports/anomalies_real.md
 ```
+
+---
+
+# Optimization (repositioning scenarios)
+
+STATUS: engine VERIFIED (known-answer, brute-force and invariant tests). Backtest results are
+**SIMULATED SCENARIOS under explicit assumptions**, generated into
+[`reports/optimization_real.md`](../reports/optimization_real.md). They are not evidence of what a
+real fleet would achieve.
+
+## What it does
+
+Given expected demand per zone for a window and a starting distribution of vehicles, a
+mixed-integer program (`scipy.optimize.milp`, HiGHS) moves whole vehicles between zones at most
+`max_km` apart, within a budget of moved vehicles, to maximise served trips minus a small per-km
+cost. A requested service level that cannot be reached returns `infeasible` with the best
+attainable level (ADR-011). The CLI runs a what-if for any out-of-sample date and window
+(`optimize`), including demand shocks (`--surge ZONE:FACTOR`) and service-level requirements
+(`--min-service`).
+
+## Assumptions (no fleet data exist)
+
+Fleet capacity is 85% of the forecast demand in the window; vehicles start distributed by the
+previous 7 days' demand; one vehicle serves 4.5 trips per window; a vehicle serves demand only in the
+zone where it stands; moves cost 0.02 trips per km, up to 6 km, up to 30% of the fleet. Every
+assumption is echoed in each result, and the report varies them.
+
+## Findings (real data, 112 day-windows over 56 out-of-sample days; see the report for all numbers)
+
+* Repositioning adds a small amount. Planning with the LightGBM forecast raises the served share by
+  0.53 percentage points (95% bootstrap interval 0.38 to 0.70). Even planning with the actual
+  demand (an unattainable oracle) adds only 2.57 points, so under these assumptions there is little
+  headroom, and the LightGBM plan captures about 20% of it.
+* **The better forecast did not produce the better plan.** Planning with the simple seasonal-mean
+  forecast served 0.18 points *more* than planning with LightGBM (interval excludes zero), although
+  LightGBM has lower forecast error. This was not investigated further; one untested possibility is
+  that window-level forecast bias matters more to this decision than average error.
+* The value of repositioning depends strongly on fleet tightness: +1.65 points when the fleet
+  matches demand, +0.14 when it is 30% short (sensitivity table, every 4th day).
+* The move budget never binds (plans move roughly 100-150 vehicles per window out of 4,000+); the
+  per-km cost is what limits moves, so 10% and 50% budgets give identical results.
+
+## Limitations
+
+Supply, capacity and cost are assumptions. Demand does not spill over to neighbouring zones, which
+overstates the value of exact placement. Habit-based starting positions are a modelling choice.
+Only out-of-sample days are scored.
+
+## Reproduce
+
+```bash
+MOBILITYOPS_MODE=real python -m mobilityops.cli optimize-backtest    # ~25 minutes incl. sensitivity
+MOBILITYOPS_MODE=real python -m mobilityops.cli optimize-report --out reports/optimization_real.md
+MOBILITYOPS_MODE=real python -m mobilityops.cli optimize --date 2024-05-27 --start-hour 15 --end-hour 20
+```
