@@ -71,3 +71,64 @@ LLM-mode number is ever fabricated.
 
 **Decision.** `requires-python >= 3.12`. Claiming 3.11 support that is never tested would be a
 false claim.
+
+---
+
+## ADR-006: Day-ahead framing, walk-forward validation, no hyper-parameter search
+
+**Context.** "Forecast demand" can mean many things, and most ways of evaluating it leak the future.
+
+**Decision.** The task is fixed as: at 00:00 local of day D, forecast pickups per zone for each hour
+of D, using only days before D. Validation is rolling-origin: the last 56 days are test days in
+four consecutive folds; each fold's model is fitted on earlier days and its interval width is
+calibrated on the block immediately before the fold. There is no random split. LightGBM parameters
+are fixed a priori (`forecasting/model.py:DEFAULT_PARAMS`) and are not tuned.
+
+**Consequences.** Results estimate a scheduled-retrain deployment. Not tuning gives up some
+accuracy but keeps every reported number free of selection bias; a nested search is future work.
+Only ~5 months of history exist, so annual seasonality cannot be learned (see LIMITATIONS).
+
+---
+
+## ADR-007: Same-period weather is not a model feature
+
+**Context.** Weather explains some demand variation, but at forecast time the target day's weather
+is not known; using observed weather would be a form of leakage.
+
+**Decision.** Weather is excluded from the model. It is used only as *context* in error analysis
+and anomaly explanation. A clearly labelled ORACLE experiment adds the target day's actual weather
+to measure an upper bound on what a weather forecast could add.
+
+**Consequences.** On the real data the oracle experiment did not improve accuracy, so nothing is
+lost by the exclusion. That is a measurement on five months, not proof weather is irrelevant.
+
+---
+
+## ADR-008: A JSON model registry instead of MLflow
+
+**Context.** The project trains one model type on a single machine.
+
+**Decision.** A model is `model.txt` plus a `meta.json` sidecar (data run id, train/calibration
+windows, features, parameters, interval quantiles, metrics source, library versions) under
+`artifacts/<mode>/forecast/models/<id>/`, with `latest.json` pointing at the newest.
+
+**Consequences.** No server, no extra dependency, fully inspectable. It does not support
+concurrent experiments, lineage across many runs, or a UI; adopt MLflow if that becomes necessary.
+
+---
+
+## ADR-009: Prediction bands are calibrated per predicted-demand band (Mondrian conformal)
+
+**Context.** The first version used one conformal quantile scaled by `sqrt(prediction + 1)`. Its
+overall test coverage was 79.7% (nominal 80%), which looked fine, but sliced by zone volume it was
+94.8% for quiet zones and only 41.4% for zones above 20 pickups/hour: real demand is
+over-dispersed, so the Poisson-style scaling badly understated busy-zone uncertainty.
+
+**Decision.** Compute the residual quantile separately for each band of predicted pickups
+(edges 0.5, 2, 5, 10, 20, 50; pooled quantile for bands with fewer than 200 calibration rows).
+
+**Consequences.** Per-volume coverage after the change: 74-82%. This change was made after
+looking at test-fold coverage. It is a calibration correction with no effect on point accuracy
+(identical MAE/WAPE before and after), but it means the interval numbers are not a pristine
+out-of-sample estimate of a design fixed in advance. Counts near zero are discrete, so coverage
+there is conservative (at least nominal), never exact.

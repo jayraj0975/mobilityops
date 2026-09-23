@@ -86,6 +86,71 @@ def cmd_status(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def _fmt(x: float | None, pct: bool = False) -> str:
+    if x is None:
+        return "n/a"
+    return f"{x:.1%}" if pct else f"{x:.3f}"
+
+
+def cmd_forecast_eval(settings: Settings, args: argparse.Namespace) -> int:
+    """Walk-forward evaluation of the forecaster against baselines."""
+    from mobilityops.forecasting.evaluate import EvalConfig, default_config, run_evaluation
+    from mobilityops.forecasting.features import load_demand
+
+    if not settings.db_path.exists():
+        print("no database yet; run `ingest` and `build` first", file=sys.stderr)
+        return 1
+    cfg = default_config(load_demand(settings.db_path).n_days)
+    if args.folds or args.fold_days or args.calib_days:
+        cfg = EvalConfig(
+            n_folds=args.folds or cfg.n_folds,
+            fold_days=args.fold_days or cfg.fold_days,
+            calib_days=args.calib_days or cfg.calib_days,
+        )
+    try:
+        rep = run_evaluation(settings, cfg, oracle_experiment=not args.no_oracle)
+    except ValueError as exc:
+        print(f"cannot evaluate: {exc}", file=sys.stderr)
+        return 1
+    print(f"[{rep['data_label']}] {rep['test_rows']:,} test rows, {rep['test_days']} test days")
+    print(f"{'model':<18}{'MAE':>8}{'RMSE':>8}{'WAPE':>8}")
+    for name, m in rep["overall"].items():
+        print(f"{name:<18}{_fmt(m['mae']):>8}{_fmt(m['rmse']):>8}{_fmt(m['wape'], True):>8}")
+    iv = rep["interval"]["overall"]
+    print(f"80% interval: empirical coverage {_fmt(iv['coverage'], True)}")
+    return 0
+
+
+def cmd_forecast_train(settings: Settings, args: argparse.Namespace) -> int:
+    """Fit the final model on all data and register it."""
+    from mobilityops.forecasting.evaluate import train_final
+
+    try:
+        path = train_final(settings)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"cannot train: {exc}", file=sys.stderr)
+        return 1
+    print(f"registered model at {path}")
+    return 0
+
+
+def cmd_forecast_report(settings: Settings, args: argparse.Namespace) -> int:
+    """Render the latest evaluation.json as Markdown (numbers are generated, not typed)."""
+    from pathlib import Path
+
+    from mobilityops.forecasting.report import render
+
+    src = settings.artifacts_dir / "forecast" / "evaluation.json"
+    if not src.exists():
+        print("no evaluation yet; run `forecast-eval` first", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(json.loads(src.read_text())))
+    print(f"wrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -99,6 +164,18 @@ def build_parser() -> argparse.ArgumentParser:
     i.set_defaults(func=cmd_ingest)
     sub.add_parser("build", help="run the pipeline with quality gates").set_defaults(func=cmd_build)
     sub.add_parser("status", help="show the latest quality reports").set_defaults(func=cmd_status)
+    fe = sub.add_parser("forecast-eval", help="walk-forward evaluation vs baselines")
+    fe.add_argument("--folds", type=int, default=0)
+    fe.add_argument("--fold-days", type=int, default=0)
+    fe.add_argument("--calib-days", type=int, default=0)
+    fe.add_argument("--no-oracle", action="store_true", help="skip the oracle-weather experiment")
+    fe.set_defaults(func=cmd_forecast_eval)
+    sub.add_parser("forecast-train", help="fit and register the final model").set_defaults(
+        func=cmd_forecast_train
+    )
+    fr = sub.add_parser("forecast-report", help="render the latest evaluation as Markdown")
+    fr.add_argument("--out", default="reports/forecasting.md")
+    fr.set_defaults(func=cmd_forecast_report)
     return p
 
 
