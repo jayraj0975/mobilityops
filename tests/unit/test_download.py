@@ -101,6 +101,16 @@ def test_changed_or_corrupt_file_is_downloaded_again(tmp_path: Path) -> None:
     assert not res.skipped and dest.read_bytes() == BODY
 
 
+def test_same_file_but_different_url_is_downloaded_again(tmp_path: Path) -> None:
+    """Regression: widening the weather window changes the URL; the old file is stale."""
+    dest = tmp_path / "f"
+    dest.write_bytes(b"old" * 100)
+    known = ManifestEntry("s", "https://x/f?end=jan", "f", 300, sha256_file(dest), utc_now())
+    c = client_for(lambda r: httpx.Response(200, content=BODY))
+    res = download("https://x/f?end=may", dest, client=c, known=known)
+    assert not res.skipped and dest.read_bytes() == BODY
+
+
 def test_manifest_round_trip_and_upsert_does_not_duplicate(tmp_path: Path) -> None:
     path = tmp_path / "m.json"
     m = Manifest(window={"start": "2024-01-01", "end": "2024-02-01"})

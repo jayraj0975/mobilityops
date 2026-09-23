@@ -47,9 +47,11 @@ def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
-def _already_have(dest: Path, known: ManifestEntry | None) -> DownloadResult | None:
+def _already_have(dest: Path, url: str, known: ManifestEntry | None) -> DownloadResult | None:
     if known is None or not dest.exists():
         return None
+    if known.url != url:
+        return None  # a different request (e.g. a wider weather window): the old file is stale
     if dest.stat().st_size != known.bytes or sha256_file(dest) != known.sha256:
         return None  # file changed or is corrupt: fetch again
     return DownloadResult(dest, known.url, known.bytes, known.sha256, known.retrieved_at, True)
@@ -67,7 +69,7 @@ def download(
     sleep: Callable[[float], None] = time.sleep,
 ) -> DownloadResult:
     """Download ``url`` to ``dest``. Raises :class:`DownloadError` when it cannot succeed."""
-    if (existing := _already_have(dest, known)) is not None:
+    if (existing := _already_have(dest, url, known)) is not None:
         log.info("download skipped: unchanged", extra={"ctx": {"path": str(dest)}})
         return existing
 
