@@ -83,7 +83,10 @@ _OUT_OF_SCOPE: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             "and simulated repositioning.",
         ),
         (
-            r"\b(driver|passenger|customer|person|people|individual)s?\b.{0,20}\b(name|address|phone|email|identity|track|who)\b",
+            r"\b(driver|passenger|customer|person|people|individual)s?\b.{0,30}"
+            r"\b(name|address|phone|email|identity|track|who)\b|"
+            r"\b(name|address|phone|email|identity)\b.{0,30}"
+            r"\b(of|for)\s+(a|an|the|any|some)?\s*(driver|passenger|customer|person|individual)s?\b",
             "The data has no personal information, and I do not track individuals.",
         ),
         (

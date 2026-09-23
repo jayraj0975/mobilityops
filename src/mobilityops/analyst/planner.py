@@ -192,7 +192,7 @@ def _clip(start: date, end_excl: date, ctx: PlanningContext) -> tuple[date, date
     return max(start, ctx.data_first), min(end_excl, ctx.data_last + timedelta(days=1))
 
 
-def parse_period(text: str, ctx: PlanningContext) -> Period | None:
+def parse_period(text: str, ctx: PlanningContext, *, bare_month: bool = False) -> Period | None:
     low = text.lower().replace("\u2019", "'")
     one_day = timedelta(days=1)
     dates = find_dates(text, ctx)
@@ -214,6 +214,14 @@ def parse_period(text: str, ctx: PlanningContext) -> Period | None:
             s, e = _clip(s, e, ctx)
             if s < e:
                 return Period(s, e, f"{s} to {e - one_day}")
+    if bare_month:
+        bm = re.search(rf"\b({_MONTH_RE})\b(?:\s+(\d{{4}}))?", low)
+        if bm:
+            y = int(bm.group(2) or ctx.data_last.year)
+            mo = MONTHS[bm.group(1)]
+            s0, e0 = _clip(date(y, mo, 1), date(y + (mo == 12), mo % 12 + 1, 1), ctx)
+            if s0 < e0:
+                return Period(s0, e0, f"{s0} to {e0 - one_day}")
     m = re.search(
         r"\blast\s+(\d+|one|two|three|four|five|six|seven|ten)\s+(day|week|month)s?\b", low
     )
@@ -313,6 +321,13 @@ def unknown_place(question: str, ctx: PlanningContext) -> str | None:
     return None
 
 
+_DEMAND_WORDS = (
+    r"\bdemand", r"\bpickups?", r"\btrips?", r"\btaxis?", r"\bride", r"\bbusy", r"\bbusiest",
+    r"\baffect", r"\beffect", r"\bimpact", r"\breduc", r"\bincreas", r"\bcompare",
+    r"\b(drop|surge|spike|dip|fell|fall|rose|low|high)\b", r"\banomal", r"\bunusual",
+)  # fmt: skip
+
+
 def _has(low: str, *pats: str) -> bool:
     return any(re.search(p, low) for p in pats)
 
@@ -357,7 +372,15 @@ class RulePlanner:
             if p is not None:
                 s, e = _clip(p.start, p.end_exclusive, ctx)
                 if s >= e:
-                    return Period(ctx.data_first, ctx.data_last + timedelta(days=1), "all data")
+                    assumptions.append(
+                        f"The period you asked for ({p.text}) has no data (data covers "
+                        f"{ctx.data_first} to {ctx.data_last}), so I used all data instead."
+                    )
+                    return Period(
+                        ctx.data_first,
+                        ctx.data_last + timedelta(days=1),
+                        f"all data ({ctx.data_first} to {ctx.data_last})",
+                    )
                 return Period(s, e, p.text)
             if default == "all":
                 p2 = Period(
@@ -377,25 +400,23 @@ class RulePlanner:
         low_q = question.lower()
         if _has(
             low_q, r"\brain", r"\bsnow", r"\bfreez", r"\bweather\b", r"\bstorm", r"\bprecip"
-        ) and not _has(
-            low_q,
-            r"\bdemand",
-            r"\bpickups?",
-            r"\btrips?",
-            r"\btaxis?",
-            r"\bride",
-            r"\bbusy",
-            r"\bbusiest",
-            r"\baffect",
-            r"\beffect",
-            r"\bimpact",
-            r"\breduc",
-            r"\bincreas",
-            r"\bcompare",
-        ):
+        ) and not _has(low_q, *_DEMAND_WORDS):
             return Plan(
                 "clarify",
                 clarification="I do not provide weather information. I can compare taxi demand on rainy, snowy or freezing days with other days; try asking how rain relates to demand.",
+            )
+        if (
+            zone_id is None
+            and not candidates
+            and re.search(r"\b(manhattan|brooklyn|queens|the bronx|bronx|staten island)\b", low)
+        ):
+            return Plan(
+                "clarify",
+                clarification=(
+                    "I report demand by taxi zone (a neighbourhood-sized area), not by borough. "
+                    "Ask about a specific zone, for example 'East Village' or 'JFK Airport', or "
+                    "ask for the busiest zones."
+                ),
             )
         if zone_id is None and not candidates:
             place = unknown_place(question, ctx)
@@ -500,9 +521,9 @@ class RulePlanner:
             r"\bdrops?\b",
             r"\bcollapse",
         )
-        if _has(low, r"\b(why|explain|what happened|reason)\b") and (
-            anomaly_words or find_dates(question, ctx)
-        ):
+        if _has(
+            low, r"\b(why|explain|what happened|reason|cause[ds]?|due to|responsible|behind)\b"
+        ) and (anomaly_words or find_dates(question, ctx)):
             c = clarify_zone()
             if c:
                 return c
@@ -520,7 +541,7 @@ class RulePlanner:
             args = {"limit": _top_n(low, 5)}
             if zone_id is not None:
                 args["zone"] = zone_id
-            if _has(low, r"\b(high|severe|major|biggest|largest|serious)\b"):
+            if _has(low, r"\b(high|severe|major|serious)\b"):
                 args["severity"] = "high"
             elif _has(low, r"\bmedium\b"):
                 args["severity"] = "medium"
@@ -548,6 +569,19 @@ class RulePlanner:
             if c:
                 return c
             dates = find_dates(question, ctx)
+            next_day = ctx.data_last + timedelta(days=1)
+            years = {int(y) for y in re.findall(r"\b(20\d{2})\b", low)}
+            beyond_dates = [d for d in dates if d > next_day]
+            if beyond_dates or (years and years != {ctx.data_last.year}):
+                return Plan(
+                    "clarify",
+                    clarification=(
+                        f"I can only forecast the day after the last day of data ({next_day}), or "
+                        f"compare past forecasts with actuals for the evaluation days "
+                        f"({ctx.eval_first} to {ctx.eval_last}). I cannot forecast further ahead."
+                    ),
+                    assumptions=assumptions,
+                )
             args = {}
             if zone_id is not None:
                 args["zone"] = zone_id
@@ -568,22 +602,7 @@ class RulePlanner:
             return Plan("forecast", [PlannedCall("get_forecast", args)], assumptions)
         # ---- weather --------------------------------------------------------------
         if _has(low, r"\brain", r"\bsnow", r"\bfreez", r"\bweather\b", r"\bstorm", r"\bprecip"):
-            if not _has(
-                low,
-                r"\bdemand",
-                r"\bpickups?",
-                r"\btrips?",
-                r"\btaxis?",
-                r"\bride",
-                r"\bbusy",
-                r"\bbusiest",
-                r"\baffect",
-                r"\beffect",
-                r"\bimpact",
-                r"\breduc",
-                r"\bincreas",
-                r"\bcompare",
-            ):
+            if not _has(low, *_DEMAND_WORDS):
                 return Plan(
                     "clarify",
                     clarification="I do not provide weather information. I can compare taxi demand on rainy, snowy or freezing days with other days; try asking how rain relates to demand.",
@@ -633,8 +652,7 @@ class RulePlanner:
             r"\bgrew\b",
             r"\bincrease[d]?\b",
             r"\bdecrease[d]?\b",
-            r"\bhigher than\b",
-            r"\blower than\b",
+            r"\b(higher|lower|more|less|busier|quieter|bigger|smaller)\b.*\bthan\b",
             r"\bdifference between\b",
             r"\bup or down\b",
         ):
@@ -642,13 +660,13 @@ class RulePlanner:
             if c:
                 return c
             sides = re.split(
-                r"\b(?:versus|vs\.?|compared (?:to|with)|than|and|against)\b",
+                r"\b(?:versus|vs\.?|compared (?:to|with)|than|and|against|with)\b",
                 question,
                 maxsplit=1,
                 flags=re.I,
             )
-            pa = parse_period(sides[0], ctx) if len(sides) == 2 else None
-            pb = parse_period(sides[1], ctx) if len(sides) == 2 else None
+            pa = parse_period(sides[0], ctx, bare_month=True) if len(sides) == 2 else None
+            pb = parse_period(sides[1], ctx, bare_month=True) if len(sides) == 2 else None
             args = {}
             if zone_id is not None:
                 args["zone"] = zone_id
@@ -687,6 +705,7 @@ class RulePlanner:
         if _has(
             low,
             r"\bbusiest\b",
+            r"\b(biggest|largest|most popular)\b.*\b(zones?|areas?|neighbou?rhoods?|spots?)\b",
             r"\btop\b",
             r"\bmost (popular|pickups|demand|active|trips)",
             r"\bhighest\b",

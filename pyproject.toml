@@ -60,6 +60,7 @@ ignore = ["S101"]           # asserts are how pytest works
 # declarative tables (one fact per line; one intent rule per line) read better unwrapped
 "src/mobilityops/analyst/tools.py" = ["E501"]
 "src/mobilityops/analyst/planner.py" = ["E501"]
+"src/mobilityops/analyst/benchmark_report.py" = ["E501"]  # Markdown prose
 
 [tool.mypy]
 python_version = "3.12"

@@ -303,6 +303,50 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_analyst_benchmark(settings: Settings, args: argparse.Namespace) -> int:
+    """Run the analyst benchmark against independent ground truth; append to the history."""
+    from mobilityops.analyst.benchmark import run_benchmark, save
+
+    try:
+        from mobilityops.analyst.benchmark import HOLDOUT_PATH, QUESTIONS_PATH
+
+        run = run_benchmark(
+            settings, label=args.label, questions=HOLDOUT_PATH if args.holdout else QUESTIONS_PATH
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"cannot run: {exc}", file=sys.stderr)
+        return 1
+    path = save(settings, run)
+    print(
+        f"[{run['data_label']}] {run['passed']}/{run['questions']} questions passed "
+        f"({run['pass_rate']:.1%}); history: {path}"
+    )
+    for name, v in run["per_check"].items():
+        print(f"  {name:<11} {v['passed']}/{v['applicable']}")
+    for r in run["results"]:
+        if not r["passed"]:
+            why = "; ".join(r["reasons"])[:120]
+            print(f"  FAIL {r['id']} [{r['category']}] {r['question'][:70]} :: {why}")
+    return 0
+
+
+def cmd_analyst_benchmark_report(settings: Settings, args: argparse.Namespace) -> int:
+    """Render the benchmark history as Markdown."""
+    from pathlib import Path
+
+    from mobilityops.analyst.benchmark_report import render
+
+    src = settings.artifacts_dir / "analyst" / "benchmark.json"
+    if not src.exists():
+        print("no benchmark yet; run `analyst-benchmark` first", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(json.loads(src.read_text())["history"]))
+    print(f"wrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -354,6 +398,13 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8000)
     sv.set_defaults(func=cmd_serve)
+    ab = sub.add_parser("analyst-benchmark", help="run the AI analyst benchmark")
+    ab.add_argument("--label", default="run")
+    ab.add_argument("--holdout", action="store_true", help="run the held-out question set")
+    ab.set_defaults(func=cmd_analyst_benchmark)
+    abr = sub.add_parser("analyst-benchmark-report", help="render the benchmark as Markdown")
+    abr.add_argument("--out", default="reports/ai_evaluation.md")
+    abr.set_defaults(func=cmd_analyst_benchmark_report)
     return p
 
 
