@@ -132,3 +132,38 @@ looking at test-fold coverage. It is a calibration correction with no effect on 
 (identical MAE/WAPE before and after), but it means the interval numbers are not a pristine
 out-of-sample estimate of a design fixed in advance. Counts near zero are discrete, so coverage
 there is conservative (at least nominal), never exact.
+
+---
+
+## ADR-010: Anomalies are events on out-of-sample residuals, scored against an empirical null
+
+**Context.** Anomaly detection has no ground truth on real data, so the method must be defensible
+on its own terms and its failure modes stated.
+
+**Decision.**
+1. Score only out-of-sample forecast residuals (the walk-forward test days), so a hard-to-predict
+   day is not flagged because the model fitted on it.
+2. Scale residuals by a spread that grows with forecast demand, measured from the 95th percentile
+   of `|residual - median|` (tail-aware) per demand band and interpolated.
+3. Group consecutive same-sign hours into events and pool the evidence, because a drop cannot fall
+   below zero: per hour a collapse to a fifth of normal reaches only about -3, but over six hours it
+   is unmistakable.
+4. Standardise the pooled score by its *measured* spread over all windows of the same length,
+   because forecast errors are correlated across hours (spread grows from 1.0 at 1 h to 1.8 at 24 h).
+5. Ship defaults chosen a priori (seed |z| >= 2, event threshold 5, at least 10 pickups of total
+   deviation) and publish a threshold trade-off table instead of tuning on real events.
+
+**How the method got here (recorded because it changed after seeing real output).** The first
+version used a MAD-based scale with a log-log line through the bands and an independence
+assumption for pooling. It passed the synthetic check (3 of 3 planted anomalies) but produced 1,407
+events in 56 days of real data (about 25 a day): the scale line was dominated by the quiet-zone band
+where MAD collapses, and real errors are heavy-tailed. It was replaced by items 2 and 4 above. The
+fix used unlabelled residuals only to model the *noise*; no real event was inspected to decide
+what "counts".
+
+**Consequences.** 277 real events in 56 days (73 medium/high). Real-data precision is
+`UNVERIFIED` (no labels). Sensitivity is measured by injection into real residuals: surges of 2x or
+more for 3+ hours in busy zones are found 60-100% of the time; a 0.5x drop for 3 hours is found 8%
+of the time at the default threshold (65% at threshold 4 for 6 hours). Drops are structurally harder
+than surges. Explanations are template text that says a deviation *coincided with* calendar,
+weather or other-zone context, and never asserts a cause.

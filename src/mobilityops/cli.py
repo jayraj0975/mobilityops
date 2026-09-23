@@ -151,6 +151,54 @@ def cmd_forecast_report(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_anomalies(settings: Settings, args: argparse.Namespace) -> int:
+    """Detect anomalies in the out-of-sample forecasts from `forecast-eval`."""
+    from mobilityops.anomaly.run import run_anomaly_detection
+
+    try:
+        rep = run_anomaly_detection(settings)
+    except FileNotFoundError as exc:
+        print(f"cannot detect: {exc}", file=sys.stderr)
+        return 1
+    print(f"[{rep['data_label']}] {rep['scored_zone_hours']:,} out-of-sample zone-hours scored")
+    print(
+        f"events: {rep['events_total']} (high {rep['by_severity'].get('high', 0)}, "
+        f"medium {rep['by_severity'].get('medium', 0)}, low {rep['by_severity'].get('low', 0)})"
+    )
+    for line in rep["top_explanations"][:5]:
+        print(f"  - {line}")
+    if rep.get("planted_truth"):
+        pt = rep["planted_truth"]
+        print(
+            f"planted anomalies found: {pt['found']}/{pt['planted']}; "
+            f"events not planted: {pt['events_not_planted']}"
+        )
+    return 0
+
+
+def cmd_anomaly_report(settings: Settings, args: argparse.Namespace) -> int:
+    """Render the latest anomaly report as Markdown."""
+    from pathlib import Path
+
+    import pandas as pd
+
+    from mobilityops.anomaly.report import render
+    from mobilityops.anomaly.run import anomaly_dir
+
+    src = anomaly_dir(settings)
+    if not (src / "report.json").exists():
+        print("no anomaly report yet; run `anomalies` first", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    text = render(
+        json.loads((src / "report.json").read_text()), pd.read_parquet(src / "events.parquet")
+    )
+    out.write_text(text)
+    print(f"wrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -176,6 +224,12 @@ def build_parser() -> argparse.ArgumentParser:
     fr = sub.add_parser("forecast-report", help="render the latest evaluation as Markdown")
     fr.add_argument("--out", default="reports/forecasting.md")
     fr.set_defaults(func=cmd_forecast_report)
+    sub.add_parser("anomalies", help="detect anomalies in out-of-sample forecasts").set_defaults(
+        func=cmd_anomalies
+    )
+    ar = sub.add_parser("anomaly-report", help="render the latest anomaly report as Markdown")
+    ar.add_argument("--out", default="reports/anomalies.md")
+    ar.set_defaults(func=cmd_anomaly_report)
     return p
 
 

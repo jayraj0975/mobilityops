@@ -85,3 +85,59 @@ MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-train
 * The final model has no held-out test of its own; the walk-forward numbers estimate the procedure.
 * One month set, one city, yellow taxis only (no green cabs, FHV, or ride-hail).
 * Results are for pickups, not for unmet demand.
+
+---
+
+# Anomaly detection
+
+STATUS: mechanism VERIFIED against planted ground truth on synthetic data; real-data precision
+UNVERIFIED (no labels). Numbers below are generated into
+[`reports/anomalies_real.md`](../reports/anomalies_real.md).
+
+## Definition
+
+An anomaly is a run of hours in which a zone's pickups differ from the *out-of-sample* forecast by
+far more than the forecaster's usual error at that demand level. See ADR-010 for the method and for
+how it was corrected after a first version flagged about 25 events per day.
+
+Pipeline: residual -> per-demand-band scale (tail-aware, interpolated) -> hourly `z` -> seed hours
+`|z| >= 2` -> merge same-sign runs -> pooled evidence over the run, standardised by the measured
+spread of pooled scores for that run length -> keep if `|score| >= 5` and at least 10 pickups of
+total deviation -> annotate.
+
+## Explanations
+
+Every event carries a generated sentence: what happened (actual vs forecast, hours, size), and
+context that *coincided* with it: US federal holiday or adjoining weekend, recorded rain / snow /
+freezing temperature for that day, and how many other zones had events in overlapping hours in the
+same direction. Sentences always end "This describes co-occurrence in the data, not a cause."
+Tests forbid causal wording ("because", "due to", "caused", ...).
+
+## Verification
+
+* **Planted truth (synthetic sample):** 3 of 3 planted anomalies found, 0 unplanted events. Only
+  three anomalies exist, so this demonstrates the mechanism, not an error rate.
+* **Injection experiment (real residuals):** artificial surges and drops are injected into real
+  out-of-sample actuals to measure sensitivity by demand level, duration and size. Reported per cell.
+* **Real events:** manually reviewed for plausibility only. The largest coincided with Memorial Day
+  weekend (residential Manhattan zones near half the forecast on Sat 25 May, Penn Station above
+  forecast on Mon 27 May). That is a consistency check, not verification.
+
+## Known weaknesses
+
+* Only 56 out-of-sample days can be scored.
+* Drops are hard to detect: a 0.5x drop over 3 hours in busy zones is found about 8% of the time at
+  the default threshold (45% at threshold 4, at roughly double the event count).
+* Events cluster on a few city-wide days (three days hold about a quarter of all events); a person
+  should read those as one disruption, not dozens of independent alarms. The `overlapping_events`
+  field counts neighbours.
+* Thresholds are conventions. Severity is a heuristic on score, not a probability.
+* Weather is one daily value for the whole city.
+
+## Reproduce
+
+```bash
+MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-eval     # needed first: writes forecasts
+MOBILITYOPS_MODE=real python -m mobilityops.cli anomalies
+MOBILITYOPS_MODE=real python -m mobilityops.cli anomaly-report --out reports/anomalies_real.md
+```

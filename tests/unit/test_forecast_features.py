@@ -36,7 +36,7 @@ def make_tensor(n_days: int = 45, n_zones: int = 3, seed: int = 0) -> DemandTens
         {
             "location_id": np.arange(1, n_zones + 1),
             "zone": [f"z{i}" for i in range(n_zones)],
-            "borough": ["Manhattan", "Queens", "Bronx"][:n_zones],
+            "borough": ["Manhattan", "Queens", "Bronx", "Brooklyn", "Staten Island"][:n_zones],
             "centroid_lon": np.linspace(-74.0, -73.8, n_zones),
             "centroid_lat": np.linspace(40.6, 40.8, n_zones),
         }
