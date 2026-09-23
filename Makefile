@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup sample test test-all lint format typecheck check audit clean
+.PHONY: help setup sample test test-all lint format typecheck check audit clean web-install web-types web-check web-build serve e2e-live
 
 help:            ## Show available commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  make %-10s %s\n",$$1,$$2}'
@@ -36,3 +36,22 @@ audit:           ## Scan dependencies for known vulnerabilities
 
 clean:           ## Remove caches and build output (never touches data/)
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info
+
+web-install:     ## Install the frontend dependencies (needs Node 20+)
+	cd apps/web && npm ci
+
+web-types:       ## Regenerate the frontend's API types from the running API's contract
+	$(PY) -m mobilityops.cli openapi --out apps/web/openapi.json
+	cd apps/web && npm run gen:api
+
+web-check:       ## Frontend type-check and tests
+	cd apps/web && npm run typecheck && npm test
+
+web-build:       ## Build the frontend into apps/web/dist (served by `make serve`)
+	cd apps/web && npm run build
+
+serve:           ## Start the API (and the built UI at /) on http://127.0.0.1:8000
+	$(PY) -m mobilityops.cli serve
+
+e2e-live:        ## Run the UI against a live API: E2E_API_URL=http://127.0.0.1:8000 make e2e-live
+	cd apps/web && npm run test:live

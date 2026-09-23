@@ -56,6 +56,13 @@ from mobilityops.pipeline import quality_dir
 log = get_logger("api")
 
 MAX_BODY_BYTES = 16 * 1024
+# The single-page app: same-origin scripts and API calls only (charts set inline styles).
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+    "form-action 'self'"
+)
+WEB_DIST_ENV = "MOBILITYOPS_WEB_DIST"
 SOLVER_TIME_LIMIT_S = 10.0
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -149,6 +156,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers.setdefault("Cache-Control", "no-store")
+        path = request.url.path
+        if not path.startswith(("/api", "/docs", "/redoc", "/openapi", "/health", "/ready")):
+            response.headers["Content-Security-Policy"] = CSP
         route = request.scope.get("route")
         log.info(
             "request",
@@ -597,4 +607,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(ops)
     app.include_router(api)
+    _mount_web(app)
     return app
+
+
+def _mount_web(app: FastAPI) -> None:
+    """Serve the built frontend at ``/`` when it exists (single-process local deployment)."""
+    import os
+
+    from fastapi.staticfiles import StaticFiles
+
+    default = FsPath(__file__).resolve().parents[3] / "apps" / "web" / "dist"
+    dist = FsPath(os.environ.get(WEB_DIST_ENV, str(default)))
+    if (dist / "index.html").exists():
+        app.mount("/", StaticFiles(directory=dist, html=True), name="web")

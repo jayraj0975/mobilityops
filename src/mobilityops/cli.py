@@ -347,6 +347,19 @@ def cmd_analyst_benchmark_report(settings: Settings, args: argparse.Namespace) -
     return 0
 
 
+def cmd_openapi(settings: Settings, args: argparse.Namespace) -> int:
+    """Write the API's OpenAPI document (used to generate the frontend's types)."""
+    from pathlib import Path
+
+    from mobilityops.api.app import create_app
+
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(create_app(settings).openapi(), indent=2, sort_keys=True) + "\n")
+    print(f"wrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mobilityops", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -405,6 +418,9 @@ def build_parser() -> argparse.ArgumentParser:
     abr = sub.add_parser("analyst-benchmark-report", help="render the benchmark as Markdown")
     abr.add_argument("--out", default="reports/ai_evaluation.md")
     abr.set_defaults(func=cmd_analyst_benchmark_report)
+    oa = sub.add_parser("openapi", help="write the OpenAPI document")
+    oa.add_argument("--out", default="apps/web/openapi.json")
+    oa.set_defaults(func=cmd_openapi)
     return p
 
 

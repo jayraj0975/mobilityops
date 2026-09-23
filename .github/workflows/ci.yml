@@ -18,3 +18,23 @@ jobs:
       - run: mypy
       # Synthetic data only: CI never downloads the real datasets.
       - run: pytest -m "not real_data and not network"
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      # The generated API types must match the committed contract (also checked from Python).
+      - run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
