@@ -34,10 +34,17 @@ class Services:
         self.settings = settings
         self._lock = threading.RLock()
         self._cache: dict[str, tuple[Any, Any]] = {}
+        self._flight: dict[str, threading.Lock] = {}  # one loader per key at a time
         self.solver_slots = threading.BoundedSemaphore(MAX_CONCURRENT_SOLVES)
 
     # ---------------------------------------------------------------------------- plumbing
+    def _flight_lock(self, key: str) -> threading.Lock:
+        with self._lock:
+            return self._flight.setdefault(key, threading.Lock())
+
     def _cached(self, key: str, path: Path, loader: Callable[[], T], missing_hint: str) -> T:
+        """Load once per file version. Concurrent callers wait for one load instead of each
+        repeating it (single-flight), which matters for the multi-second loads."""
         if not path.exists():
             raise NotReady(f"{path.name} not found; {missing_hint}")
         mtime = path.stat().st_mtime_ns
@@ -45,10 +52,15 @@ class Services:
             hit = self._cache.get(key)
             if hit is not None and hit[0] == mtime:
                 return hit[1]
-        value = loader()
-        with self._lock:
-            self._cache[key] = (mtime, value)
-        return value
+        with self._flight_lock(key):
+            with self._lock:  # someone else may have loaded it while we waited
+                hit = self._cache.get(key)
+                if hit is not None and hit[0] == mtime:
+                    return hit[1]
+            value = loader()
+            with self._lock:
+                self._cache[key] = (mtime, value)
+            return value
 
     @property
     def artifacts(self) -> Path:
@@ -123,12 +135,17 @@ class Services:
             hit = self._cache.get("next_day")
             if hit is not None and hit[0] == stamp:
                 return hit[1]
-        model = self.model()
-        frame = forecast_next_day(self.tensor(), model)
-        model_id = str(self.model_meta()["model_id"])
-        with self._lock:
-            self._cache["next_day"] = (stamp, (frame, model_id))
-        return frame, model_id
+        with self._flight_lock("next_day"):
+            with self._lock:
+                hit = self._cache.get("next_day")
+                if hit is not None and hit[0] == stamp:
+                    return hit[1]
+            model = self.model()
+            frame = forecast_next_day(self.tensor(), model)
+            model_id = str(self.model_meta()["model_id"])
+            with self._lock:
+                self._cache["next_day"] = (stamp, (frame, model_id))
+            return frame, model_id
 
     def available(self) -> dict[str, bool]:
         a = self.artifacts

@@ -112,6 +112,8 @@ def _calendar_frame(days: pd.DatetimeIndex) -> pd.DataFrame:
 
 def load_demand(db_path: Path) -> DemandTensor:
     """Read the gold layer into a tensor. Non-modelable and non-existent hours become NaN."""
+    if not db_path.exists():
+        raise FileNotFoundError(f"database not found at {db_path}; run `ingest` and `build` first")
     con = duckdb.connect(str(db_path), read_only=True)
     try:
         zones = con.execute(

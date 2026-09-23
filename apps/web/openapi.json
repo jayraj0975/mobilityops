@@ -3159,6 +3159,56 @@
         ]
       }
     },
+    "/api/v1/ops/metrics": {
+      "get": {
+        "description": "Request counts and latency percentiles per route template, plus analyst counters.",
+        "operationId": "ops_metrics_api_v1_ops_metrics_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ops Metrics",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
     "/api/v1/optimization/backtest": {
       "get": {
         "description": "The latest repositioning backtest. SIMULATED under explicit assumptions.",

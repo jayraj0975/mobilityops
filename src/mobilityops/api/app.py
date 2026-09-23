@@ -45,6 +45,7 @@ from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
+from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
 from mobilityops.config import Settings
 from mobilityops.log import get_logger
@@ -101,6 +102,7 @@ def _error(code: str, message: str, status: int, request: Request, **extra: Any)
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     services = Services(settings)
+    metrics = Metrics()
     planner: Planner = (
         AnthropicPlanner(settings.anthropic_api_key, settings.llm_model)  # type: ignore[arg-type]
         if settings.llm_configured
@@ -118,6 +120,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ),
     )
     app.state.services = services
+    app.state.metrics = metrics
     app.state.analyst = analyst
 
     app.add_middleware(
@@ -160,6 +163,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not path.startswith(("/api", "/docs", "/redoc", "/openapi", "/health", "/ready")):
             response.headers["Content-Security-Policy"] = CSP
         route = request.scope.get("route")
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        template = getattr(route, "path", "(unmatched)")
+        metrics.request(request.method, template, response.status_code, elapsed_ms)
         log.info(
             "request",
             extra={
@@ -168,7 +174,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "method": request.method,
                     "path": getattr(route, "path", request.url.path),
                     "status": response.status_code,
-                    "ms": round((time.perf_counter() - started) * 1000, 1),
+                    "ms": round(elapsed_ms, 1),
                 }
             },
         )
@@ -193,6 +199,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(Busy)
     async def _busy(request: Request, exc: Busy) -> JSONResponse:
+        metrics.event("scenario_solver_busy")
         return _error("busy", str(exc), 429, request)
 
     @app.exception_handler(RequestValidationError)
@@ -249,6 +256,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             llm_configured=settings.llm_configured,
             artifacts=services.available(),
         )
+
+    @api.get("/ops/metrics", response_model=s.ArtifactDocument, tags=["operations"])
+    def ops_metrics() -> dict[str, Any]:
+        """Request counts and latency percentiles per route template, plus analyst counters."""
+        return metrics.snapshot()
 
     @api.get("/quality", response_model=list[s.QualityStage], tags=["operations"])
     def quality() -> list[s.QualityStage]:
@@ -590,6 +602,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def analyst_ask(req: s.AnalystRequest) -> Any:
         """Ask a question. Refusals, clarifications and partial answers are normal results."""
         ans = analyst.ask(req.question)
+        metrics.analyst_outcome(
+            ans.status,
+            ans.grounding.get("removed", 0),
+            any("instruction-override" in w for w in ans.warnings),
+        )
         return s.AnalystResponse(
             question=ans.question,
             status=ans.status,

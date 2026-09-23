@@ -10,6 +10,8 @@ import json
 import sys
 from collections.abc import Sequence
 
+import duckdb
+
 from mobilityops.config import Settings
 from mobilityops.ingestion.download import DownloadError
 from mobilityops.ingestion.pipeline import MonthRange, ingest_real, ingest_sample, parse_month
@@ -293,9 +295,12 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
 
     from mobilityops.api.app import create_app
 
-    if args.host not in ("127.0.0.1", "localhost", "::1") and settings.api_key is None:
+    local = args.host in ("127.0.0.1", "localhost", "::1")
+    if not local and settings.api_key is None and not args.allow_unauthenticated:
         print(
-            "refusing to listen on a non-local address without MOBILITYOPS_API_KEY set",
+            "refusing to listen on a non-local address without MOBILITYOPS_API_KEY set "
+            "(pass --allow-unauthenticated only if the port is published to localhost, for "
+            "example by Docker with -p 127.0.0.1:8000:8000)",
             file=sys.stderr,
         )
         return 2
@@ -410,6 +415,11 @@ def build_parser() -> argparse.ArgumentParser:
     sv = sub.add_parser("serve", help="start the HTTP API")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument(
+        "--allow-unauthenticated",
+        action="store_true",
+        help="listen on a non-local address without an API key (container use only)",
+    )
     sv.set_defaults(func=cmd_serve)
     ab = sub.add_parser("analyst-benchmark", help="run the AI analyst benchmark")
     ab.add_argument("--label", default="run")
@@ -428,7 +438,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = Settings.from_env()
     configure_logging(settings.log_level)
-    return int(args.func(settings, args))
+    try:
+        return int(args.func(settings, args))
+    except (FileNotFoundError, duckdb.IOException) as exc:
+        # A missing prerequisite (database, model, artifact) is a user-facing condition, not a bug.
+        log.debug("command failed", exc_info=True)
+        print(
+            f"missing prerequisite: {exc}\nrun the earlier steps first "
+            "(ingest, build, forecast-eval, forecast-train, anomalies)",
+            file=sys.stderr,
+        )
+        return 1
 
 
 if __name__ == "__main__":

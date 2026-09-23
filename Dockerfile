@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# MobilityOps: API + built UI in one small image. No data, models or secrets are baked in:
+# mount ./data and ./artifacts, and pass any keys at run time.
+
+FROM node:22-slim AS web
+WORKDIR /web
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+COPY apps/web/ ./
+RUN npm run build
+
+FROM python:3.12-slim AS app
+# LightGBM needs the OpenMP runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin app
+WORKDIR /app
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-cache-dir .
+COPY --from=web /web/dist ./apps/web/dist
+RUN mkdir -p /app/data /app/artifacts /app/reports && chown -R app:app /app
+USER app
+ENV MOBILITYOPS_DATA_DIR=/app/data \
+    MOBILITYOPS_MODE=sample \
+    MOBILITYOPS_WEB_DIST=/app/apps/web/dist \
+    PYTHONUNBUFFERED=1
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
+ENTRYPOINT ["python", "-m", "mobilityops.cli"]
+# Publish the port to localhost only:  docker run -p 127.0.0.1:8000:8000 ...
+CMD ["serve", "--host", "0.0.0.0", "--allow-unauthenticated"]
