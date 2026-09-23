@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+htmlcov/
+.coverage
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Data: only tiny deterministic samples are committed
+data/raw/*
+data/processed/*
+data/manifests/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/manifests/.gitkeep
+!data/samples/
+
+# Model artifacts and run outputs are regenerated (small summaries are committed under reports/)
+artifacts/
+
+# Frontend
+node_modules/
+apps/web/dist/
+apps/web/.vite/
+*.tsbuildinfo
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
