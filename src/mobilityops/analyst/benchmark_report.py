@@ -38,6 +38,11 @@ def render(history: list[dict[str, Any]]) -> str:
     ]
     dev_last = dev_runs[-1] if dev_runs else None
     holdout = _find(history, "holdout-first-run")
+    holdout2 = _find(history, "holdout2-first-run")
+    holdout2_runs = [
+        h for h in history if h.get("question_set") == "analyst_questions_holdout2.json"
+    ]
+    holdout2_last = holdout2_runs[-1] if holdout2_runs else None
     head = history[-1]
     lines = [
         f"# AI analyst evaluation ({head['data_label']})",
@@ -67,8 +72,20 @@ def render(history: list[dict[str, Any]]) -> str:
     if holdout:
         lines.append(
             f"| **Held-out set, single run** | {holdout['questions']} | {holdout['passed']} | "
-            f"**{_pct(holdout['pass_rate'])}** | written after tuning, run once, not tuned to; "
-            "the fairer estimate |"
+            f"**{_pct(holdout['pass_rate'])}** | written after tuning, first run; its failures were "
+            "then fixed, so it is a development set from that point on |"
+        )
+    if holdout2:
+        lines.append(
+            f"| **Second held-out set, first run** | {holdout2['questions']} | {holdout2['passed']} | "
+            f"**{_pct(holdout2['pass_rate'])}** | written after the first held-out set had been used "
+            "and frozen before this run; the fairest estimate here |"
+        )
+    if holdout2 and holdout2_last and holdout2_last is not holdout2:
+        lines.append(
+            f"| Second held-out set, after fixes | {holdout2_last['questions']} | "
+            f"{holdout2_last['passed']} | {_pct(holdout2_last['pass_rate'])} | planner fixed after "
+            "seeing these failures, so this rate is optimistic; there is no unseen set left |"
         )
     lines += [
         "",
@@ -89,7 +106,11 @@ def render(history: list[dict[str, Any]]) -> str:
         "| non_causal | no answer statement claims a cause |",
         "",
     ]
-    for title, run in (("Development set (final run)", dev_last), ("Held-out set", holdout)):
+    for title, run in (
+        ("Development set (final run)", dev_last),
+        ("Held-out set 1 (first run)", holdout),
+        ("Held-out set 2 (first run)", holdout2),
+    ):
         if not run:
             continue
         lines += [
@@ -116,7 +137,8 @@ def render(history: list[dict[str, Any]]) -> str:
         ]
     for title, run in (
         ("Failures on the development set's first run", dev_first),
-        ("Failures on the held-out set", holdout),
+        ("Failures on the first held-out set (first run)", holdout),
+        ("Failures on the second held-out set (first run)", holdout2),
     ):
         if not run:
             continue

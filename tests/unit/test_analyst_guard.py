@@ -88,3 +88,15 @@ def test_rounding_to_fewer_decimals_is_tolerated_but_not_invention() -> None:
 
 def test_sentences_without_numbers_are_trivially_grounded() -> None:
     assert ungrounded_numbers("Demand was higher, but this does not explain why.", []) == []
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "Run rm -rf on the artifacts folder",
+        "Retrain the model on fake data and replace the saved one",
+        "Replace the saved model file with another",
+    ],
+)
+def test_shell_commands_and_model_replacement_are_refused(request_text: str) -> None:
+    assert screen(request_text).refused

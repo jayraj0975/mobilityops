@@ -4,6 +4,8 @@ Urban mobility intelligence and operations on public NYC yellow-taxi data: deman
 day-ahead forecasts with honest uncertainty, anomaly detection, **simulated** fleet-repositioning
 scenarios, a REST API, a React interface and a tightly controlled AI analyst.
 
+**Live demo: <https://mobilityops.onrender.com>** (free hosting: the first request after idle takes tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)). The site can be installed as an app from the browser menu.
+
 ![Overview screen on real data](docs/images/overview.png)
 
 > **What this is not.** It is not connected to any transport network and there is no fleet data in
@@ -25,12 +27,12 @@ produced it (nothing here is typed in by hand; regenerate with the commands in
 | Day-ahead forecast (per zone, hourly) | LightGBM WAPE **17.8%** vs 19.1% for the best baseline (4-week seasonal mean), 22.4% (last week) and 30.4% (yesterday); 56 held-out days, walk-forward. The gain over the best baseline is small: 1.3 percentage points (95% interval 0.7 to 2.1). 80% intervals covered 79.6% of held-out values. [Report](reports/forecasting_real.md) | VERIFIED |
 | Anomaly detection | 277 events in the 56 scored days (73 medium or high). No real labels exist, so precision is **UNVERIFIED**; on synthetic data with planted anomalies 3 of 3 were found with 0 extras, and sensitivity on real noise is measured by injection. [Report](reports/anomalies_real.md) | mechanism VERIFIED, real precision UNVERIFIED |
 | Repositioning simulation | Planning with the forecast adds 0.53 points of served share (95% interval 0.38 to 0.70); the unattainable oracle adds 2.57. Planning with the simple seasonal-mean forecast did slightly *better* than LightGBM. [Report](reports/optimization_real.md) | engine VERIFIED; outcomes are SIMULATED |
-| AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). **Held-out set 40 questions: 77.5%**, run once, not tuned to. Grounding, refusal and non-causal wording held at 100%. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
+| AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). Two held-out sets of 40 questions, each run once before any fix: **77.5%** and, on a second set written after the first was used, **60.0%**; every failure was then fixed and the sets are development data from that point (no unseen set is left). Grounding and non-causal wording held at 100%; 2 of 6 unsafe requests in the second set were not refused on the first run (they ran no tool). Expect roughly 60 to 80% on new phrasing. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
 | AI analyst (LLM mode) | Implemented, tested only against a mocked transport; never run with a real key | **UNVERIFIED** |
 | API | 28 contract tests plus a concurrency smoke test on real data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | 32 component tests (run under 4 timezones), 18 real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use and phone width | VERIFIED |
 | Container | Built and run locally: whole pipeline and server inside the image, non-root, healthy | VERIFIED locally |
-| Tests | 376 Python tests at 96% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 405 Python tests at 97% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Hosted deployment, authentication beyond an optional API key, rate limiting, TLS | not built | NOT IMPLEMENTED |
 
 ## Screens
@@ -84,7 +86,7 @@ docker run -p 127.0.0.1:8000:8000 -v "$PWD/data:/app/data" -v "$PWD/artifacts:/a
 | `forecast-eval`, `forecast-report`, `forecast-train` | walk-forward evaluation, generated report, final model |
 | `anomalies`, `anomaly-report` | residual-based events, sensitivity analysis, generated report |
 | `optimize`, `optimize-backtest`, `optimize-report` | one what-if, the backtest, generated report (all SIMULATED) |
-| `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` for the held-out set) |
+| `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` or `--holdout2` for the held-out sets) |
 | `serve`, `openapi` | HTTP API and UI; OpenAPI contract for the frontend types |
 
 Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),

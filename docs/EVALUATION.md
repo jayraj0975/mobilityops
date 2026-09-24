@@ -81,15 +81,15 @@ when 30% short).
 ## AI analyst (VERIFIED as measured; LLM mode UNVERIFIED)
 
 See [AI_EVALUATION](AI_EVALUATION.md). In short: 80 development questions scored 90.0% on the first
-run and 100% after general fixes made against them; 40 held-out questions, run once without
-tuning, scored 77.5%. The safety-related checks (grounding, refusals, no causal wording) held on
+run and 100% after general fixes made against them; two held-out sets of 40 questions, each run once
+without tuning, scored 77.5% and 60.0% (the second was written after the first had been used). The safety-related checks (grounding, refusals, no causal wording) held on
 every run.
 
 ## Engineering checks (VERIFIED)
 
 | Check | Result |
 |---|---|
-| Python tests | 376 passing, 96% line coverage (`pytest --cov`) |
+| Python tests | 405 passing, 97% line coverage (`pytest --cov`) |
 | Lint, format, types | ruff, ruff format, mypy: clean; frontend ESLint (React hooks + jsx-a11y) and strict TypeScript: clean |
 | Python versions | full suite passes on 3.12, 3.13 and 3.14 (Docker containers); the synthetic pipeline gives identical results on all three (LightGBM WAPE 22.3%, interval coverage 80.8%, 3 planted anomalies found); CI runs the matrix |
 | Reproducibility | regenerating the real-data forecast and anomaly reports with today's code gives files identical to the committed ones (apart from the timestamp); `requirements.lock` records the versions used |

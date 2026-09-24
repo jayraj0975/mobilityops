@@ -309,7 +309,7 @@ def unknown_place(question: str, ctx: PlanningContext) -> str | None:
         r"\s+(?:have|get|got|see|saw|record|had|recorded|look|looking)\b",
         question,
     ):
-        place = (m.group(1) or m.group(2)).strip()
+        place = (m.group(1) or m.group(2)).strip().rstrip(".,;:!?")
         low = place.lower()
         first = low.split()[0]
         if low in _NOT_PLACES or first in MONTHS or first in holiday_words or first in _NOT_PLACES:
@@ -324,7 +324,23 @@ _DEMAND_WORDS = (
     r"\bdemand", r"\bpickups?", r"\btrips?", r"\btaxis?", r"\bride", r"\bbusy", r"\bbusiest",
     r"\baffect", r"\beffect", r"\bimpact", r"\breduc", r"\bincreas", r"\bcompare",
     r"\b(drop|surge|spike|dip|fell|fall|rose|low|high)\b", r"\banomal", r"\bunusual",
+    r"\bpeople\b", r"\bstay(ing)? home", r"\briders?\b", r"\bpassengers?\b", r"\bcustomers?\b",
 )  # fmt: skip
+
+
+def _norm(low: str) -> str:
+    """Spelling variants that would otherwise change which intent matches."""
+    low = re.sub(r"\bdrop[- ]?offs?\b", "dropoffs", low)
+    return re.sub(r"\bpick[- ]?ups?\b", "pickups", low)
+
+
+_REPOSITION = (
+    r"\b(simulate|simulation|what if|scenario|reposition|rebalanc)\w*",
+    r"\b(move|moving|moved|shift\w*|relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b"
+    r".*\b(vehicles?|cars?|taxis?|cabs?|fleet)\b",
+    r"\b(vehicles?|cars?|taxis?|cabs?|fleet)\b.*\b(move|moving|moved|shift\w*|"
+    r"relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b",
+)
 
 
 def _has(low: str, *pats: str) -> bool:
@@ -345,17 +361,30 @@ def _top_n(low: str, default: int = 5) -> int:
     return default
 
 
+_PLAIN_TERMS = {"pickups", "dropoffs", "revenue", "zone", "drop", "surge", "anomaly", "oracle"}
+
+
 def _glossary_term(low: str) -> str | None:
     m = re.search(
         r"\b(?:what(?:'s| is| are| does)|define|meaning of|explain(?: the term)?)\s+(?:an? |the )?([a-z\- ]{2,40}?)(?:\s+mean)?\s*\??$",
         low.strip(),
     )
-    if not m:
-        return None
-    term = m.group(1).strip()
+    term = m.group(1).strip() if m else ""
     aliases = {"interval": "prediction interval", "walk forward": "walk-forward", "walk-forward evaluation": "walk-forward", "event score": "event score", "sample": "sample data", "synthetic data": "sample data", "test data": "sample data", "daylight saving": "dst", "daylight saving time": "dst", "drop": "drop", "surge": "surge"}  # fmt: skip
     term = aliases.get(term, term)
-    return term if term in GLOSSARY else None
+    if term in GLOSSARY:
+        return term
+    # "what the term X refers to", "explain what an X is": a definitional cue plus a term that
+    # only makes sense as jargon (plain data words such as pickups are left to the data tools)
+    cue = r"\b(term|meaning|means?|refers? to|definition|define|explain|what (is|are|does))\b"
+    if re.search(cue, low):
+        for name in sorted(GLOSSARY, key=len, reverse=True):
+            if name in _PLAIN_TERMS:
+                continue
+            pat = re.escape(name).replace(r"\ ", "[ -]")
+            if re.search(r"(?<![\w-])" + pat + r"(?![\w-])", low):
+                return name
+    return None
 
 
 # ------------------------------------------------------------------------- rule planner
@@ -363,7 +392,7 @@ class RulePlanner:
     name = "deterministic"
 
     def plan(self, question: str, ctx: PlanningContext) -> Plan:
-        low = question.lower().replace("\u2019", "'")
+        low = _norm(question.lower().replace("\u2019", "'"))
         assumptions: list[str] = []
 
         def period(default: str = "last7") -> Period:
@@ -396,7 +425,7 @@ class RulePlanner:
 
         zone_id, candidates = find_zone(question, ctx.zones)
         zone_named = zone_id is not None or bool(candidates)
-        low_q = question.lower()
+        low_q = _norm(question.lower())
         if _has(
             low_q,
             r"\brain",
@@ -459,7 +488,10 @@ class RulePlanner:
             r"\bwhich (data|dataset)\b",
             r"\bwhat (dates|days) (does|do|is|are)\b",
         ) or (
-            _has(low, r"\bhow many (zones|trips)\b")
+            _has(low, r"\bhow many\b(?:\s+\w+){0,2}\s+(zones|trips|rides|pickups)\b")
+            and not _has(
+                low, r"\bwill\b", r"\btomorrow\b", r"\bnext\b", r"\bforecast", r"\bpredict"
+            )
             and not zone_named
             and parse_period(question, ctx) is None
         ):
@@ -476,7 +508,7 @@ class RulePlanner:
             r"\bcan (i|we) trust\b",
             r"\bmodel (performance|quality)\b",
             r"\bhow reliable\b",
-            r"\bbeat(s)? (the )?(baseline|naive)",
+            r"\bbeat\w*\b.*\b(baseline|naive|simple|benchmark)",
             r"\berror rate\b",
             r"\b(forecasts?|predictions?|model)\b.*\b(better|worse|beat|outperform)\w*\b.*\b(than|the)\b.*"
             r"\b(copy|copying|last week|yesterday|naive|baseline|seasonal|simple|average)",
@@ -485,13 +517,15 @@ class RulePlanner:
             _has(
                 low,
                 r"\bhow (wrong|far off|often wrong|close)\b.*\b(forecasts?|predictions?|model)\b",
+                r"\b(wrong|mistakes?|errors?)\b.*\b(model|forecasts?|predictions?)\b",
+                r"\b(model|forecasts?|predictions?)\b.*\b(wrong|mistakes?)\b",
             )
             and not zone_named
             and not find_dates(question, ctx)
         ):
             return Plan("model_performance", [PlannedCall("get_model_performance", {})])
         if (
-            _has(low, r"\b(repositioning|rebalancing|reposition|rebalance)\b")
+            _has(low, r"\b(repositioning|rebalancing|reposition|rebalance)\b", *_REPOSITION[1:])
             and _has(
                 low,
                 r"\b(result|finding|backtest|benefit|help|worth|gain|improve|how much|effective|effect)\b",
@@ -500,14 +534,7 @@ class RulePlanner:
         ):
             return Plan("optimization_findings", [PlannedCall("get_optimization_findings", {})])
         # ---- scenario -------------------------------------------------------------
-        if _has(
-            low,
-            r"\b(simulate|simulation|what if|scenario|reposition|rebalanc)\w*",
-            r"\b(move|moving|moved|shift|shifting|relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b"
-            r".*\b(vehicles?|cars?|taxis?|cabs?|fleet)\b",
-            r"\b(vehicles?|cars?|taxis?|cabs?|fleet)\b.*\b(move|moving|moved|shift|shifting|"
-            r"relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b",
-        ):
+        if _has(low, *_REPOSITION):
             dates = find_dates(question, ctx)
             if dates:
                 day = dates[0]
@@ -687,6 +714,9 @@ class RulePlanner:
             r"\bby hour\b",
             r"\bhourly\b",
             r"\bwhat time\b",
+            r"\bduring the day\b",
+            r"\btime of day\b",
+            r"\bwhen\b.*\b(highest|peak|maximum|most)\b",
             r"\bwhen (is|are|do)\b.*\b(busy|busiest|demand|peak)",
         ):
             c = clarify_zone()
@@ -711,13 +741,18 @@ class RulePlanner:
             r"\bdecrease[d]?\b",
             r"\b(higher|lower|more|less|busier|quieter|bigger|smaller)\b.*\bthan\b",
             r"\bdifference between\b",
+            r"\bdiffer\w*\b",
+            r"\bnext to\b",
+            r"\bside by side\b",
             r"\bup or down\b",
+            r"\b(rise|rose|risen|fall|fell|fallen|go(es|ne)? up|go(es|ne)? down|went up|went down)\b"
+            r".*\b(or|between|from)\b",
         ):
             c = clarify_zone()
             if c:
                 return c
             sides = re.split(
-                r"\b(?:versus|vs\.?|compared (?:to|with)|than|and|against|with)\b",
+                r"\b(?:versus|vs\.?|compared (?:to|with)|next to|than|and|against|with)\b",
                 question,
                 maxsplit=1,
                 flags=re.I,
@@ -767,6 +802,7 @@ class RulePlanner:
             r"\bmost (popular|pickups|demand|active|trips)",
             r"\bhighest\b",
             r"\bquietest\b",
+            r"\bfewest\b",
             r"\bleast\b",
             r"\blowest\b",
             r"\brank(ing|ed)?\b",
@@ -775,7 +811,7 @@ class RulePlanner:
         ):
             p = period("last7")
             args = {"start": str(p.start), "end": str(p.end_exclusive), "limit": _top_n(low, 5)}
-            if _has(low, r"quietest", r"\bleast\b", r"\blowest\b"):
+            if _has(low, r"quietest", r"\bleast\b", r"\blowest\b", r"\bfewest\b"):
                 args["ascending"] = True
             if _has(low, r"revenue|fare"):
                 args["metric"] = "revenue"

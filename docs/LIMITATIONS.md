@@ -53,8 +53,10 @@ What these results cannot tell you. Each item is also stated where the result ap
 
 ## AI analyst
 
-* The rule planner covers the intents it encodes: **77.5% on unseen questions**, with some
-  answers that used the wrong tool. It handles English only.
+* The rule planner covers the intents it encodes: **77.5% and 60.0%** on the first runs of two
+  sets of unseen questions (40 each, written by the author), with some answers that used the wrong
+  tool. Both sets were fixed against afterwards, so no unseen estimate remains beyond those two
+  first runs. It handles English only.
 * LLM mode is **UNVERIFIED** (mocked tests only).
 * It cannot answer about anything outside the 13 tools, by design.
 

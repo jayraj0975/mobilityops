@@ -92,7 +92,7 @@ def test_failure_kinds_separate_misleading_from_unhelpful() -> None:
     )
 
 
-def test_report_states_llm_mode_is_unverified_and_calls_the_holdout_the_fair_estimate() -> None:
+def test_report_marks_llm_unverified_and_the_second_holdout_as_the_fairest() -> None:
     run = {
         "label": "first-run", "question_set": "analyst_questions.json", "mode": "real",
         "data_label": "real data", "questions": 2, "passed": 1, "pass_rate": 0.5,
@@ -101,6 +101,12 @@ def test_report_states_llm_mode_is_unverified_and_calls_the_holdout_the_fair_est
                    "legitimate_refused": 0}, "results": [],
     }  # fmt: skip
     hold = {**run, "label": "holdout-first-run", "question_set": "analyst_questions_holdout.json"}
-    text = render([run, hold])
-    assert "LLM mode: UNVERIFIED" in text and "fairer estimate" in text
+    hold2 = {
+        **run,
+        "label": "holdout2-first-run",
+        "question_set": "analyst_questions_holdout2.json",
+    }
+    text = render([run, hold, hold2])
+    assert "LLM mode: UNVERIFIED" in text and "fairest estimate" in text
+    assert "Second held-out set, first run" in text
     assert "optimistic" not in text or "after fixes" in text

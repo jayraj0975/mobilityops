@@ -29,8 +29,14 @@ _REFUSE: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             "I only read data; I cannot modify or delete it.",
         ),
         (
-            r"\b(delete|erase|wipe|remove|overwrite|modify|edit|change)\b.{0,30}\b(data|database|table|records?|files?|model)\b",
+            r"\b(delete|erase|wipe|remove|overwrite|modify|edit|change|replace|swap|retrain|re-train|"
+            r"rebuild|reset|reload|upload|write over)\b.{0,40}"
+            r"\b(data|database|table|records?|files?|model|artifacts?|folders?|director(y|ies))\b",
             "I only read data; I cannot modify or delete it.",
+        ),
+        (
+            r"\b(rm\s+-|rm\s+/|rmdir|sudo|chmod|chown|wget|curl|pkill|mkfs)\b|\brm\s+-",
+            "I do not execute code or commands.",
         ),
         (
             r"\b(select\s+.+\s+from|union\s+select|;\s*--)\b",

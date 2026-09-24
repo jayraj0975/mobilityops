@@ -78,6 +78,9 @@ def test_ai_benchmark_numbers_match_the_stored_runs() -> None:
     assert (
         dev_last["pass_rate"] == 1.0 and "100" in AI
     )  # documented as optimistic (tuned on this set)
+    hold2 = next(h for h in history if h["label"] == "holdout2-first-run")
+    assert f"{100 * hold2['pass_rate']:.1f}%" in README and f"{100 * hold2['pass_rate']:.1f}%" in AI
+    assert f"{hold2['passed']} / {hold2['questions']}" in AI
     md = report("ai_evaluation_real.md")
     assert f"{hold['passed']}" in md and "UNVERIFIED" in md
 

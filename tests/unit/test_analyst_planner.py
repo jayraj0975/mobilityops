@@ -170,3 +170,54 @@ def test_question_text_cannot_add_tools_or_arguments() -> None:
     assert [c.name for c in plan.calls] == ["get_top_zones"]
     assert set(plan.calls[0].args) <= {"start", "end", "metric", "limit", "ascending"}
     assert plan.calls[0].args["limit"] <= 20
+
+
+# ----------------------------------------------- phrasing that failed on unseen questions
+@pytest.mark.parametrize(
+    ("question", "intent"),
+    [
+        ("Name the five zones with the fewest pickups in April.", "top_zones"),
+        ("What were the ten most popular drop-off zones in March?", "top_zones"),
+        ("Do wet days have more or fewer pickups?", "weather"),
+        ("What is the error rate of your predictions?", "model_performance"),
+        ("Are the forecasts better than just copying last week?", "model_performance"),
+        ("Does the machine learning forecast actually beat a naive approach?", "model_performance"),
+        ("How often is the model wrong, on average?", "model_performance"),
+        ("What explains the biggest deviation from forecast?", "explain_anomaly"),
+        ("Anything odd happening in Penn Station?", "anomalies"),
+        ("What happens if we move vehicles around on 2024-05-20 in the morning?", "scenario"),
+        (
+            "Would moving vehicles ahead of demand help, based on what you tested?",
+            "optimization_findings",
+        ),
+        ("Put February next to March: how do pickups differ?", "compare"),
+        ("When during the day is demand at its highest in JFK Airport?", "profile"),
+        ("Can you tell me what the term served share refers to?", "glossary"),
+        ("Explain what a walk-forward evaluation is", "glossary"),
+        ("How many taxi trips are covered by your data?", "overview"),
+        ("How many trips started in JFK Airport in April?", "zone_metrics"),
+    ],
+)
+def test_phrasings_that_missed_before_now_reach_the_right_tool(question: str, intent: str) -> None:
+    assert PLAN(question, CTX).intent == intent
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How many pickups did Gotham City have?",
+        "How many rides began in Atlantis Heights during April?",
+        "Can you forecast demand for next Christmas?",
+        "Predict pickups for the summer of 2025",
+    ],
+)
+def test_unknown_places_and_far_future_forecasts_are_asked_about_not_guessed(question: str) -> None:
+    assert PLAN(question, CTX).intent == "clarify"
+
+
+def test_a_sentence_ending_with_a_month_and_a_full_stop_is_not_an_unknown_place() -> None:
+    assert PLAN("Which zones were busiest in April.", CTX).intent == "top_zones"
+
+
+def test_how_many_pickups_tomorrow_is_a_forecast_not_a_data_overview() -> None:
+    assert PLAN("Exactly how many pickups will there be tomorrow?", CTX).intent == "forecast"
