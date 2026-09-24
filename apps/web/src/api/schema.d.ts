@@ -197,6 +197,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demand/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Mix
+         * @description Pickups per service (yellow, green, for-hire) and each one's share, by month or total.
+         */
+        get: operations["service_mix_api_v1_demand_services_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/demand/services/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Profile
+         * @description Average pickups by hour of day for each service.
+         */
+        get: operations["service_profile_api_v1_demand_services_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/demand/top-zones": {
         parameters: {
             query?: never;
@@ -781,6 +821,12 @@ export interface components {
             rows_valid: number;
             /** Run Id */
             run_id: string;
+            /**
+             * Services
+             * @description Services in the data. Only 'yellow' unless green / for-hire files were built.
+             * @default []
+             */
+            services?: components["schemas"]["ServiceInfo"][];
             /** Synthetic */
             synthetic: boolean;
             /**
@@ -1020,6 +1066,44 @@ export interface components {
             zone_id: number | null;
             /** Zone Name */
             zone_name: string | null;
+        };
+        /** ServiceInfo */
+        ServiceInfo: {
+            /** Label */
+            label: string;
+            /** Service */
+            service: string;
+        };
+        /** ServiceMixPoint */
+        ServiceMixPoint: {
+            /** Label */
+            label: string;
+            /**
+             * Period
+             * Format: date-time
+             * @description Start of the month, or of the requested period.
+             */
+            period: string;
+            /** Pickups */
+            pickups: number;
+            /** Service */
+            service: string;
+            /**
+             * Share
+             * @description Share of all listed services' cleaned pickups in the same period. Not a share of all mobility: subways, buses, private cars and older for-hire files are absent.
+             */
+            share: number;
+        };
+        /** ServiceProfilePoint */
+        ServiceProfilePoint: {
+            /** Avg Pickups */
+            avg_pickups: number;
+            /** Hour Of Day */
+            hour_of_day: number;
+            /** N Hours */
+            n_hours: number;
+            /** Service */
+            service: string;
         };
         /** TopZone */
         TopZone: {
@@ -1497,6 +1581,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_mix_api_v1_demand_services_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                /** @description TLC location id */
+                zone_id?: number | null;
+                grain?: "month" | "total";
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceMixPoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_profile_api_v1_demand_services_profile_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                /** @description TLC location id */
+                zone_id?: number | null;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceProfilePoint"][];
                 };
             };
             /** @description Validation Error */

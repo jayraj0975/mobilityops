@@ -715,6 +715,15 @@
             "title": "Run Id",
             "type": "string"
           },
+          "services": {
+            "default": [],
+            "description": "Services in the data. Only 'yellow' unless green / for-hire files were built.",
+            "items": {
+              "$ref": "#/components/schemas/ServiceInfo"
+            },
+            "title": "Services",
+            "type": "array"
+          },
           "synthetic": {
             "title": "Synthetic",
             "type": "boolean"
@@ -1292,6 +1301,91 @@
           "points"
         ],
         "title": "SeriesResponse",
+        "type": "object"
+      },
+      "ServiceInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "label"
+        ],
+        "title": "ServiceInfo",
+        "type": "object"
+      },
+      "ServiceMixPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "period": {
+            "description": "Start of the month, or of the requested period.",
+            "format": "date-time",
+            "title": "Period",
+            "type": "string"
+          },
+          "pickups": {
+            "title": "Pickups",
+            "type": "number"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "share": {
+            "description": "Share of all listed services' cleaned pickups in the same period. Not a share of all mobility: subways, buses, private cars and older for-hire files are absent.",
+            "title": "Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period",
+          "service",
+          "label",
+          "pickups",
+          "share"
+        ],
+        "title": "ServiceMixPoint",
+        "type": "object"
+      },
+      "ServiceProfilePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "avg_pickups": {
+            "title": "Avg Pickups",
+            "type": "number"
+          },
+          "hour_of_day": {
+            "title": "Hour Of Day",
+            "type": "integer"
+          },
+          "n_hours": {
+            "title": "N Hours",
+            "type": "integer"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "hour_of_day",
+          "avg_pickups",
+          "n_hours"
+        ],
+        "title": "ServiceProfilePoint",
         "type": "object"
       },
       "TopZone": {
@@ -2566,6 +2660,208 @@
           }
         },
         "summary": "Demand Series",
+        "tags": [
+          "demand"
+        ]
+      }
+    },
+    "/api/v1/demand/services": {
+      "get": {
+        "description": "Pickups per service (yellow, green, for-hire) and each one's share, by month or total.",
+        "operationId": "service_mix_api_v1_demand_services_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "TLC location id",
+            "in": "query",
+            "name": "zone_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 400,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "TLC location id",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "grain",
+            "required": false,
+            "schema": {
+              "default": "month",
+              "enum": [
+                "month",
+                "total"
+              ],
+              "title": "Grain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceMixPoint"
+                  },
+                  "title": "Response Service Mix Api V1 Demand Services Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Mix",
+        "tags": [
+          "demand"
+        ]
+      }
+    },
+    "/api/v1/demand/services/profile": {
+      "get": {
+        "description": "Average pickups by hour of day for each service.",
+        "operationId": "service_profile_api_v1_demand_services_profile_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "description": "TLC location id",
+            "in": "query",
+            "name": "zone_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 400,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "TLC location id",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceProfilePoint"
+                  },
+                  "title": "Response Service Profile Api V1 Demand Services Profile Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Profile",
         "tags": [
           "demand"
         ]

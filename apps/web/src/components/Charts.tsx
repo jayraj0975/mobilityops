@@ -17,6 +17,7 @@ import { DataTable, type Column } from "./DataTable";
 const C = {
   main: "var(--series-1)",
   second: "var(--series-2)",
+  third: "var(--series-3)",
   band: "var(--band)",
   grid: "var(--grid)",
   text: "var(--muted)",
@@ -161,6 +162,40 @@ export function BarsChart({
         <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} />
         <Tooltip />
         <Bar isAnimationActive={false} dataKey="y" name={yLabel} fill={C.main} />
+      </BarChart>
+    </Figure>
+  );
+}
+
+const SHARE_COLORS = [C.main, C.second, C.third];
+
+/** Stacked bars of shares that sum to 100% per bar, with the numbers available as a table. */
+export function ShareBarsChart({
+  title,
+  data,
+  series,
+}: {
+  title: string;
+  data: { x: string; shares: Record<string, number> }[];
+  series: { key: string; label: string }[];
+}) {
+  const rows = data.map((d) => ({ x: d.x, ...Object.fromEntries(series.map((s) => [s.key, 100 * (d.shares[s.key] ?? 0)])) }));
+  return (
+    <Figure
+      title={title}
+      summary={`${data.length} bars, each split into ${series.map((s) => s.label).join(", ")}.`}
+      table={rows}
+      columns={cols("Period", ...series.map((s): [string, string] => [s.key, `${s.label} (%)`]))}
+    >
+      <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+        <CartesianGrid stroke={C.grid} strokeDasharray="3 3" />
+        <XAxis dataKey="x" tick={{ fill: C.text, fontSize: 12 }} minTickGap={16} />
+        <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} domain={[0, 100]} unit="%" />
+        <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+        <Legend />
+        {series.map((s, i) => (
+          <Bar key={s.key} isAnimationActive={false} stackId="share" dataKey={s.key} name={s.label} fill={SHARE_COLORS[i % SHARE_COLORS.length]} />
+        ))}
       </BarChart>
     </Figure>
   );

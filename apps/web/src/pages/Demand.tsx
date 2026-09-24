@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, type Schemas } from "../api/client";
 import { DataTable } from "../components/DataTable";
 import { Async, Empty } from "../components/State";
+import { ServiceMix } from "../components/ServiceMix";
 import { SeriesChart } from "../components/Charts";
 import { addDays, fmtInt, fmtNum, fmtPct } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -104,6 +105,8 @@ export function Demand({ meta, zones }: { meta: Schemas["Meta"]; zones: Schemas[
           }
         </Async>
       </section>
+
+      {(meta.services ?? []).length > 1 && <ServiceMix meta={meta} zone={zone} />}
 
       <section aria-labelledby="wx-h">
         <h2 id="wx-h">Weather and demand (association only)</h2>

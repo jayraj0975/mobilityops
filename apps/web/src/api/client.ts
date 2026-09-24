@@ -173,6 +173,10 @@ export const api = {
     q: { a_start: string; a_end: string; b_start: string; b_end: string; zone_id?: number },
     s?: AbortSignal,
   ) => get<Schemas["Comparison"]>("/api/v1/demand/compare", q, s),
+  serviceMix: (
+    q: { start: string; end: string; zone_id?: number; grain: "month" | "total" },
+    s?: AbortSignal,
+  ) => get<Schemas["ServiceMixPoint"][]>("/api/v1/demand/services", q, s),
   weather: (
     q: { start: string; end: string; condition: "rain" | "snow" | "freezing"; zone_id?: number },
     s?: AbortSignal,

@@ -1,11 +1,26 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ApiError } from "../api/client";
 import type { AsyncState } from "../lib/useAsync";
 
+/** After this long a request is slow enough that the person deserves an explanation. */
+export const SLOW_LOAD_MS = 4000;
+
 export function Loading({ what = "data" }: { what?: string }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), SLOW_LOAD_MS);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <p role="status" className="muted">
       Loading {what}…
+      {slow && (
+        <>
+          {" "}
+          This is taking longer than usual. The public demo runs on a free plan and can be slow
+          after a quiet period; it will appear as soon as the server responds.
+        </>
+      )}
     </p>
   );
 }
