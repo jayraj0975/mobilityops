@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Android toolchain upgraded together** (the Dependabot bumps each needed the others): Gradle 9.7.1 (wrapper regenerated,
+  checksum pinned), Android Gradle Plugin 9.4.1 with built-in Kotlin, compileSdk 36, androidx appcompat 1.8.0, Material 1.14.0,
+  org.json 20260814. 45 unit tests, lint, debug, minified release and AAB builds pass, and the app was re-run on the emulator.
+  `targetSdk` stays 34 (raising it changes window-inset behaviour and needs its own pass).
+- **Second weather provider (MET Norway)** after Open-Meteo answered HTTP 429 to Render's shared address: weather is one need with
+  two providers, healthy if either is. Attribution added everywhere; see `docs/PUNE_DATA_SOURCES.md` (source 14).
+- **Pune console on Render's free plan:** `serve --with-worker` runs the worker on a thread (free web services have no background
+  workers); `pack_demo.py --mode pune`; the `mobilityops-pune` service in `render.yaml`.
+
 ## 0.2.0 (2026-09-25)
 
 ### Pune: a real-time platform on simulated demand

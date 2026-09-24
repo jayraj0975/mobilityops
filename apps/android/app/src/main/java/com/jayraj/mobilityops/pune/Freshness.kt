@@ -4,7 +4,7 @@ import androidx.annotation.ColorRes
 import com.jayraj.mobilityops.R
 
 /** How old a value is, computed by the server from the source's own timestamps. */
-enum class Freshness(val label: String, val glyph: String, @ColorRes val color: Int, val help: String) {
+enum class Freshness(val label: String, val glyph: String, @param:ColorRes val color: Int, val help: String) {
     LIVE("LIVE", "●", R.color.ok, "Arriving on schedule."),
     DELAYED("DELAYED", "◐", R.color.warn, "Later than expected, but recent enough to trust."),
     STALE("STALE", "▲", R.color.fail, "Old. Shown for reference; not current."),

@@ -33,7 +33,7 @@ labelled replay; the lower section is live Citi Bike and weather data.
 
 ## Build
 
-You need JDK 17 and the Android SDK (platform 34, build-tools 34). Gradle itself comes from the
+You need JDK 17 and the Android SDK (platform 36, build-tools 36). Gradle 9.7.1 itself comes from the
 wrapper.
 
 ```bash
@@ -59,7 +59,7 @@ export MOBILITYOPS_KEYSTORE=~/mobilityops-release.jks
 export MOBILITYOPS_KEYSTORE_PASSWORD=...          # the password you chose
 export MOBILITYOPS_KEY_PASSWORD=...               # if different from the store password
 ./gradlew assembleRelease bundleRelease           # release APK and AAB
-$ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose app-release.apk
+$ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose app-release.apk
 ```
 
 Without `MOBILITYOPS_KEYSTORE` the release build is produced unsigned. The release build is minified and
