@@ -139,7 +139,7 @@ Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make
 | [AI_EVALUATION](docs/AI_EVALUATION.md) | the analyst's design, benchmark and where it fails |
 | [SECURITY](docs/SECURITY.md) | threat model, controls, what is and is not covered |
 | [LIMITATIONS](docs/LIMITATIONS.md) | what these results cannot tell you |
-| [DECISIONS](docs/DECISIONS.md) | 16 architecture decision records, including changes made after seeing results |
+| [DECISIONS](docs/DECISIONS.md) | 17 architecture decision records, including changes made after seeing results |
 | [SELF_HOSTING](docs/SELF_HOSTING.md) | running it on your own machine: Docker Compose, systemd, HTTPS, the Android app, the live feeds |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | how the public demo is built, hosted and rebuilt, and the free-plan limits |
 | [PREREGISTRATION_HOLIDAY](docs/PREREGISTRATION_HOLIDAY.md) | the holiday-feature hypothesis and decision rule, committed before the test was run |

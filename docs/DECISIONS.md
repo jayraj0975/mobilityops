@@ -302,3 +302,25 @@ a phone; the Compose file was validated as YAML and its container run with the s
 itself was not run (the plugin is not installed here). The existing hosted demo was left in place and, at the owner's request,
 later redeployed with the full-year bundle.
 
+---
+
+## ADR-017: Dropoffs are validated by accounting, not by rejecting the trip
+
+**Context.** Pickups are validated strictly: a trip with an unknown pickup zone is rejected, because demand is
+counted by pickup zone. Dropoffs were not validated at all. The gold zone-hour table joins dropoffs to a grid of
+real zones and in-window hours, so any dropoff outside it (the TLC's "unknown" zones 264 and 265, a missing id, a
+trip ending after the window) disappeared from every dropoff metric without a trace: 273,264 trips (0.68%) on
+the 2024 yellow data. Nothing reconciled dropoffs the way pickups were reconciled.
+
+**Decision.** Keep the trip (its pickup is real demand and every yellow result is unchanged) and make the dropoff
+visible: `dq_unallocated_dropoffs` records every trip whose dropoff is not in the fact table, by reason and zone,
+and the gold gate requires placed + unallocated dropoffs to equal the silver trips exactly (FAIL otherwise) and
+warns when the unallocated share exceeds 2%.
+
+**Alternatives.** Reject trips with an invalid dropoff, for parity with pickups (rejected: it would delete real
+pickups over a secondary attribute and change every result); assign unknown dropoffs to a synthetic zone
+(rejected: fabricates a place).
+
+**Consequences.** Dropoff totals in the fact table exclude unknown-zone dropoffs, and the amount excluded is
+stated, tested and reported on every build. The two new checks appear from the next real build onward.
+

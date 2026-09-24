@@ -7,6 +7,7 @@ Tables (grain in brackets; see docs/DATA_DICTIONARY.md for columns):
 * ``dim_hour``                    [one row per local hour, with DST flags]
 * ``fact_zone_hourly_demand``     [zone x valid local hour, zero-filled]
 * ``fact_weather_daily``          [one row per date]
+* ``dq_unallocated_dropoffs``     [reason x zone: trips whose dropoff is not in the fact table]
 * ``dim_service`` and ``fact_service_zone_hourly``  [service x zone x valid local hour, zero-filled;
   yellow taxis plus any green / for-hire files that were ingested. Present only when at least
   one other service exists.]
@@ -139,6 +140,24 @@ def build_gold(
             LEFT JOIN dropoff_agg ON dropoff_agg.location_id = g.location_id
                  AND dropoff_agg.hour_ts = g.hour_ts
             ORDER BY g.location_id, g.hour_ts
+            """
+        )
+        # Pickups are validated (an unknown pickup zone rejects the trip). Dropoffs get the same
+        # scrutiny without deleting the trip, whose pickup is real demand: a dropoff that cannot be
+        # placed in the zone-hour grid is *accounted for* here instead of silently disappearing, and
+        # a quality check requires placed + unplaced dropoffs to equal the trips exactly.
+        con.execute(
+            f"""
+            CREATE TABLE dq_unallocated_dropoffs AS
+            SELECT CASE WHEN z.location_id IS NULL THEN 'unknown_dropoff_zone'
+                        ELSE 'dropoff_outside_grid' END AS reason,
+                   CASE WHEN z.location_id IS NULL THEN t.do_zone END AS do_zone,
+                   count(*)::BIGINT AS trips
+            FROM read_parquet({trips}) t
+            LEFT JOIN dim_zone z ON z.location_id = t.do_zone AND z.is_real_zone
+            LEFT JOIN dim_hour h ON h.hour_ts = date_trunc('hour', t.dropoff_ts) AND h.is_valid
+            WHERE z.location_id IS NULL OR h.hour_ts IS NULL
+            GROUP BY 1, 2
             """
         )
         n_zones = int(con.execute("SELECT count(*) FROM dim_zone WHERE is_real_zone").fetchone()[0])  # type: ignore[index]
