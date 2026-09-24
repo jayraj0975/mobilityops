@@ -16,6 +16,7 @@ const Anomalies = lazy(() => import("./pages/Anomalies").then((m) => ({ default:
 const Scenarios = lazy(() => import("./pages/Scenarios").then((m) => ({ default: m.Scenarios })));
 const Analyst = lazy(() => import("./pages/Analyst").then((m) => ({ default: m.Analyst })));
 const About = lazy(() => import("./pages/About").then((m) => ({ default: m.About })));
+const PuneApp = lazy(() => import("./pune/PuneApp"));
 
 export default function App() {
   const [route, go] = useHashRoute();
@@ -33,6 +34,14 @@ export default function App() {
     }
     main.current?.focus();
   }, [route]);
+
+  // Pune has its own real-time console; the New York analytics UI stays for the other modes.
+  if (meta.data?.mode === "pune")
+    return (
+      <Suspense fallback={<Loading what="the console" />}>
+        <PuneApp meta={meta.data} />
+      </Suspense>
+    );
 
   return (
     <>

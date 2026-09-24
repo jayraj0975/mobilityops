@@ -122,6 +122,23 @@ def test_zone_detail_has_actual_against_a_forecast_range(client: TestClient) -> 
     assert body["today_actual"] > 0 and body["today_forecast"] > 0
 
 
+def test_city_series_covers_the_past_and_the_forecast_hours(client: TestClient) -> None:
+    body = client.get("/api/v1/state/series?back=30&ahead=6").json()
+    series = body["series"]
+    assert "wider than a true 80% range" in body["envelope_note"]
+    assert len(series) >= 30 and sum(1 for p in series if p["partial"]) == 1
+    past = [
+        p
+        for p in series
+        if p["actual"] is not None and not p["partial"] and p["forecast"] is not None
+    ]
+    assert past and all(p["lo"] <= p["forecast"] <= p["hi"] for p in past)
+    ahead = [p for p in series if p["hour"] >= "2026-09-24T22:00"]
+    assert ahead and all(p["actual"] is None for p in ahead) and len(ahead) <= 6
+    assert body["today_actual"] > 0 and abs(body["today_actual"] / body["today_forecast"] - 1) < 0.6
+    assert client.get("/api/v1/state/series?back=0").status_code == 422
+
+
 def test_unknown_zone_is_a_404(client: TestClient) -> None:
     r = client.get("/api/v1/state/zones/9999")
     assert r.status_code == 404 and r.json()["error"]["code"] == "no_data"

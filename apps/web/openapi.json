@@ -464,6 +464,49 @@
         "title": "BacktestForecast",
         "type": "object"
       },
+      "CitySeries": {
+        "additionalProperties": false,
+        "properties": {
+          "data_label": {
+            "title": "Data Label",
+            "type": "string"
+          },
+          "envelope_note": {
+            "title": "Envelope Note",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/mobilityops__api__state_schemas__SeriesPoint"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "server_time": {
+            "format": "date-time",
+            "title": "Server Time",
+            "type": "string"
+          },
+          "today_actual": {
+            "title": "Today Actual",
+            "type": "number"
+          },
+          "today_forecast": {
+            "title": "Today Forecast",
+            "type": "number"
+          }
+        },
+        "required": [
+          "server_time",
+          "data_label",
+          "envelope_note",
+          "series",
+          "today_actual",
+          "today_forecast"
+        ],
+        "title": "CitySeries",
+        "type": "object"
+      },
       "Comparison": {
         "additionalProperties": false,
         "properties": {
@@ -718,7 +761,8 @@
           }
         },
         "required": [
-          "available"
+          "available",
+          "checks"
         ],
         "title": "DatabaseInfo",
         "type": "object"
@@ -815,7 +859,6 @@
             "type": "number"
           },
           "data_class": {
-            "default": "SIMULATED",
             "enum": [
               "LIVE",
               "NEAR-REAL-TIME",
@@ -897,7 +940,8 @@
           "expected",
           "score",
           "detected_at",
-          "explanation"
+          "explanation",
+          "data_class"
         ],
         "title": "EventItem",
         "type": "object"
@@ -1995,7 +2039,6 @@
             "title": "Age S"
           },
           "consecutive_failures": {
-            "default": 0,
             "title": "Consecutive Failures",
             "type": "integer"
           },
@@ -2110,12 +2153,10 @@
             "type": "string"
           },
           "records_total": {
-            "default": 0,
             "title": "Records Total",
             "type": "integer"
           },
           "runs": {
-            "default": 0,
             "title": "Runs",
             "type": "integer"
           },
@@ -2132,7 +2173,6 @@
             "title": "Since Poll S"
           },
           "successes": {
-            "default": 0,
             "title": "Successes",
             "type": "integer"
           }
@@ -2146,7 +2186,11 @@
           "licence",
           "note",
           "enabled",
-          "freshness"
+          "freshness",
+          "consecutive_failures",
+          "runs",
+          "successes",
+          "records_total"
         ],
         "title": "SourceState",
         "type": "object"
@@ -2163,7 +2207,6 @@
             "type": "string"
           },
           "demand_class": {
-            "default": "SIMULATED",
             "enum": [
               "LIVE",
               "NEAR-REAL-TIME",
@@ -2295,6 +2338,7 @@
           "seq",
           "freshness",
           "worker",
+          "demand_class",
           "zones",
           "totals",
           "events",
@@ -2889,7 +2933,6 @@
             "title": "Ratio"
           },
           "status": {
-            "default": "normal",
             "enum": [
               "normal",
               "surge",
@@ -2916,7 +2959,8 @@
           "actual",
           "forecast",
           "lo",
-          "hi"
+          "hi",
+          "status"
         ],
         "title": "ZoneValue",
         "type": "object"
@@ -2994,7 +3038,6 @@
             "title": "Lo"
           },
           "partial": {
-            "default": false,
             "title": "Partial",
             "type": "boolean"
           }
@@ -3004,7 +3047,8 @@
           "actual",
           "forecast",
           "lo",
-          "hi"
+          "hi",
+          "partial"
         ],
         "title": "SeriesPoint",
         "type": "object"
@@ -5408,6 +5452,80 @@
           }
         },
         "summary": "State Runs",
+        "tags": [
+          "state"
+        ]
+      }
+    },
+    "/api/v1/state/series": {
+      "get": {
+        "description": "Citywide hourly demand against its forecast (the running hour is pro-rated).",
+        "operationId": "state_series_api_v1_state_series_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "back",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 96,
+              "minimum": 1,
+              "title": "Back",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ahead",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 24,
+              "minimum": 0,
+              "title": "Ahead",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitySeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "State Series",
         "tags": [
           "state"
         ]

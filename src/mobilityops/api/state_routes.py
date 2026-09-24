@@ -74,6 +74,14 @@ def register(api: APIRouter, settings: Settings) -> tuple[StateProvider, StateHu
             raise NoData(f"unknown zone id {zone_id}")
         return detail
 
+    @api.get("/state/series", response_model=st.CitySeries, tags=["state"])
+    def state_series(
+        back: Annotated[int, Query(ge=1, le=96)] = 30,
+        ahead: Annotated[int, Query(ge=0, le=24)] = 24,
+    ) -> Any:
+        """Citywide hourly demand against its forecast (the running hour is pro-rated)."""
+        return provider.require().city_series(now(), back, ahead)
+
     @api.get("/state/events", response_model=list[st.EventItem], tags=["state"])
     def state_events(limit: Annotated[int, Query(ge=1, le=200)] = 30) -> Any:
         """Events the live rule found among today's completed hours (SIMULATED demand)."""

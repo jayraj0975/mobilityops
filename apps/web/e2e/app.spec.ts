@@ -6,6 +6,12 @@ import path from "node:path";
 const SECTIONS = ["overview", "live", "demand", "forecast", "anomalies", "scenarios", "analyst", "about"] as const;
 const SHOTS = process.env.E2E_SCREENSHOTS ? path.resolve("../../docs/images") : null;
 
+// The Pune console has its own spec (pune.spec.ts); this one covers the analytics UI of the other modes.
+test.beforeEach(async ({ request }) => {
+  const meta = (await (await request.get("/api/v1/meta")).json()) as { mode: string };
+  test.skip(meta.mode === "pune", "server is in pune mode; see pune.spec.ts");
+});
+
 /** Collect anything that would embarrass a user: script errors, console errors, failed requests. */
 function watch(page: Page) {
   const problems: string[] = [];

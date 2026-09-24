@@ -604,6 +604,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/state/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Series
+         * @description Citywide hourly demand against its forecast (the running hour is pro-rated).
+         */
+        get: operations["state_series_api_v1_state_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/state/snapshot": {
         parameters: {
             query?: never;
@@ -956,6 +976,24 @@ export interface components {
             /** Zone Name */
             zone_name: string;
         };
+        /** CitySeries */
+        CitySeries: {
+            /** Data Label */
+            data_label: string;
+            /** Envelope Note */
+            envelope_note: string;
+            /** Series */
+            series: components["schemas"]["mobilityops__api__state_schemas__SeriesPoint"][];
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            /** Today Actual */
+            today_actual: number;
+            /** Today Forecast */
+            today_forecast: number;
+        };
         /** Comparison */
         Comparison: {
             /** Equal Length */
@@ -1016,7 +1054,7 @@ export interface components {
             /** Built At Utc */
             built_at_utc?: string | null;
             /** Checks */
-            checks?: components["schemas"]["QualityItem"][];
+            checks: components["schemas"]["QualityItem"][];
             /**
              * Days Behind
              * @description Days between the database's last day and today (extended live).
@@ -1051,10 +1089,9 @@ export interface components {
             actual: number;
             /**
              * Data Class
-             * @default SIMULATED
              * @enum {string}
              */
-            data_class?: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
+            data_class: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
             /**
              * Detected At
              * Format: date-time
@@ -1549,11 +1586,8 @@ export interface components {
              * @description Since the source's own timestamp.
              */
             age_s?: number | null;
-            /**
-             * Consecutive Failures
-             * @default 0
-             */
-            consecutive_failures?: number;
+            /** Consecutive Failures */
+            consecutive_failures: number;
             /**
              * Data Class
              * @enum {string}
@@ -1588,26 +1622,17 @@ export interface components {
             note: string;
             /** Provider */
             provider: string;
-            /**
-             * Records Total
-             * @default 0
-             */
-            records_total?: number;
-            /**
-             * Runs
-             * @default 0
-             */
-            runs?: number;
+            /** Records Total */
+            records_total: number;
+            /** Runs */
+            runs: number;
             /**
              * Since Poll S
              * @description Since our last good poll.
              */
             since_poll_s?: number | null;
-            /**
-             * Successes
-             * @default 0
-             */
-            successes?: number;
+            /** Successes */
+            successes: number;
         };
         /** StateSnapshot */
         StateSnapshot: {
@@ -1617,10 +1642,9 @@ export interface components {
             data_label: string;
             /**
              * Demand Class
-             * @default SIMULATED
              * @enum {string}
              */
-            demand_class?: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
+            demand_class: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
             environment: components["schemas"]["EnvironmentBlock"];
             /** Events */
             events: components["schemas"]["EventItem"][];
@@ -1860,10 +1884,9 @@ export interface components {
             ratio?: number | null;
             /**
              * Status
-             * @default normal
              * @enum {string}
              */
-            status?: "normal" | "surge" | "drop";
+            status: "normal" | "surge" | "drop";
             /**
              * Z
              * @description Standardised deviation from the forecast.
@@ -1895,11 +1918,8 @@ export interface components {
             hour: string;
             /** Lo */
             lo: number | null;
-            /**
-             * Partial
-             * @default false
-             */
-            partial?: boolean;
+            /** Partial */
+            partial: boolean;
         };
     };
     responses: never;
@@ -2984,6 +3004,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestionRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_series_api_v1_state_series_get: {
+        parameters: {
+            query?: {
+                back?: number;
+                ahead?: number;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CitySeries"];
                 };
             };
             /** @description Validation Error */

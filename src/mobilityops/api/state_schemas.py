@@ -34,10 +34,10 @@ class SourceState(Model):
     last_observed_at: datetime | None = None
     last_success_at: datetime | None = None
     last_error: str | None = None
-    consecutive_failures: int = 0
-    runs: int = 0
-    successes: int = 0
-    records_total: int = 0
+    consecutive_failures: int
+    runs: int
+    successes: int
+    records_total: int
 
 
 class WorkerState(Model):
@@ -74,7 +74,7 @@ class ZoneValue(Model):
     hi: float
     ratio: float | None = None
     z: float | None = Field(default=None, description="Standardised deviation from the forecast.")
-    status: ZoneStatus = "normal"
+    status: ZoneStatus
     event_id: str | None = None
 
 
@@ -91,7 +91,7 @@ class EventItem(Model):
     score: float
     detected_at: datetime
     explanation: str
-    data_class: DataClassName = "SIMULATED"
+    data_class: DataClassName
 
 
 class Totals(Model):
@@ -114,7 +114,7 @@ class StateSnapshot(Model):
     seq: int = Field(description="Increases whenever the operational store changes.")
     freshness: FreshnessName = Field(description="The least healthy source that applies.")
     worker: WorkerState
-    demand_class: DataClassName = "SIMULATED"
+    demand_class: DataClassName
     forecast_model: str | None = None
     forecast_made_at: datetime | None = None
     zones: list[ZoneValue]
@@ -149,7 +149,7 @@ class SeriesPoint(Model):
     forecast: float | None
     lo: float | None
     hi: float | None
-    partial: bool = False
+    partial: bool
 
 
 class ZoneDetail(Model):
@@ -160,6 +160,15 @@ class ZoneDetail(Model):
     data_label: str
     series: list[SeriesPoint]
     events: list[EventItem]
+    today_actual: float
+    today_forecast: float
+
+
+class CitySeries(Model):
+    server_time: datetime
+    data_label: str
+    envelope_note: str
+    series: list[SeriesPoint]
     today_actual: float
     today_forecast: float
 
@@ -193,7 +202,7 @@ class DatabaseInfo(Model):
     )
     rows_valid: int | None = None
     synthetic: bool | None = None
-    checks: list[QualityItem] = Field(default_factory=list)
+    checks: list[QualityItem]
 
 
 class SourceHealth(Model):

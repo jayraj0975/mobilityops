@@ -233,6 +233,7 @@ class StateService:
             "seq": self.store.version() if seq is None else seq,
             "freshness": self.overall(sources),
             "worker": self.worker(now),
+            "demand_class": "SIMULATED",
             "forecast_model": forecast_meta.get("model_id"),
             "forecast_made_at": _dt(forecast_meta.get("made_at")),
             "zones": zones,
@@ -312,6 +313,66 @@ class StateService:
             "data_label": self.settings.data_label,
             "series": series,
             "events": events,
+            "today_actual": round(t_act, 1),
+            "today_forecast": round(t_fc, 1),
+        }
+
+    # ------------------------------------------------------------------------ city series
+    def city_series(self, now: datetime, back: int = 30, ahead: int = 24) -> dict[str, Any]:
+        """Citywide hourly demand against its forecast, with the running hour pro-rated.
+
+        ``lo``/``hi`` are sums of the per-zone 80% ranges: an outer envelope, wider than a true
+        range for the city total, because zone errors partly cancel. The response says so.
+        """
+        local = pd.Timestamp(live.local_naive(now))
+        running = local.floor("h")
+        start = running - pd.Timedelta(hours=back - 1)
+        end = running + pd.Timedelta(hours=ahead + 1)
+        act = self.store.zone_hours(start.isoformat(), end.isoformat())
+        fc = self.store.forecast(start.isoformat(), end.isoformat())
+        a_by = {
+            pd.Timestamp(str(h)): float(v)
+            for h, v in (
+                act.groupby("hour_ts")["pickups"].sum().to_dict() if not act.empty else {}
+            ).items()
+        }
+        f_by = {
+            pd.Timestamp(str(h)): (float(r["pred"]), float(r["lo"]), float(r["hi"]))
+            for h, r in (
+                fc.groupby("hour_ts")[["pred", "lo", "hi"]].sum().to_dict("index")
+                if not fc.empty
+                else {}
+            ).items()
+        }
+        today = local.normalize()
+        series = []
+        t_act = t_fc = 0.0
+        for h in sorted(set(a_by) | set(f_by)):
+            frac = live.hour_fraction(h, local) if h == running else 1.0
+            a = a_by.get(h)
+            actual = None if a is None or h > running else round(a * frac, 1)
+            f = f_by.get(h)
+            series.append(
+                {
+                    "hour": h.to_pydatetime(),
+                    "actual": actual,
+                    "forecast": None if f is None else round(f[0], 1),
+                    "lo": None if f is None else round(f[1], 1),
+                    "hi": None if f is None else round(f[2], 1),
+                    "partial": h == running,
+                }
+            )
+            if today <= h <= running:
+                t_act += actual or 0.0
+                t_fc += 0.0 if f is None else f[0] * frac
+        return {
+            "server_time": now,
+            "data_label": self.settings.data_label,
+            "envelope_note": (
+                "The shaded range adds up each zone's 80% range. Zone errors partly cancel, so "
+                "it is wider than a true 80% range for the city total."
+            ),
+            "series": series,
             "today_actual": round(t_act, 1),
             "today_forecast": round(t_fc, 1),
         }
