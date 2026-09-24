@@ -259,13 +259,21 @@ def _data_overview(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
     r.add("label", "Data label", ctx.services.data_label)
     r.add("start", "First day of data", str(rng.start.date()))
     r.add("end", "Last day of data", str((rng.end - timedelta(days=1)).date()))
-    r.add("zones", "Taxi zones", rng.n_zones, n(rng.n_zones))
+    r.add("zones", "Zones", rng.n_zones, n(rng.n_zones))
     r.add("trips", "Valid trips after cleaning", rng.rows_valid, n(rng.rows_valid))
-    r.notes.append(
-        "Yellow-taxi trips only (no green cabs, for-hire vehicles or ride-hail); timestamps are "
-        "New York local time."
-    )
-    if rng.synthetic:
+    city = ctx.services.settings.city
+    if rng.mode == "pune":
+        r.notes.append(
+            "Trip counts are SIMULATED: no open source of Pune taxi or ride-hail trips exists. "
+            "Only rain, the holiday calendar and the zone geography are real inputs. "
+            f"Timestamps are {city.timezone} local time."
+        )
+    else:
+        r.notes.append(
+            "Yellow-taxi trips only (no green cabs, for-hire vehicles or ride-hail); timestamps "
+            "are New York local time."
+        )
+    if rng.synthetic and rng.mode != "pune":
         r.notes.append("This is TEST / SYNTHETIC DATA, not real-world demand.")
 
 
@@ -556,8 +564,17 @@ def _model_performance(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
     )
     r.add("test_days", "Held-out test days", ev["test_days"], n(ev["test_days"]))
     r.add("test_rows", "Held-out zone-hours", ev["test_rows"], n(ev["test_rows"]))
-    r.notes.append("Only about five months of history exist, so annual seasonality is not learned.")
-    r.notes.append("Federal holidays are forecast much worse than ordinary days.")
+    span = ctx.services.analytics().data_range()
+    months = max(1, round((span.end - span.start).days / 30.4))
+    r.notes.append(
+        f"Only about {months} month{'s' if months != 1 else ''} of history exist, so annual "
+        "seasonality is not learned."
+        if months < 12
+        else f"About {months} months of history exist, which is not enough to tell annual "
+        "seasonality from that one year's events."
+    )
+    if span.mode == "real":
+        r.notes.append("Holidays are forecast much worse than ordinary days.")
 
 
 def _anomalies(ctx: ToolContext, r: ToolResult, a: AnomalyArgs) -> None:
@@ -734,7 +751,7 @@ def _optimization_findings(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
 
 
 def _glossary(ctx: ToolContext, r: ToolResult, a: GlossaryArgs) -> None:
-    hit = lookup(a.term)
+    hit = lookup(a.term, ctx.services.settings.mode)
     if hit is None:
         r.ok, r.error = False, f"no definition for '{a.term}'"
         return

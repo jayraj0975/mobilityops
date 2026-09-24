@@ -47,7 +47,7 @@ class ServiceInfo(Model):
 
 class Meta(Model):
     api_version: str
-    mode: Literal["sample", "real"]
+    mode: Literal["sample", "real", "pune"]
     data_label: str
     synthetic: bool
     data_start: datetime
@@ -63,6 +63,7 @@ class Meta(Model):
         description="Services in the data. Only 'yellow' unless green / for-hire files were built.",
     )
     timezone: str = "America/New_York (timestamps are naive local time)"
+    city: str = "New York City"
 
 
 class QualityCheck(Model):
@@ -169,7 +170,12 @@ class Volatility(Model):
 class Concentration(Model):
     top_n: int
     top_n_share: float
-    herfindahl_index: float
+    herfindahl_index: float = Field(
+        description="Computed over every zone with demand in the period."
+    )
+    zones_counted: int | None = Field(
+        default=None, description="Number of zones with demand that the index covers."
+    )
     share_covered_by_top_100: float | None = None
 
 
@@ -300,7 +306,14 @@ class Move(Model):
 class ScenarioResponse(Model):
     label: str
     data_label: str
-    status: Literal["optimal", "feasible_time_limit", "infeasible", "no_solution"]
+    status: Literal[
+        "optimal",
+        "feasible_time_limit",
+        "infeasible",
+        "no_solution",
+        "unbounded",
+        "solver_error",
+    ]
     message: str
     context: dict[str, Any]
     assumptions: dict[str, Any]

@@ -1,6 +1,16 @@
 # MobilityOps for Android
 
-A native Android app (Java, Gradle) that shows the MobilityOps dashboard on a phone: a **Live**
+A native Android app (Gradle; Java and Kotlin) that shows the MobilityOps dashboard on a phone. It asks the server which
+mode it is in and shows one of two experiences:
+
+* **Pune** (server in `pune` mode): **Home**, **Map**, **Forecast**, **Alerts** and **Status**, plus a zone-details screen
+  reached from the map, the alerts and the home screen. Written in Kotlin. Every screen carries the SIMULATED-demand banner,
+  every value its data class and freshness, and a "Not current" notice appears when the stream, the worker or a source
+  stops (the last numbers are kept and their time is stated). One shared connection to the state stream, opened only while
+  a Pune screen is visible.
+* **New York** (any other mode): the tabs below, in Java.
+
+The New York description follows. A **Live**
 tab (a labelled replay of held-out taxi days beside live Citi Bike and weather feeds), the
 **Overview**, **Forecast** accuracy and next-day forecast, **Anomalies**, and **Settings** for the
 server address and API key. It talks to your own MobilityOps server
@@ -30,7 +40,8 @@ wrapper.
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk          # or put sdk.dir=... in local.properties
 ./gradlew assembleDebug                           # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest lintDebug             # 27 unit tests and Android lint
+./gradlew testDebugUnitTest lintDebug             # 45 unit tests and Android lint
+./gradlew bundleRelease                           # app/build/outputs/bundle/release/app-release.aab (Play Store format)
 ```
 
 Install on a device or emulator: `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
@@ -46,7 +57,8 @@ keytool -genkeypair -v -keystore ~/mobilityops-release.jks -alias mobilityops \
         -keyalg RSA -keysize 2048 -validity 10000
 export MOBILITYOPS_KEYSTORE=~/mobilityops-release.jks
 export MOBILITYOPS_KEYSTORE_PASSWORD=...          # the password you chose
-./gradlew assembleRelease                         # app/build/outputs/apk/release/app-release.apk
+export MOBILITYOPS_KEY_PASSWORD=...               # if different from the store password
+./gradlew assembleRelease bundleRelease           # release APK and AAB
 $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose app-release.apk
 ```
 

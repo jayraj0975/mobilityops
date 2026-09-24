@@ -37,6 +37,51 @@ is built to be self-hosted (ADR-016).
                                 refusals                    (ADR-015)
 ```
 
+## Pune: the real-time platform (`MOBILITYOPS_MODE=pune`)
+
+The New York pipeline above is the reference city: real trips, every model validated on real observations. Pune
+runs the same forecasting, anomaly and API code on **simulated demand** (no open Pune trip source exists, see
+[PUNE_DATA_SOURCES](PUNE_DATA_SOURCES.md)) and adds a live operational layer. What is real in Pune is the plumbing and
+three inputs: rain, the holiday calendar and the zone geography.
+
+```
+ Open-Meteo current      Open-Meteo air quality     Open-Meteo recent rain     OpenStreetMap suburbs (once)
+ (15 min, 9 points)      (60 min, modelled)         (hourly, last days)        Maharashtra holidays (package)
+        \                      |                          |                            |
+         v                     v                          v                            v
+  ┌──────────────── worker (separate process, sole writer) ───────────────┐   pune-build (batch, daily/manual)
+  │ one job per source, own schedule; validate ranges; keep observed_at    │   ERA5 rain + zones + calendar
+  │ and received_at apart; failures recorded, backed off, never replaced   │        │
+  │ by invented values; simulated demand for yesterday+today (pure         │        v
+  │ function of seed, date, rain); today's forecast; live event rule       │   DuckDB gold (same tables as NYC)
+  └───────────────┬────────────────────────────────────────────────────────┘        │  quality gate, atomic promote
+                  v                                                                 v
+        SQLite (WAL) operational store  ◄── read-only ──  forecast model (LightGBM, conformal 80% range)
+        observation · zone_hour · zone_forecast · live_event · ingestion_run · kv
+                  │  query_only
+                  v
+        API (FastAPI)  /api/v1/state/{snapshot,geometry,zones/{id},series,events,sources,quality,runs}
+                  │                       └── /state/stream (SSE: hello, snapshot, heartbeat; viewer cap)
+                  v
+        Web console (React)                 Android app (Kotlin screens in the Gradle project)
+        freshness computed from source timestamps, shown next to every number
+```
+
+Decisions behind the shape (ADR-018 to ADR-021):
+
+* **SQLite for live state, DuckDB for history.** One writer, a few readers, a few thousand rows a day, one machine:
+  Postgres and Redis would add two services to operate and secure for no capability the workload needs. The API opens
+  the file `query_only`, so a bug in a request handler cannot write.
+* **A separate worker process.** Ingestion must keep running with no viewers, must not share a crash domain with the
+  API, and is the only writer. The API never calls a data source.
+* **Freshness is derived, not set.** `freshness.py` compares each source's own `observed_at` and the last good poll with
+  how often that source should update. A source that answers but repeats an old timestamp goes STALE.
+* **Simulated demand is a pure function of (seed, date, weather).** Each cell's count is the Poisson quantile of a fixed
+  uniform, so new rain data or a planted event changes only the cells whose rate changed. The batch build and the live
+  worker therefore agree exactly (a test proves it), and nothing already shown is rewritten when data arrives.
+* **Everything is labelled.** SIMULATED, PREDICTED, NEAR-REAL-TIME, RECENT, HISTORICAL, STATIC on every panel; MODELLED
+  where a value is model output rather than an instrument reading; nothing in Pune is called LIVE.
+
 ## Layers and their contracts
 
 | Layer | Code | Contract |

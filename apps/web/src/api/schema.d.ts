@@ -527,6 +527,200 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/state/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Events
+         * @description Events the live rule found among today's completed hours (SIMULATED demand).
+         */
+        get: operations["state_events_api_v1_state_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/geometry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Geometry
+         * @description Zone polygons and attribution (OpenStreetMap, ODbL). Static: cache freely.
+         */
+        get: operations["state_geometry_api_v1_state_geometry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Quality
+         * @description The data-quality centre: database checks, source health and recent ingestion runs.
+         */
+        get: operations["state_quality_api_v1_state_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State Runs */
+        get: operations["state_runs_api_v1_state_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Series
+         * @description Citywide hourly demand against its forecast (the running hour is pro-rated).
+         */
+        get: operations["state_series_api_v1_state_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Snapshot
+         * @description Every zone's simulated demand against its forecast at ``at`` (NOW, -15m, -1h, -6h,
+         *     today, or forecast), plus events, weather, and the freshness of every source.
+         */
+        get: operations["state_snapshot_api_v1_state_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Sources
+         * @description Every data source: what it is, its licence, and its freshness right now.
+         */
+        get: operations["state_sources_api_v1_state_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Stream
+         * @description Server-sent events: ``hello`` (a full snapshot), ``snapshot`` when the store changes
+         *     (and at least every 30 s), and ``heartbeat`` every 10 s. ``limit`` ends the stream after
+         *     that many events (for tests and ``curl``).
+         */
+        get: operations["state_stream_api_v1_state_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/stream/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State Stream Status */
+        get: operations["state_stream_status_api_v1_state_stream_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/state/zones/{zone_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State Zone */
+        get: operations["state_zone_api_v1_state_zones__zone_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/zones": {
         parameters: {
             query?: never;
@@ -782,6 +976,24 @@ export interface components {
             /** Zone Name */
             zone_name: string;
         };
+        /** CitySeries */
+        CitySeries: {
+            /** Data Label */
+            data_label: string;
+            /** Envelope Note */
+            envelope_note: string;
+            /** Series */
+            series: components["schemas"]["mobilityops__api__state_schemas__SeriesPoint"][];
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            /** Today Actual */
+            today_actual: number;
+            /** Today Forecast */
+            today_forecast: number;
+        };
         /** Comparison */
         Comparison: {
             /** Equal Length */
@@ -799,7 +1011,10 @@ export interface components {
         };
         /** Concentration */
         Concentration: {
-            /** Herfindahl Index */
+            /**
+             * Herfindahl Index
+             * @description Computed over every zone with demand in the period.
+             */
             herfindahl_index: number;
             /** Share Covered By Top 100 */
             share_covered_by_top_100?: number | null;
@@ -807,6 +1022,113 @@ export interface components {
             top_n: number;
             /** Top N Share */
             top_n_share: number;
+            /**
+             * Zones Counted
+             * @description Number of zones with demand that the index covers.
+             */
+            zones_counted?: number | null;
+        };
+        /** DataQuality */
+        DataQuality: {
+            /** Data Label */
+            data_label: string;
+            database: components["schemas"]["DatabaseInfo"];
+            /** Health */
+            health: components["schemas"]["SourceHealth"][];
+            /** Notes */
+            notes: string[];
+            /** Runs */
+            runs: components["schemas"]["IngestionRun"][];
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            /** Sources */
+            sources: components["schemas"]["SourceState"][];
+        };
+        /** DatabaseInfo */
+        DatabaseInfo: {
+            /** Available */
+            available: boolean;
+            /** Built At Utc */
+            built_at_utc?: string | null;
+            /** Checks */
+            checks: components["schemas"]["QualityItem"][];
+            /**
+             * Days Behind
+             * @description Days between the database's last day and today (extended live).
+             */
+            days_behind?: number | null;
+            /** Rows Valid */
+            rows_valid?: number | null;
+            /** Run Id */
+            run_id?: string | null;
+            /** Synthetic */
+            synthetic?: boolean | null;
+            /** Window End */
+            window_end?: string | null;
+            /** Window Start */
+            window_start?: string | null;
+        };
+        /** EnvironmentBlock */
+        EnvironmentBlock: {
+            /** Attribution */
+            attribution: string;
+            humidity?: components["schemas"]["Reading"] | null;
+            pm10?: components["schemas"]["Reading"] | null;
+            pm2_5?: components["schemas"]["Reading"] | null;
+            precipitation?: components["schemas"]["Reading"] | null;
+            temperature?: components["schemas"]["Reading"] | null;
+            us_aqi?: components["schemas"]["Reading"] | null;
+            wind?: components["schemas"]["Reading"] | null;
+        };
+        /** EventItem */
+        EventItem: {
+            /** Actual */
+            actual: number;
+            /**
+             * Data Class
+             * @enum {string}
+             */
+            data_class: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
+            /**
+             * Detected At
+             * Format: date-time
+             */
+            detected_at: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Expected */
+            expected: number;
+            /** Explanation */
+            explanation: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "surge" | "drop";
+            /** Score */
+            score: number;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "low" | "medium" | "high";
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /** Zone */
+            zone: string;
+            /** Zone Id */
+            zone_id: number;
         };
         /** ForecastPoint */
         ForecastPoint: {
@@ -823,6 +1145,21 @@ export interface components {
             hour_ts: string;
             /** Lo */
             lo?: number | null;
+        };
+        /** Geometry */
+        Geometry: {
+            /** Attribution */
+            attribution: string;
+            /** Bbox */
+            bbox: number[];
+            /** City */
+            city: string;
+            /** Licence */
+            licence: string;
+            /** Method */
+            method: string;
+            /** Zones */
+            zones: components["schemas"]["ZoneGeometry"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -847,6 +1184,33 @@ export interface components {
             /** N Hours */
             n_hours: number;
         };
+        /** IngestionRun */
+        IngestionRun: {
+            /** Duration Ms */
+            duration_ms: number;
+            /** Error */
+            error?: string | null;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Id */
+            id: number;
+            /** Ok */
+            ok: boolean;
+            /** Records In */
+            records_in: number;
+            /** Records Ok */
+            records_ok: number;
+            /** Source */
+            source: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
         /** Meta */
         Meta: {
             /** Api Version */
@@ -857,6 +1221,11 @@ export interface components {
             };
             /** Built At Utc */
             built_at_utc: string;
+            /**
+             * City
+             * @default New York City
+             */
+            city?: string;
             /**
              * Data End
              * Format: date-time
@@ -876,7 +1245,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "sample" | "real";
+            mode: "sample" | "real" | "pune";
             /** N Zones */
             n_zones: number;
             /** Rows Valid */
@@ -964,6 +1333,18 @@ export interface components {
              */
             status: "PASS" | "WARN" | "FAIL";
         };
+        /** QualityItem */
+        QualityItem: {
+            /** Check */
+            check: string;
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PASS" | "WARN" | "FAIL";
+        };
         /** QualityStage */
         QualityStage: {
             /**
@@ -975,6 +1356,25 @@ export interface components {
             results: components["schemas"]["QualityCheck"][];
             /** Stage */
             stage: string;
+        };
+        /** Reading */
+        Reading: {
+            /**
+             * Freshness
+             * @enum {string}
+             */
+            freshness: "LIVE" | "DELAYED" | "STALE" | "OFFLINE" | "DISABLED" | "NOT_PERIODIC";
+            /** Modelled */
+            modelled: boolean;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: number;
         };
         /** Ready */
         Ready: {
@@ -1086,19 +1486,9 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "optimal" | "feasible_time_limit" | "infeasible" | "no_solution";
+            status: "optimal" | "feasible_time_limit" | "infeasible" | "no_solution" | "unbounded" | "solver_error";
             /** Vehicles Moved */
             vehicles_moved: number;
-        };
-        /** SeriesPoint */
-        SeriesPoint: {
-            /**
-             * Ts
-             * Format: date-time
-             */
-            ts: string;
-            /** Value */
-            value: number;
         };
         /** SeriesResponse */
         SeriesResponse: {
@@ -1118,7 +1508,7 @@ export interface components {
              */
             metric: "pickups" | "dropoffs" | "revenue";
             /** Points */
-            points: components["schemas"]["SeriesPoint"][];
+            points: components["schemas"]["mobilityops__api__schemas__SeriesPoint"][];
             /**
              * Start
              * Format: date
@@ -1167,6 +1557,154 @@ export interface components {
             /** Service */
             service: string;
         };
+        /** SourceHealth */
+        SourceHealth: {
+            /**
+             * Freshness
+             * @enum {string}
+             */
+            freshness: "LIVE" | "DELAYED" | "STALE" | "OFFLINE" | "DISABLED" | "NOT_PERIODIC";
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Mean Duration Ms */
+            mean_duration_ms: number | null;
+            /** Rejected Records 24H */
+            rejected_records_24h: number;
+            /** Runs 24H */
+            runs_24h: number;
+            /** Success Rate 24H */
+            success_rate_24h: number | null;
+        };
+        /** SourceState */
+        SourceState: {
+            /**
+             * Age S
+             * @description Since the source's own timestamp.
+             */
+            age_s?: number | null;
+            /** Consecutive Failures */
+            consecutive_failures: number;
+            /**
+             * Data Class
+             * @enum {string}
+             */
+            data_class: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
+            /** Disabled Reason */
+            disabled_reason?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Freshness
+             * @enum {string}
+             */
+            freshness: "LIVE" | "DELAYED" | "STALE" | "OFFLINE" | "DISABLED" | "NOT_PERIODIC";
+            /** Interval S */
+            interval_s?: number | null;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Observed At */
+            last_observed_at?: string | null;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Licence */
+            licence: string;
+            /** Modelled */
+            modelled: boolean;
+            /** Note */
+            note: string;
+            /** Provider */
+            provider: string;
+            /** Records Total */
+            records_total: number;
+            /** Runs */
+            runs: number;
+            /**
+             * Since Poll S
+             * @description Since our last good poll.
+             */
+            since_poll_s?: number | null;
+            /** Successes */
+            successes: number;
+        };
+        /** StateSnapshot */
+        StateSnapshot: {
+            /** City */
+            city: string;
+            /** Data Label */
+            data_label: string;
+            /**
+             * Demand Class
+             * @enum {string}
+             */
+            demand_class: "LIVE" | "NEAR-REAL-TIME" | "RECENT" | "HISTORICAL" | "PREDICTED" | "SIMULATED" | "STATIC";
+            environment: components["schemas"]["EnvironmentBlock"];
+            /** Events */
+            events: components["schemas"]["EventItem"][];
+            /** Forecast Made At */
+            forecast_made_at?: string | null;
+            /** Forecast Model */
+            forecast_model?: string | null;
+            /**
+             * Freshness
+             * @description The least healthy source that applies.
+             * @enum {string}
+             */
+            freshness: "LIVE" | "DELAYED" | "STALE" | "OFFLINE" | "DISABLED" | "NOT_PERIODIC";
+            /**
+             * Selector
+             * @enum {string}
+             */
+            selector: "now" | "-15m" | "-1h" | "-6h" | "today" | "forecast";
+            /**
+             * Seq
+             * @description Increases whenever the operational store changes.
+             */
+            seq: number;
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            /** Sources */
+            sources: components["schemas"]["SourceState"][];
+            /** Timezone */
+            timezone: string;
+            totals: components["schemas"]["Totals"];
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /** Window Note */
+            window_note: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            worker: components["schemas"]["WorkerState"];
+            /** Zones */
+            zones: components["schemas"]["ZoneValue"][];
+        };
+        /** StreamStatus */
+        StreamStatus: {
+            /** Dropped Events */
+            dropped_events: number;
+            /** Max Streams */
+            max_streams: number;
+            /** Published */
+            published: number;
+            /** Streams */
+            streams: number;
+        };
         /** TopZone */
         TopZone: {
             /** Borough */
@@ -1182,6 +1720,19 @@ export interface components {
             value: number;
             /** Zone */
             zone: string;
+        };
+        /** Totals */
+        Totals: {
+            /** Actual */
+            actual: number | null;
+            /** Forecast */
+            forecast: number;
+            /** Hi */
+            hi: number;
+            /** Lo */
+            lo: number;
+            /** Ratio */
+            ratio: number | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1242,6 +1793,20 @@ export interface components {
             /** N Days */
             n_days: number;
         };
+        /** WorkerState */
+        WorkerState: {
+            /** Age S */
+            age_s?: number | null;
+            /**
+             * Freshness
+             * @enum {string}
+             */
+            freshness: "LIVE" | "DELAYED" | "STALE" | "OFFLINE" | "DISABLED" | "NOT_PERIODIC";
+            /** Last Tick At */
+            last_tick_at?: string | null;
+            /** Pid */
+            pid?: number | null;
+        };
         /** Zone */
         Zone: {
             /** Borough */
@@ -1256,6 +1821,105 @@ export interface components {
             service_zone?: string | null;
             /** Zone */
             zone: string;
+        };
+        /** ZoneDetail */
+        ZoneDetail: {
+            /** Data Label */
+            data_label: string;
+            /** Events */
+            events: components["schemas"]["EventItem"][];
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Sector */
+            sector: string;
+            /** Series */
+            series: components["schemas"]["mobilityops__api__state_schemas__SeriesPoint"][];
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            /** Today Actual */
+            today_actual: number;
+            /** Today Forecast */
+            today_forecast: number;
+        };
+        /** ZoneGeometry */
+        ZoneGeometry: {
+            /** Area Km2 */
+            area_km2: number;
+            /** Id */
+            id: number;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Name */
+            name: string;
+            /** Ring */
+            ring: number[][];
+            /** Sector */
+            sector: string;
+        };
+        /** ZoneValue */
+        ZoneValue: {
+            /**
+             * Actual
+             * @description Simulated pickups in the window (null for FORECAST).
+             */
+            actual: number | null;
+            /** Event Id */
+            event_id?: string | null;
+            /** Forecast */
+            forecast: number;
+            /** Hi */
+            hi: number;
+            /** Id */
+            id: number;
+            /** Lo */
+            lo: number;
+            /** Ratio */
+            ratio?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "normal" | "surge" | "drop";
+            /**
+             * Z
+             * @description Standardised deviation from the forecast.
+             */
+            z?: number | null;
+        };
+        /** SeriesPoint */
+        mobilityops__api__schemas__SeriesPoint: {
+            /**
+             * Ts
+             * Format: date-time
+             */
+            ts: string;
+            /** Value */
+            value: number;
+        };
+        /** SeriesPoint */
+        mobilityops__api__state_schemas__SeriesPoint: {
+            /** Actual */
+            actual: number | null;
+            /** Forecast */
+            forecast: number | null;
+            /** Hi */
+            hi: number | null;
+            /**
+             * Hour
+             * Format: date-time
+             */
+            hour: string;
+            /** Lo */
+            lo: number | null;
+            /** Partial */
+            partial: boolean;
         };
     };
     responses: never;
@@ -2211,6 +2875,331 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QualityStage"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_events_api_v1_state_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_geometry_api_v1_state_geometry_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Geometry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_quality_api_v1_state_quality_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataQuality"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_runs_api_v1_state_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                source?: string | null;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_series_api_v1_state_series_get: {
+        parameters: {
+            query?: {
+                back?: number;
+                ahead?: number;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CitySeries"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_snapshot_api_v1_state_snapshot_get: {
+        parameters: {
+            query?: {
+                at?: "now" | "-15m" | "-1h" | "-6h" | "today" | "forecast";
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StateSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_sources_api_v1_state_sources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceState"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_stream_api_v1_state_stream_get: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-sent events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_stream_status_api_v1_state_stream_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_zone_api_v1_state_zones__zone_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path: {
+                zone_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZoneDetail"];
                 };
             };
             /** @description Validation Error */

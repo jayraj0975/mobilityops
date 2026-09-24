@@ -35,6 +35,7 @@ DUPLICATE_RATE_WARN = 0.01
 DAY_COVERAGE_WARN = 0.95  # share of window days that contain at least one trip
 DAY_COVERAGE_FAIL = 0.50
 WEATHER_COVERAGE_WARN = 0.95
+DROPOFF_UNALLOCATED_WARN = 0.02  # more than 2% of dropoffs cannot be placed in the zone-hour grid
 
 
 class Status(StrEnum):
@@ -369,6 +370,34 @@ def check_gold(
                     fact=have,
                     silver=want,
                 )
+        # Dropoffs: every trip's dropoff is either in the fact table or accounted for as
+        # unallocated (unknown zone, or an hour outside the grid). Nothing may vanish silently.
+        placed = int(scalar("SELECT coalesce(sum(dropoffs), 0) FROM fact_zone_hourly_demand"))
+        unplaced = int(scalar("SELECT coalesce(sum(trips), 0) FROM dq_unallocated_dropoffs"))
+        r.add(
+            "dropoffs_reconcile_with_silver",
+            Status.PASS if placed + unplaced == silver.rows_valid else Status.FAIL,
+            f"dropoffs placed {placed:,} + unallocated {unplaced:,} vs silver trips "
+            f"{silver.rows_valid:,}",
+            placed=placed,
+            unallocated=unplaced,
+            silver=silver.rows_valid,
+        )
+        share = unplaced / silver.rows_valid if silver.rows_valid else 0.0
+        by_reason = {
+            str(k): int(v)
+            for k, v in con.execute(
+                "SELECT reason, sum(trips) FROM dq_unallocated_dropoffs GROUP BY 1"
+            ).fetchall()
+        }
+        r.add(
+            "dropoffs_unallocated_share",
+            _rate_status(share, DROPOFF_UNALLOCATED_WARN),
+            f"{share:.2%} of dropoffs cannot be placed in the zone-hour grid "
+            f"({by_reason or 'none'}); the trips' pickups are unaffected",
+            share=share,
+            by_reason=by_reason,
+        )
         n_dates = (window[1] - window[0]).days
         weather_days = scalar("SELECT count(*) FROM fact_weather_daily WHERE prcp_mm IS NOT NULL")
         cov = weather_days / n_dates if n_dates else 0.0

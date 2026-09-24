@@ -11,6 +11,9 @@ services:
     build: .
     image: mobilityops:local
     restart: unless-stopped
+    # Must be able to write ./data/live (the Pune live state). Set MOBILITYOPS_UID/GID to your own
+    # user's ids (`id -u`, `id -g`) so the bind-mounted folder is writable; see docs/PRODUCTION.md.
+    user: "${MOBILITYOPS_UID:-10001}:${MOBILITYOPS_GID:-10001}"
     # Bind to localhost by default; set MOBILITYOPS_BIND=0.0.0.0 to serve your local network.
     ports:
       - "${MOBILITYOPS_BIND:-127.0.0.1}:${MOBILITYOPS_PORT:-8000}:8000"
@@ -24,10 +27,15 @@ services:
       MOBILITYOPS_LIVE_FEEDS: ${MOBILITYOPS_LIVE_FEEDS:-true}
       MOBILITYOPS_LIVE_SECONDS_PER_HOUR: ${MOBILITYOPS_LIVE_SECONDS_PER_HOUR:-2}
       MOBILITYOPS_THREADS: ${MOBILITYOPS_THREADS:-2}
+      # Only if the web console is hosted on another origin than the API (see docs/PRODUCTION.md).
+      MOBILITYOPS_CORS_ORIGINS: ${MOBILITYOPS_CORS_ORIGINS:-}
     # No --allow-unauthenticated here: a key is mandatory.
     command: ["serve", "--host", "0.0.0.0"]
     volumes:
       - ./data:/app/data:ro
+      # The live state (SQLite, WAL) is the one place the API needs write access to: a reader of a
+      # WAL database maintains its shared-memory file. The API opens it query-only.
+      - ./data/live:/app/data/live
       - ./artifacts:/app/artifacts:ro
     read_only: true
     tmpfs:
@@ -36,6 +44,39 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    stop_grace_period: 15s
+
+  # Pune only (MOBILITYOPS_MODE=pune): the ingestion worker, the sole writer of the live state.
+  # A separate process so ingestion keeps running with no viewers and cannot take the API down.
+  #   docker compose --profile pune up -d
+  worker:
+    image: mobilityops:local
+    profiles: ["pune"]
+    restart: unless-stopped
+    user: "${MOBILITYOPS_UID:-10001}:${MOBILITYOPS_GID:-10001}"
+    depends_on:
+      - mobilityops
+    environment:
+      MOBILITYOPS_MODE: pune
+      MOBILITYOPS_THREADS: ${MOBILITYOPS_THREADS:-2}
+    command: ["pune-worker"]
+    volumes:
+      - ./data:/app/data:ro
+      - ./data/live:/app/data/live
+      - ./artifacts:/app/artifacts:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; from mobilityops.config import Settings; from mobilityops.pune.store import worker_alive; sys.exit(0 if worker_alive(Settings.from_env().state_path) else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
 
   # Optional HTTPS in front (automatic certificates, or Caddy's local CA for a LAN name).
   # Set MOBILITYOPS_DOMAIN and MOBILITYOPS_TRUST_PROXY=1 in .env, then use --profile tls.
@@ -50,6 +91,8 @@ services:
       - "443:443"
     environment:
       MOBILITYOPS_DOMAIN: ${MOBILITYOPS_DOMAIN:-localhost}
+      MOBILITYOPS_WWW_HOST: ${MOBILITYOPS_WWW_HOST:-}
+      MOBILITYOPS_API_HOST: ${MOBILITYOPS_API_HOST:-}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

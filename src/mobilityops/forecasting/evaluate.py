@@ -364,14 +364,14 @@ def run_evaluation(
     settings: Settings, cfg: EvalConfig | None = None, *, oracle_experiment: bool = True
 ) -> dict[str, Any]:
     """Walk-forward evaluation on the gold layer; writes the report and predictions to artifacts."""
-    t = load_demand(settings.db_path)
+    t = load_demand(settings.db_path, settings.city)
     cfg = cfg or default_config(t.n_days)
     cfg = _with_threads(cfg, settings)
     wf = walk_forward(t, cfg)
     report: dict[str, Any] = {
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "data_run_id": data_run_id(settings.db_path),
         "data_days": [t.days[0].date(), t.days[-1].date()],
         "config": asdict(cfg),
@@ -406,7 +406,7 @@ def run_evaluation(
 
 def train_final(settings: Settings, cfg: EvalConfig | None = None) -> Path:
     """Fit on all data up to the last day (minus a calibration block) and register the model."""
-    t = load_demand(settings.db_path)
+    t = load_demand(settings.db_path, settings.city)
     cfg = _with_threads(cfg or default_config(t.n_days), settings)
     frame = build_features(t, holiday_features=cfg.holiday_features)
     day = frame["day_index"].to_numpy()

@@ -107,6 +107,16 @@ is a BIGINT because for-hire counts are large. The `yellow` rows are copied from
 `fact_zone_hourly_demand`, and a quality check confirms they match. Each other service is checked
 against its cleaned trips in valid hours.
 
+### `dq_unallocated_dropoffs` (grain: reason x dropoff zone)
+
+Trips whose **dropoff** is not in `fact_zone_hourly_demand`: `reason` is `unknown_dropoff_zone` (the id is
+missing, or is one of the TLC's "unknown" ids 264 and 265, or is not a real zone; `do_zone` says which) or
+`dropoff_outside_grid` (the dropoff hour is outside the window, for example a trip that ends after midnight on the
+last day; `do_zone` is null). Pickups are validated by *rejecting* the trip; dropoffs are validated by
+*accounting*: the trip's pickup is real demand, so it stays, and its dropoff is counted here. A quality check
+requires placed dropoffs + this table = silver trips exactly, and warns above 2%. On the 2024 yellow data 273,264
+trips (0.68%) are here: 158,436 to zone 265, 114,324 to zone 264 and 504 after the window ends.
+
 ### `fact_weather_daily` (grain: one date; PK `date`)
 
 `prcp_mm`, `snow_mm`, `tmax_c`, `tmin_c`, and derived flags `is_rain` (>= 1 mm), `is_snow` (> 0 mm),

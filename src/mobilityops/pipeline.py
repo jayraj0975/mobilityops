@@ -99,7 +99,7 @@ def _write_run_metadata(
                 "duckdb": duckdb.__version__,
                 "pandas": pd.__version__,
                 "lightgbm": lightgbm.__version__,
-                "synthetic": settings.mode == "sample",
+                "synthetic": settings.synthetic,
             }
         ]
     )

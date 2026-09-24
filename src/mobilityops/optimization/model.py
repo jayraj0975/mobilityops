@@ -50,7 +50,49 @@ class SolveStatus(StrEnum):
     OPTIMAL = "optimal"
     FEASIBLE_TIME_LIMIT = "feasible_time_limit"  # best solution found, optimality not proven
     INFEASIBLE = "infeasible"
-    NO_SOLUTION = "no_solution"  # time limit hit before any solution, or solver failure
+    NO_SOLUTION = "no_solution"  # time limit hit before any solution
+    UNBOUNDED = "unbounded"  # the model has no finite optimum: a formulation error, never a plan
+    SOLVER_ERROR = "solver_error"  # numerical trouble or an unrecognised status: not to be trusted
+
+
+# SciPy's ``milp`` exit statuses (scipy.optimize.milp): 0 optimal, 1 iteration or time limit,
+# 2 infeasible, 3 unbounded, 4 other (numerical difficulties). Every one is handled explicitly: a
+# status that is not recognised must never be presented as a benign time limit.
+_MILP_STATUS = {0: "optimal", 1: "limit", 2: "infeasible", 3: "unbounded", 4: "other"}
+
+
+def classify_solver_status(code: int, has_solution: bool) -> tuple[SolveStatus, str]:
+    """Map a SciPy ``milp`` exit status to a :class:`SolveStatus` and an explanation."""
+    kind = _MILP_STATUS.get(int(code))
+    if kind == "optimal":
+        return SolveStatus.OPTIMAL, "optimal under the stated assumptions"
+    if kind == "limit":
+        if has_solution:
+            return (
+                SolveStatus.FEASIBLE_TIME_LIMIT,
+                "time or iteration limit reached: best solution found, optimality not proven",
+            )
+        return (
+            SolveStatus.NO_SOLUTION,
+            "the time or iteration limit was reached before any solution",
+        )
+    if kind == "infeasible":
+        return SolveStatus.INFEASIBLE, "the request is infeasible under these assumptions"
+    if kind == "unbounded":
+        return (
+            SolveStatus.UNBOUNDED,
+            "the solver reports the model as unbounded (a formulation error); no plan is shown",
+        )
+    if kind == "other":
+        return (
+            SolveStatus.SOLVER_ERROR,
+            "the solver reported numerical difficulties; any plan it returned is not trusted "
+            "and is not shown",
+        )
+    return (
+        SolveStatus.SOLVER_ERROR,
+        f"the solver returned an unrecognised status ({code}); no plan is shown",
+    )
 
 
 @dataclass(frozen=True)
@@ -245,9 +287,14 @@ def solve_rebalancing(inst: Instance, params: RebalanceParams | None = None) -> 
             f"{params.max_km:g} km, {inst.fleet} vehicles)"
         )
         return result
+    outcome, explanation = classify_solver_status(res.status, res.x is not None)
+    if outcome in (SolveStatus.UNBOUNDED, SolveStatus.SOLVER_ERROR):
+        result.status = outcome  # never present a plan from an untrustworthy solve
+        result.message = f"{explanation} ({res.message})"
+        return result
     if res.x is None:
         result.status = SolveStatus.NO_SOLUTION
-        result.message = f"the solver returned no solution ({res.message})"
+        result.message = f"the solver returned no solution: {explanation} ({res.message})"
         return result
 
     x = np.rint(res.x[: len(src)]) if params.integer else res.x[: len(src)]
@@ -275,13 +322,9 @@ def solve_rebalancing(inst: Instance, params: RebalanceParams | None = None) -> 
     result.served_after = served_trips(inst.demand, final, params.trips_per_vehicle)
     result.vehicles_moved = round(float(x.sum()))
     result.km_total = float((x * km).sum())
-    result.status = SolveStatus.OPTIMAL if res.status == 0 else SolveStatus.FEASIBLE_TIME_LIMIT
+    result.status = outcome  # OPTIMAL or FEASIBLE_TIME_LIMIT: the only two that carry a plan here
     result.solver["mip_gap"] = getattr(res, "mip_gap", None)
-    result.message = (
-        "optimal under the stated assumptions"
-        if result.status is SolveStatus.OPTIMAL
-        else "time limit reached: best solution found, optimality not proven"
-    )
+    result.message = explanation
     return _check_service(result, params)
 
 

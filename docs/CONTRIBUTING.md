@@ -20,7 +20,11 @@ downloads the real datasets) and a web job (type generation drift, typecheck, te
   After upgrading, run `make lock`, then re-run `forecast-eval`, `anomalies` and the analyst
   benchmark: library versions can change numeric results, and the committed reports must still
   match (`tests/unit/test_docs_consistency.py` checks the documents against them).
-* Dependabot opens weekly grouped updates for pip, npm, GitHub Actions and Docker. TypeScript is
+* CI installs Python dependencies against `requirements.lock` (so a run is reproducible), audits
+  them with `pip-audit`, audits the web app with `npm audit`, scans the code with CodeQL, validates
+  the Gradle wrapper, and builds and starts the Docker image. Every GitHub Action is pinned to a
+  commit SHA (the tag is in the comment beside it); Dependabot proposes the bumps.
+* Dependabot opens weekly grouped updates for pip, npm, Gradle, GitHub Actions and Docker. TypeScript is
   held at 5.x because `openapi-typescript` needs its JavaScript compiler API (TypeScript 7 removed
   it); ESLint is held at 9 until the React and accessibility plugins support 10.
 
@@ -78,3 +82,39 @@ Run `analyst-benchmark`; runs are appended to the history and never overwrite ea
 
 Small, meaningful commits with a plain message that says what changed and why. Do not commit
 generated artifacts other than the small reports in `reports/`.
+
+## Versions and releases
+
+The Python package, the API, the web app and the changelog share one version (`pyproject.toml`,
+`mobilityops.__version__`, `apps/web/package.json` and its lockfile; a test keeps them equal). Unreleased
+work sits under `## Unreleased` in `CHANGELOG.md`; a release gives it a version heading and tags the commit
+(`vX.Y.Z`). The Android app has its own `versionName` and tags (`android-vX.Y.Z`), because an installed app
+is updated on a different schedule from the server.
+
+## Recommended repository settings
+
+`main` is **not protected** at the time of writing (checked with the GitHub API; secret scanning, push
+protection and Dependabot security updates are on). Protection was deliberately not switched on
+automatically, because it changes how the owner pushes. To require the CI checks and pull requests, with the
+owner still able to bypass in an emergency (`enforce_admins` false), run once as the repository admin:
+
+```bash
+gh api -X PUT repos/OWNER/REPO/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["python (3.12)", "python (3.13)", "python (3.14)", "web", "e2e", "android", "audit", "docker"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": {"required_approving_review_count": 0},
+  "restrictions": null,
+  "required_linear_history": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+```
+
+Also worth enabling in the repository settings: automatic deletion of merged branches, and CodeQL results under
+Security. The job names above must match `.github/workflows/ci.yml`.
+

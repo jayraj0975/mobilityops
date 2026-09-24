@@ -79,7 +79,7 @@ def summarize(df: pd.DataFrame, t: DemandTensor, seed: int = 7) -> dict[str, Any
     day_kind = pd.Series(
         np.where(
             cal["is_holiday"].to_numpy()[df["day_index"].to_numpy()],
-            "federal holiday",
+            t.city.holiday_kind,
             np.where(
                 cal["is_weekend"].to_numpy()[df["day_index"].to_numpy()], "weekend", "weekday"
             ),
@@ -128,7 +128,7 @@ SENSITIVITY: tuple[tuple[str, dict[str, Any]], ...] = (
 def run_backtest(
     settings: Settings, cfg: BacktestConfig | None = None, *, sensitivity: bool = True
 ) -> dict[str, Any]:
-    t = load_demand(settings.db_path)
+    t = load_demand(settings.db_path, settings.city)
     preds = load_predictions(settings)
     cfg = cfg or BacktestConfig()
     df, skipped = backtest(t, preds, cfg)
@@ -136,7 +136,7 @@ def run_backtest(
         "label": SIMULATION_LABEL,
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "data_run_id": data_run_id(settings.db_path),
         "design": (
             "For each out-of-sample day and window: vehicles start distributed by the previous "
@@ -200,7 +200,7 @@ def scenario_report(
     preds: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """One what-if. ``t``/``preds`` may be passed in by a caller that already holds them cached."""
-    t = t if t is not None else load_demand(settings.db_path)
+    t = t if t is not None else load_demand(settings.db_path, settings.city)
     preds = preds if preds is not None else load_predictions(settings)
     ts = pd.Timestamp(when)
     if ts not in t.days:
@@ -230,5 +230,5 @@ def scenario_report(
     out.pop("final_supply", None)
     out["context"] = ctx
     out["mode"] = settings.mode
-    out["data_label"] = "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data"
+    out["data_label"] = settings.data_label
     return out

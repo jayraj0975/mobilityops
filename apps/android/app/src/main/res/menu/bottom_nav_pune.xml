@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_pune_home" android:icon="@drawable/ic_overview" android:title="@string/nav_pune_home" />
+    <item android:id="@+id/nav_pune_map" android:icon="@drawable/ic_live" android:title="@string/nav_pune_map" />
+    <item android:id="@+id/nav_pune_forecast" android:icon="@drawable/ic_forecast" android:title="@string/nav_pune_forecast" />
+    <item android:id="@+id/nav_pune_alerts" android:icon="@drawable/ic_anomalies" android:title="@string/nav_pune_alerts" />
+    <item android:id="@+id/nav_pune_status" android:icon="@drawable/ic_settings" android:title="@string/nav_pune_status" />
+</menu>

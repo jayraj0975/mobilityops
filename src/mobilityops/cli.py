@@ -21,6 +21,7 @@ from mobilityops.quality.checks import QualityGateError
 from mobilityops.sample import SYNTHETIC_LABEL, SampleSpec, generate_sample
 
 log = get_logger("cli")
+GRACEFUL_SHUTDOWN_SECONDS = 5
 
 
 def cmd_sample(settings: Settings, args: argparse.Namespace) -> int:
@@ -75,6 +76,66 @@ def cmd_build(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pune_build(settings: Settings, args: argparse.Namespace) -> int:
+    """Build the Pune database: real rain history and geography, SIMULATED demand."""
+    from datetime import date
+
+    from mobilityops.pune.build import build_pune
+    from mobilityops.pune.sources.base import SourceError
+
+    if settings.mode != "pune":
+        print("pune-build needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+        return 2
+    window = (date.fromisoformat(args.start), date.fromisoformat(args.end)) if args.start else None
+    try:
+        res = build_pune(settings, window, refresh_weather=args.refresh_weather)
+    except SourceError as exc:
+        print(f"cannot fetch the rain history: {exc}", file=sys.stderr)
+        return 1
+    except (QualityGateError, ValueError) as exc:
+        print(f"BUILD STOPPED: {exc}", file=sys.stderr)
+        return 1
+    print(f"built {res.db_path} (run {res.run_id})")
+    start, end = res.window
+    print(f"  SIMULATED demand: {res.trips:,} trips, {res.zones} zones, {start} to {end}")
+    print(f"  quality[gold]: {res.report.overall.value}; planted events: {len(res.events)}")
+    return 0
+
+
+def cmd_pune_worker(settings: Settings, args: argparse.Namespace) -> int:
+    """Run the Pune ingestion worker (weather, air quality, rain, simulated demand, forecast)."""
+    import httpx
+
+    from mobilityops.pune.store import StateStore
+    from mobilityops.pune.worker import Worker
+
+    if settings.mode != "pune":
+        print("pune-worker needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+        return 2
+    if not settings.db_path.exists():
+        print("no Pune database yet; run `pune-build` first", file=sys.stderr)
+        return 1
+    settings.ensure_dirs()
+    with httpx.Client(follow_redirects=False) as client:
+        worker = Worker(settings, StateStore(settings.state_path), client)
+        if args.once:
+            worker.tick()
+            for run in worker.store.runs(len(worker.jobs) + 2):
+                state = "ok" if run["ok"] else f"FAILED: {run['error']}"
+                print(f"  {run['source']:<26} {state} ({run['records_ok']} records)")
+            return 0
+        # As PID 1 in a container a Python process ignores SIGTERM unless it installs a handler,
+        # and `docker stop` would wait ten seconds and then kill it. Stop cleanly instead.
+        import signal
+        import threading
+
+        stop = threading.Event()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, lambda *_: stop.set())
+        worker.run_forever(stop)
+    return 0
+
+
 def cmd_status(settings: Settings, args: argparse.Namespace) -> int:
     """Print the latest quality reports."""
     found = False
@@ -107,7 +168,7 @@ def cmd_forecast_eval(settings: Settings, args: argparse.Namespace) -> int:
     if not settings.db_path.exists():
         print("no database yet; run `ingest` and `build` first", file=sys.stderr)
         return 1
-    cfg = default_config(load_demand(settings.db_path).n_days)
+    cfg = default_config(load_demand(settings.db_path, settings.city).n_days)
     if args.folds or args.fold_days or args.calib_days:
         cfg = EvalConfig(
             n_folds=args.folds or cfg.n_folds,
@@ -332,7 +393,16 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_config=None)
+    # Event streams never end on their own, so uvicorn's graceful shutdown would wait for every
+    # connected viewer forever and `docker stop` / `systemctl stop` would hang until killed. Bound
+    # it: in-flight requests get a few seconds, open streams are then cancelled (clients reconnect).
+    uvicorn.run(
+        create_app(settings),
+        host=args.host,
+        port=args.port,
+        log_config=None,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
+    )
     return 0
 
 
@@ -420,6 +490,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     i.set_defaults(func=cmd_ingest)
     sub.add_parser("build", help="run the pipeline with quality gates").set_defaults(func=cmd_build)
+    pb = sub.add_parser("pune-build", help="build the Pune database (SIMULATED demand)")
+    pb.add_argument("--start", help="first day, YYYY-MM-DD (default: one year ending a week ago)")
+    pb.add_argument("--end", help="end day, exclusive, YYYY-MM-DD")
+    pb.add_argument("--refresh-weather", action="store_true", help="fetch the rain history again")
+    pb.set_defaults(func=cmd_pune_build)
+    pw = sub.add_parser("pune-worker", help="run the Pune ingestion worker")
+    pw.add_argument("--once", action="store_true", help="run every job once and exit")
+    pw.set_defaults(func=cmd_pune_worker)
     sub.add_parser("status", help="show the latest quality reports").set_defaults(func=cmd_status)
     fe = sub.add_parser("forecast-eval", help="walk-forward evaluation vs baselines")
     fe.add_argument("--folds", type=int, default=0)

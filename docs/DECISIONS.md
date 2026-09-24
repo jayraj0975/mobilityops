@@ -302,3 +302,97 @@ a phone; the Compose file was validated as YAML and its container run with the s
 itself was not run (the plugin is not installed here). The existing hosted demo was left in place and, at the owner's request,
 later redeployed with the full-year bundle.
 
+---
+
+## ADR-017: Dropoffs are validated by accounting, not by rejecting the trip
+
+**Context.** Pickups are validated strictly: a trip with an unknown pickup zone is rejected, because demand is
+counted by pickup zone. Dropoffs were not validated at all. The gold zone-hour table joins dropoffs to a grid of
+real zones and in-window hours, so any dropoff outside it (the TLC's "unknown" zones 264 and 265, a missing id, a
+trip ending after the window) disappeared from every dropoff metric without a trace: 273,264 trips (0.68%) on
+the 2024 yellow data. Nothing reconciled dropoffs the way pickups were reconciled.
+
+**Decision.** Keep the trip (its pickup is real demand and every yellow result is unchanged) and make the dropoff
+visible: `dq_unallocated_dropoffs` records every trip whose dropoff is not in the fact table, by reason and zone,
+and the gold gate requires placed + unallocated dropoffs to equal the silver trips exactly (FAIL otherwise) and
+warns when the unallocated share exceeds 2%.
+
+**Alternatives.** Reject trips with an invalid dropoff, for parity with pickups (rejected: it would delete real
+pickups over a secondary attribute and change every result); assign unknown dropoffs to a synthetic zone
+(rejected: fabricates a place).
+
+**Consequences.** Dropoff totals in the fact table exclude unknown-zone dropoffs, and the amount excluded is
+stated, tested and reported on every build. The two new checks appear from the next real build onward.
+
+
+---
+
+## ADR-018: SQLite (WAL) for live state; DuckDB and Parquet stay for history
+
+**Context.** The Pune layer needs a current-state store: the latest observation of each source, today's zone-hours,
+the forecast, events, and a log of ingestion runs. The brief asked for Postgres or Redis to be evaluated and used
+only if justified.
+
+**Decision.** One SQLite file in WAL mode. The ingestion worker is the only writer; the API opens the file
+`query_only`. Analytical history stays in DuckDB and Parquet, where columnar scans over 13 million rows belong.
+
+**Why not Postgres or Redis.** The workload is one writer, a few readers, a few thousand rows a day and one machine.
+Postgres or Redis would add a second and third service to run, patch, back up and secure, a network credential to
+manage, and no capability the workload needs: there is no concurrent multi-writer traffic, no pub/sub fan-out beyond
+what the SSE hub does in process, and no dataset that outgrows a file. WAL gives readers and the writer concurrency.
+
+**Consequences.** One machine, one writer: the design does not scale out and does not claim to. If ingestion ever
+needed several writers, or the API several hosts, this is the decision to revisit (Postgres for state, and the SSE hub
+would need a broker). A WAL reader must be able to maintain the `-shm` file, so the live directory is the one
+writable mount the API needs (documented in PRODUCTION.md).
+
+## ADR-019: Ingestion in a separate worker process
+
+**Decision.** `pune-worker` is its own process (its own container and systemd unit). Each source is a job with its
+own schedule; a failing source is recorded, retried with exponential backoff (30 s, doubling, never longer than the
+source's own interval) and never stops the others; a bug in one job is contained the same way.
+
+**Why.** Ingestion must run with no viewer connected, must not share a crash domain with the API, and needs exactly
+one writer. The API never calls a data source, so a slow or dead provider cannot slow a request.
+
+**Consequences.** Two processes to start. The worker publishes a heartbeat; `/ready` includes `live_worker`, and
+freshness marks every source stale or offline from timestamps if the worker dies. As PID 1 in a container it installs
+SIGTERM/SIGINT handlers (found by measurement: without them `docker stop` took ten seconds and then killed it).
+
+## ADR-020: Freshness is derived from the source's own timestamps
+
+**Decision.** `observed_at` (when the source says a value applies) and `received_at` (when this system got it) are
+stored separately. A state (LIVE, DELAYED, STALE, OFFLINE) is computed from the age of the source's own timestamp, or
+of the last good poll if it gives none, against how often the source is expected to update: within 2.5x is LIVE, 5x
+DELAYED, 12x STALE, beyond that OFFLINE. Sources that are not configured are DISABLED, which is not a failure.
+
+**Why.** A poller that runs every minute against a provider that repeats the same value for three hours is healthy
+and useless; a flag set by the poller cannot tell. Deriving the state from the data's own clock can.
+
+**Alternatives.** A boolean "up" per source (rejected: hides a stuck upstream); a fixed threshold for everything
+(rejected: an hourly source would always look late next to a minute-level one).
+
+**Consequences.** The LIVE bound is 2.5x, not 1x, because a value stamped at the start of an interval and polled once
+per interval is up to two intervals old while everything is healthy. Hourly rain is stamped at the start of its hour, so
+its expected interval is an hour even though it is polled every 15 minutes (a healthy source was flagged DELAYED in
+review until that was corrected). The data class (SIMULATED, NEAR-REAL-TIME, ...) is a separate label from the state.
+
+## ADR-021: Pune demand is simulated, and every layer says so
+
+**Context.** No open source of Pune taxi, ride-hail or bus demand exists (PUNE_DATA_SOURCES.md). The brief forbids
+fabricating live data and asks for a clearly labelled synthetic fallback.
+
+**Decision.** Demand is generated by a documented gravity model conditioned on real inputs: hourly rain, the
+Maharashtra holiday calendar and OpenStreetMap-derived zones. It is labelled SIMULATED in the API (`data_label`,
+`demand_class`, response headers), the console (a banner on every page and a tag on every panel), the Android app
+(a banner on every screen), the analyst's answers, and the documentation. Nothing in Pune is labelled LIVE.
+
+**Design points that matter.** Each cell's count is the Poisson quantile of a fixed uniform draw, so it is exactly
+Poisson, monotone in the rate, and independent of every other cell: new rain data or a planted event changes only the
+cells whose rate changed and never rewrites anything already shown (drawing counts directly consumed a rate-dependent
+amount of randomness and reshuffled the rest of the day; tests caught it, twice). A day is a pure function of (seed,
+date, rain), so the batch build and the live worker agree exactly.
+
+**Consequences.** Results on Pune data measure the pipeline, not Pune. The forecast beating its baselines on simulated
+demand is a statement about the simulator's structure. The model has no weather input and over-forecasts a dry day
+after rainy ones: a real, visible limitation that the console shows rather than hides.

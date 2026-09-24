@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import re
 
 import duckdb
 import httpx
@@ -124,7 +125,11 @@ def test_forecast_and_performance_answers_carry_measured_coverage_and_caveats(an
     text = fact_text(perf)
     assert "WAPE" in text and "%" in text
     assert any(s.kind == "INTERPRETATION" for s in perf.statements)
-    assert any("five months" in s.text for s in perf.statements if s.kind == "LIMITATION")
+    assert any(
+        re.search(r"about \d+ months? of history", s.text)
+        for s in perf.statements
+        if s.kind == "LIMITATION"
+    )
 
 
 def test_anomaly_answers_find_the_planted_events_and_never_claim_a_cause(analyst) -> None:  # type: ignore[no-untyped-def]

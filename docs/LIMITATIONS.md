@@ -118,3 +118,21 @@ What these results cannot tell you. Each item is also stated where the result ap
 * The public demo runs on a free plan: it sleeps when idle (the first request afterwards takes tens of
   seconds), has one small instance, caps the Live tab at 8 concurrent viewers, and serves the aggregate
   data bundle (no trip-level rows). Details in [DEPLOYMENT](DEPLOYMENT.md).
+
+
+## Pune (0.2.0)
+
+* **Demand is simulated.** Every result computed on Pune data (forecast accuracy, events, coverage) describes the simulator,
+  not Pune. The forecast beating its baselines shows the pipeline works and that the simulator has structure to learn.
+* **"Weather now" and air quality are model output** on coarse grids (Open-Meteo, CAMS), not station readings, and are
+  labelled MODELLED. Rain used by the simulator is ERA5 reanalysis (history) and Open-Meteo's recent-hours model output.
+* **Zones are a tessellation of OpenStreetMap suburb points**, not wards. Zones on the edge of the study box are large
+  (up to 90 km²) because nothing beyond the box competes for the space.
+* **The forecast has no weather input**, so it over-forecasts a dry day after rainy ones (about 12% on 24 September 2026).
+* **The city-level forecast range** sums the zone ranges and is wider than a true range for the total.
+* **Live events are a fixed rule**, validated only against simulated planted events.
+* **Not implemented:** traffic (TomTom), station air quality (OpenAQ), the PMPML timetable, any real trip source.
+* **One machine, one writer.** The live store is SQLite (ADR-018); there is no failover or scale-out.
+* **Not verified:** a public domain deployment, the phone app on a physical device or over HTTPS to a public name,
+  `docker compose up` itself, systemd units on a real host, and screen-reader use of the map (only automated scans;
+  the map has a keyboard route through the zone selector and a ranked table).

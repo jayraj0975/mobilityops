@@ -3,9 +3,9 @@
 Everything the app needs to know about its surroundings lives here so that no module reads
 ``os.environ`` directly and no path or secret is hard-coded elsewhere.
 
-The two data modes never share files: sample (synthetic, for tests and demos) and real
-(downloaded NYC TLC + NOAA data) each get their own subdirectory, so synthetic results can
-never be mistaken for real-world results.
+The data modes never share files: sample (synthetic, for tests and demos), real (downloaded
+NYC TLC + NOAA data) and pune (simulated Pune demand on real weather and geography) each get
+their own subdirectory, so synthetic results can never be mistaken for real-world results.
 """
 
 from __future__ import annotations
@@ -16,8 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-Mode = Literal["sample", "real"]
-_VALID_MODES = ("sample", "real")
+from mobilityops.city import CITIES, NYC, City
+
+Mode = Literal["sample", "real", "pune"]
+_VALID_MODES = ("sample", "real", "pune")
 _VALID_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 
@@ -129,8 +131,32 @@ class Settings:
         return self.processed_dir / "mobilityops.duckdb"
 
     @property
+    def state_path(self) -> Path:
+        """The live operational store (SQLite); written by the worker, read by the API."""
+        return self.data_dir / "live" / self.mode / "state.sqlite"
+
+    @property
     def artifacts_dir(self) -> Path:
         return self.data_dir.parent / "artifacts" / self.mode
+
+    @property
+    def city(self) -> City:
+        """The place this mode describes: Pune for ``pune``, New York for the others."""
+        return CITIES["pune"] if self.mode == "pune" else NYC
+
+    @property
+    def data_label(self) -> str:
+        """How the data must be described wherever it is shown."""
+        return {
+            "sample": "TEST / SYNTHETIC DATA",
+            "real": "real data",
+            "pune": "SIMULATED DEMAND (real weather and geography)",
+        }[self.mode]
+
+    @property
+    def synthetic(self) -> bool:
+        """True unless the trip counts come from real observations."""
+        return self.mode != "real"
 
     @property
     def llm_configured(self) -> bool:

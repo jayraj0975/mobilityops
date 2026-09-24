@@ -233,3 +233,73 @@ def test_window_validation() -> None:
     for bad in ((10, 10), (-1, 5), (5, 25)):
         with pytest.raises(ValueError):
             Window(*bad)
+
+
+# ------------------------------------------------- regression: every solver status is handled
+from mobilityops.optimization import model as opt_model  # noqa: E402
+from mobilityops.optimization.model import classify_solver_status  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("code", "has_solution", "expected"),
+    [
+        (0, True, SolveStatus.OPTIMAL),
+        (1, True, SolveStatus.FEASIBLE_TIME_LIMIT),
+        (1, False, SolveStatus.NO_SOLUTION),
+        (2, False, SolveStatus.INFEASIBLE),
+        (3, False, SolveStatus.UNBOUNDED),
+        (4, True, SolveStatus.SOLVER_ERROR),
+        (4, False, SolveStatus.SOLVER_ERROR),
+        (7, True, SolveStatus.SOLVER_ERROR),  # an unrecognised code is an error, never a time limit
+        (-1, True, SolveStatus.SOLVER_ERROR),
+    ],
+)
+def test_every_solver_status_maps_to_its_own_outcome(
+    code: int, has_solution: bool, expected: SolveStatus
+) -> None:
+    status, why = classify_solver_status(code, has_solution)
+    assert status is expected and why
+
+
+def test_only_a_real_limit_is_ever_reported_as_a_time_limit() -> None:
+    limit = {
+        c
+        for c in range(-3, 10)
+        if classify_solver_status(c, True)[0] is SolveStatus.FEASIBLE_TIME_LIMIT
+    }
+    assert limit == {1}
+
+
+@pytest.mark.parametrize("code", [3, 4, 5, 99])
+def test_a_plan_from_an_untrustworthy_solve_is_never_shown(
+    code: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A solver can report numerical trouble yet return a vector; that plan must not be shown."""
+    real = opt_model._solve
+
+    def faulty(*args, **kwargs):  # type: ignore[no-untyped-def]
+        res, cost = real(*args, **kwargs)
+        assert res.x is not None  # the underlying solve is good; only its reported status is forced
+        res.status = code
+        return res, cost
+
+    monkeypatch.setattr(opt_model, "_solve", faulty)
+    r = solve_rebalancing(make(demand=[2, 8], supply=[10, 0]), P1)
+    assert r.status in (SolveStatus.UNBOUNDED, SolveStatus.SOLVER_ERROR)
+    assert r.moves == [] and r.vehicles_moved in (0, None)
+    assert "not trusted" in r.message or "unbounded" in r.message or "unrecognised" in r.message
+
+
+def test_a_time_limit_with_a_solution_still_returns_the_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real = opt_model._solve
+
+    def limited(*args, **kwargs):  # type: ignore[no-untyped-def]
+        res, cost = real(*args, **kwargs)
+        res.status = 1
+        return res, cost
+
+    monkeypatch.setattr(opt_model, "_solve", limited)
+    r = solve_rebalancing(make(demand=[2, 8], supply=[10, 0]), P1)
+    assert r.status is SolveStatus.FEASIBLE_TIME_LIMIT and r.moves and "not proven" in r.message

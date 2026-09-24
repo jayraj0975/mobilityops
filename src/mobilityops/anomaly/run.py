@@ -31,6 +31,11 @@ def load_predictions(settings: Settings) -> pd.DataFrame:
 def accuracy_status(mode: str) -> str:
     if mode == "sample":
         return "verified against planted ground truth (synthetic data only)"
+    if mode == "pune":
+        return (
+            "SIMULATED: events are the ones the generator planted, so detection rates describe "
+            "the detector on simulated demand, not real Pune traffic"
+        )
     return (
         "UNVERIFIED: real data has no anomaly labels; only injection-based sensitivity and "
         "manual plausibility review are available"
@@ -82,14 +87,14 @@ def run_anomaly_detection(
     settings: Settings, cfg: AnomalyConfig | None = None, *, injection: bool = True
 ) -> dict[str, Any]:
     cfg = cfg or AnomalyConfig()
-    t = load_demand(settings.db_path)
+    t = load_demand(settings.db_path, settings.city)
     preds = load_predictions(settings)
     events, scored, scale, null = run_detection(preds, t, cfg)
     zone_days = int(preds.groupby(["zone_index", "day_index"]).ngroups)
     report: dict[str, Any] = {
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "data_run_id": data_run_id(settings.db_path),
         "method": "out-of-sample forecast residuals scaled by a tail-aware error curve; seed hours "
         "merged into events; pooled evidence standardised by an empirical null",

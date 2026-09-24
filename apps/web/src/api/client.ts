@@ -156,6 +156,23 @@ export interface AnomalySummary {
   busiest_days?: { date: string; events: number; share_of_all: number }[];
 }
 
+export const state = {
+  snapshot: (at: string, s?: AbortSignal) =>
+    get<Schemas["StateSnapshot"]>("/api/v1/state/snapshot", { at }, s),
+  geometry: (s?: AbortSignal) => get<Schemas["Geometry"]>("/api/v1/state/geometry", undefined, s),
+  zone: (id: number, s?: AbortSignal) =>
+    get<Schemas["ZoneDetail"]>(`/api/v1/state/zones/${id}`, undefined, s),
+  series: (q: { back?: number; ahead?: number }, s?: AbortSignal) =>
+    get<Schemas["CitySeries"]>("/api/v1/state/series", q, s),
+  events: (limit = 50, s?: AbortSignal) =>
+    get<Schemas["EventItem"][]>("/api/v1/state/events", { limit }, s),
+  sources: (s?: AbortSignal) =>
+    get<Schemas["SourceState"][]>("/api/v1/state/sources", undefined, s),
+  quality: (s?: AbortSignal) => get<Schemas["DataQuality"]>("/api/v1/state/quality", undefined, s),
+  runs: (q: { limit?: number; source?: string }, s?: AbortSignal) =>
+    get<Schemas["IngestionRun"][]>("/api/v1/state/runs", q, s),
+};
+
 export const api = {
   meta: (s?: AbortSignal) => get<Schemas["Meta"]>("/api/v1/meta", undefined, s),
   quality: (s?: AbortSignal) => get<Schemas["QualityStage"][]>("/api/v1/quality", undefined, s),

@@ -34,7 +34,7 @@ class LLMUnavailable(RuntimeError):
 
 
 SYSTEM = (
-    "You route questions about NYC yellow-taxi demand to read-only analysis tools. "
+    "You route questions about {scope} to read-only analysis tools. "
     "Select the tools (at most 4) that answer the question and fill in their arguments. "
     "You never state numbers or facts yourself: the tools return them. "
     "If the question is unrelated to this data, asks to change data, run code or reveal "
@@ -71,7 +71,9 @@ class AnthropicPlanner:
         body = {
             "model": self._model,
             "max_tokens": 600,
-            "system": SYSTEM.format(first=ctx.data_first, last=ctx.data_last, eval_note=eval_note),
+            "system": SYSTEM.format(
+                scope=ctx.city.scope, first=ctx.data_first, last=ctx.data_last, eval_note=eval_note
+            ),
             "tools": [spec.schema() for spec in TOOLS.values()],
             "tool_choice": {"type": "auto"},
             "messages": [{"role": "user", "content": question}],

@@ -16,22 +16,14 @@ from datetime import UTC, date
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from pandas.tseries.holiday import USFederalHolidayCalendar
 
-from mobilityops.schema import TIMEZONE
+from mobilityops.city import DEFAULT_CITY, City
 
 
-def build_dim_date(start: date, end: date) -> pd.DataFrame:
-    """One row per calendar date in [start, end)."""
+def build_dim_date(start: date, end: date, city: City = DEFAULT_CITY) -> pd.DataFrame:
+    """One row per calendar date in [start, end), with the city's public holidays."""
     dates = pd.date_range(start, end, freq="D", inclusive="left")
-    cal = USFederalHolidayCalendar()
-    holidays = cal.holidays(
-        start=pd.Timestamp(start).to_pydatetime(),
-        end=pd.Timestamp(end).to_pydatetime(),
-        return_name=True,
-    )
-    idx = pd.DatetimeIndex(holidays.index)
-    names = {ts.date(): str(n) for ts, n in zip(idx, holidays.to_numpy(), strict=True)}
+    names = city.holidays(start, end)
     return pd.DataFrame(
         {
             "date": dates,
@@ -44,9 +36,9 @@ def build_dim_date(start: date, end: date) -> pd.DataFrame:
     )
 
 
-def build_dim_hour(start: date, end: date) -> pd.DataFrame:
-    """One row per local hour in [start, end), with daylight-saving flags."""
-    tz = ZoneInfo(TIMEZONE)
+def build_dim_hour(start: date, end: date, city: City = DEFAULT_CITY) -> pd.DataFrame:
+    """One row per local hour in [start, end), with daylight-saving flags (none without DST)."""
+    tz = ZoneInfo(city.timezone)
     hours = pd.date_range(start, end, freq="h", inclusive="left")
     gap: list[bool] = []
     overlap: list[bool] = []
@@ -60,7 +52,7 @@ def build_dim_hour(start: date, end: date) -> pd.DataFrame:
             and ts.replace(tzinfo=tz, fold=0).utcoffset()
             != ts.replace(tzinfo=tz, fold=1).utcoffset()
         )
-    dates = build_dim_date(start, end).set_index("date")
+    dates = build_dim_date(start, end, city).set_index("date")
     day = hours.normalize()
     df = pd.DataFrame(
         {

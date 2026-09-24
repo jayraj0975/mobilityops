@@ -441,10 +441,10 @@ def test_concurrent_cold_requests_load_an_expensive_artifact_once(settings, monk
     loads: list[int] = []
     real = services_mod.load_demand
 
-    def slow(path):  # type: ignore[no-untyped-def]
+    def slow(path, *args):  # type: ignore[no-untyped-def]
         loads.append(1)
         time.sleep(0.3)  # long enough that every thread arrives while the first is loading
-        return real(path)
+        return real(path, *args)
 
     monkeypatch.setattr(services_mod, "load_demand", slow)
     app = create_app(settings)

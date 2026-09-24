@@ -11,6 +11,7 @@ public final class Settings {
     private static final String FILE = "mobilityops";
     private static final String KEY_URL = "server_url";
     private static final String KEY_API_KEY = "api_key";
+    private static final String KEY_MODE = "server_mode";
 
     private final SharedPreferences prefs;
 
@@ -24,6 +25,15 @@ public final class Settings {
 
     public String apiKey() {
         return prefs.getString(KEY_API_KEY, "");
+    }
+
+    /** The data mode the server last reported ("pune", "real", "sample"); remembered so a start is instant. */
+    public String mode() {
+        return prefs.getString(KEY_MODE, "");
+    }
+
+    public void saveMode(String mode) {
+        prefs.edit().putString(KEY_MODE, mode == null ? "" : mode).apply();
     }
 
     public boolean isConfigured() {

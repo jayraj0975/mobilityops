@@ -45,6 +45,7 @@ from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
+from mobilityops.api import state_routes
 from mobilityops.api.limits import BodyLimitMiddleware, RateLimiter, client_ip
 from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
@@ -276,7 +277,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return s.Ready(
                 status="degraded", components=comps, hint="run `ingest` and `build` first"
             )
-        return s.Ready(status="ready" if all(comps.values()) else "degraded", components=comps)
+        # Pune runs no optimisation backtest (it takes an hour), so it is not required there.
+        needed = (
+            {k: v for k, v in comps.items() if k in ("database", "forecast_model", "live_worker")}
+            if settings.mode == "pune"
+            else comps
+        )
+        return s.Ready(status="ready" if all(needed.values()) else "degraded", components=comps)
 
     @api.get("/meta", response_model=s.Meta, tags=["operations"])
     def meta() -> s.Meta:
@@ -295,6 +302,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             llm_configured=settings.llm_configured,
             artifacts=services.available(),
             services=[s.ServiceInfo(**r) for r in _records(services.analytics().service_list())],
+            timezone=settings.city.timezone_note,
+            city=settings.city.name,
         )
 
     @api.get("/ops/metrics", response_model=s.ArtifactDocument, tags=["operations"])
@@ -716,6 +725,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    state_provider, state_hub = state_routes.register(api, settings)
+    app.state.state_provider = state_provider
+    app.state.state_hub = state_hub
     app.include_router(ops)
     app.include_router(api)
     _mount_web(app)

@@ -40,12 +40,24 @@ GLOSSARY: dict[str, str] = {
 }
 
 
-def lookup(term: str) -> tuple[str, str] | None:
+# Definitions that differ where the data is not New York taxi trips.
+PUNE_OVERRIDES: dict[str, str] = {
+    "pickups": "SIMULATED trips that started in a zone during an hour. No real Pune trip data "
+    "exists openly; the counts come from a documented model.",
+    "dropoffs": "SIMULATED trips that ended in a zone during an hour.",
+    "revenue": "Simulated fare in rupees of the trips that started in the zone.",
+    "zone": "An analysis area: the part of Pune closer to one OpenStreetMap suburb than to any "
+    "other. Not an administrative ward; identified by a location id.",
+}
+
+
+def lookup(term: str, mode: str = "real") -> tuple[str, str] | None:
     """Find a glossary entry by exact or contained term."""
+    entries = {**GLOSSARY, **PUNE_OVERRIDES} if mode == "pune" else GLOSSARY
     t = term.strip().lower()
-    if t in GLOSSARY:
-        return t, GLOSSARY[t]
-    for key in sorted(GLOSSARY, key=len, reverse=True):
+    if t in entries:
+        return t, entries[t]
+    for key in sorted(entries, key=len, reverse=True):
         if key in t or t in key:
-            return key, GLOSSARY[key]
+            return key, entries[key]
     return None

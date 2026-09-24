@@ -79,7 +79,7 @@ class Services:
         return self._cached(
             "tensor",
             self.settings.db_path,
-            lambda: load_demand(self.settings.db_path),
+            lambda: load_demand(self.settings.db_path, self.settings.city),
             "run `ingest` and `build` first",
         )
 
@@ -149,7 +149,13 @@ class Services:
 
     def available(self) -> dict[str, bool]:
         a = self.artifacts
+        live: dict[str, bool] = {}
+        if self.settings.mode == "pune":
+            from mobilityops.pune.store import worker_alive
+
+            live["live_worker"] = worker_alive(self.settings.state_path)
         return {
+            **live,
             "database": self.has_database(),
             "forecast_evaluation": (a / "forecast" / "evaluation.json").exists(),
             "forecast_model": (models_dir(self.settings) / "latest.json").exists(),
@@ -159,4 +165,4 @@ class Services:
 
     @property
     def data_label(self) -> str:
-        return "TEST / SYNTHETIC DATA" if self.settings.mode == "sample" else "real data"
+        return self.settings.data_label

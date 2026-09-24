@@ -3,21 +3,32 @@ on:
   push:
   pull_request:
 
+# Least privilege: nothing here needs to write to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same ref makes an older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         # 3.12 is the minimum supported; all three give identical sample results (see docs).
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: pip install -e ".[dev]"
+      # Locked: the versions in requirements.lock, so a run is reproducible and a new upstream
+      # release cannot break the build unannounced (Dependabot proposes the bumps).
+      - run: pip install -c requirements.lock -e ".[dev]"
       - run: ruff check src tests
       - run: ruff format --check src tests
       - run: mypy
@@ -27,13 +38,13 @@ jobs:
           MOBILITYOPS_THREADS: "2"
 
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/web
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
@@ -50,7 +61,7 @@ jobs:
   e2e:
     # Real Chromium against the built UI and a live API on the synthetic sample:
     # axe-core WCAG A/AA scans in light and dark mode, keyboard use, analyst, scenarios.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       MOBILITYOPS_MODE: sample
       MOBILITYOPS_THREADS: "2"
@@ -61,17 +72,17 @@ jobs:
       # Absolute: the server is started from apps/web, the pipeline from the repo root.
       MOBILITYOPS_DATA_DIR: ${{ github.workspace }}/data
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           cache: pip
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - run: pip install -e .
+      - run: pip install -c requirements.lock -e .
       - name: Build the synthetic sample, models and artifacts
         run: |
           python -m mobilityops.cli sample
@@ -100,20 +111,81 @@ jobs:
   android:
     # The Gradle build of the native app: lint, unit tests (including the stream client against a
     # local server) and a debug APK, which is kept as a build artifact.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/android
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # A tampered gradle-wrapper.jar would run arbitrary code: check it against Gradle's checksums.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
-      - uses: actions/upload-artifact@v7
+      - run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleRelease bundleRelease
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mobilityops-debug-apk
           path: apps/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  audit:
+    # Known-vulnerability scan of the locked Python environment. npm audit runs in the web job.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -c requirements.lock -e ".[dev]" pip-audit
+      - run: pip-audit --skip-editable
+
+  docker:
+    # The image must build, start, answer its health check and not run as root; the Compose file
+    # must be valid (it needs a key to be rendered at all, which is the point).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -t mobilityops:ci .
+      - name: Compose file is valid, and refuses to render without an API key
+        run: |
+          MOBILITYOPS_API_KEY=ci-key docker compose config --quiet
+          if docker compose config --quiet 2>/dev/null; then
+            echo "compose rendered without MOBILITYOPS_API_KEY"; exit 1
+          fi
+      - name: Start the image and check it
+        run: |
+          docker run -d --name mo -p 127.0.0.1:8000:8000 mobilityops:ci
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
+          curl -sSf http://127.0.0.1:8000/health
+          test "$(docker exec mo id -u)" != "0" || { echo "container runs as root"; exit 1; }
+          docker logs mo | tail -5
+      - name: The container stops promptly even with a viewer on the event stream
+        # uvicorn waits for open streams; without a bound `docker stop` hangs until it is killed.
+        run: |
+          (curl -sN -m 60 http://127.0.0.1:8000/api/v1/live/stream >/dev/null &)
+          sleep 3
+          start=$(date +%s)
+          docker stop -t 30 mo
+          elapsed=$(( $(date +%s) - start ))
+          echo "stopped in ${elapsed}s"
+          test "$elapsed" -lt 12 || { echo "graceful shutdown was not bounded"; exit 1; }
+      - name: The Caddyfile is valid for one name and for the www/api pair
+        run: |
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e MOBILITYOPS_DOMAIN=localhost caddy:2 caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e MOBILITYOPS_WWW_HOST=www.example.org -e MOBILITYOPS_API_HOST=api.example.org caddy:2 caddy validate --config /etc/caddy/Caddyfile
+
+  dependency-review:
+    # New or changed dependencies in a pull request are checked for known vulnerabilities.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high

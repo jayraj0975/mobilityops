@@ -33,6 +33,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from mobilityops.city import DEFAULT_CITY, City
 from mobilityops.transform.calendar import build_dim_date
 
 HOURS = 24
@@ -81,6 +82,7 @@ class DemandTensor:
     days: pd.DatetimeIndex  # local midnight of each day, same order as y axis 1
     calendar: pd.DataFrame  # one row per day (date, is_weekend, is_holiday, ...)
     weather: pd.DataFrame  # one row per day; NaN where the source has no weather
+    city: City = DEFAULT_CITY  # whose holidays the calendar carries
 
     @property
     def n_zones(self) -> int:
@@ -103,6 +105,7 @@ class DemandTensor:
             self.days[-k:],
             self.calendar.iloc[-k:],
             self.weather.iloc[-k:],
+            self.city,
         )
 
     def head(self, n_days: int) -> DemandTensor:
@@ -116,6 +119,7 @@ class DemandTensor:
             self.days[:k],
             self.calendar.iloc[:k],
             self.weather.iloc[:k],
+            self.city,
         )
 
     def extended(self, extra_days: int = 1) -> DemandTensor:
@@ -124,8 +128,8 @@ class DemandTensor:
             raise ValueError("extra_days must be >= 1")
         y = np.concatenate([self.y, np.full((self.n_zones, extra_days, HOURS), np.nan)], axis=1)
         days = pd.date_range(self.days[0], periods=self.n_days + extra_days, freq="D")
-        cal = _calendar_frame(days)
-        return DemandTensor(y, self.zones, days, cal, self.weather.reindex(days))
+        cal = _calendar_frame(days, self.city)
+        return DemandTensor(y, self.zones, days, cal, self.weather.reindex(days), self.city)
 
 
 def _long_weekend(full: pd.DataFrame) -> np.ndarray:
@@ -152,11 +156,11 @@ def _days_to_holiday(full: pd.DataFrame) -> np.ndarray:
     return out
 
 
-def _calendar_frame(days: pd.DatetimeIndex) -> pd.DataFrame:
+def _calendar_frame(days: pd.DatetimeIndex, city: City = DEFAULT_CITY) -> pd.DataFrame:
     """Calendar attributes for ``days``, including the neighbours of each holiday."""
     start = days[0].date() - timedelta(days=HOLIDAY_WINDOW_DAYS + 1)
     end = days[-1].date() + timedelta(days=HOLIDAY_WINDOW_DAYS + 2)
-    full = build_dim_date(start, end).set_index("date")
+    full = build_dim_date(start, end, city).set_index("date")
     hol = full["is_holiday"]
     out = pd.DataFrame(index=days)
     out["day_of_week"] = full.loc[days, "day_of_week"].to_numpy()
@@ -171,7 +175,7 @@ def _calendar_frame(days: pd.DatetimeIndex) -> pd.DataFrame:
     return out
 
 
-def load_demand(db_path: Path) -> DemandTensor:
+def load_demand(db_path: Path, city: City = DEFAULT_CITY) -> DemandTensor:
     """Read the gold layer into a tensor. Non-modelable and non-existent hours become NaN."""
     if not db_path.exists():
         raise FileNotFoundError(f"database not found at {db_path}; run `ingest` and `build` first")
@@ -207,7 +211,9 @@ def load_demand(db_path: Path) -> DemandTensor:
     weather["date"] = pd.to_datetime(weather["date"])
     weather = weather.set_index("date").reindex(days)
     weather.index = days
-    return DemandTensor(y, zones.reset_index(drop=True), days, _calendar_frame(days), weather)
+    return DemandTensor(
+        y, zones.reset_index(drop=True), days, _calendar_frame(days, city), weather, city
+    )
 
 
 def shift_days(a: np.ndarray, k: int) -> np.ndarray:
