@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-const SECTIONS = ["overview", "demand", "forecast", "anomalies", "scenarios", "analyst", "about"] as const;
+const SECTIONS = ["overview", "live", "demand", "forecast", "anomalies", "scenarios", "analyst", "about"] as const;
 const SHOTS = process.env.E2E_SCREENSHOTS ? path.resolve("../../docs/images") : null;
 
 /** Collect anything that would embarrass a user: script errors, console errors, failed requests. */
@@ -17,6 +17,12 @@ function watch(page: Page) {
     if (r.status() >= 400) problems.push(`HTTP ${r.status()} ${r.url()}`);
   });
   return problems;
+}
+
+/** The Live page keeps a stream open, so the network never goes idle: wait for the connection instead. */
+async function connected(page: Page) {
+  await expect(page.getByText("Connected: receiving live updates")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/^hour \d+ of \d+/).first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function settled(page: Page) {
@@ -33,7 +39,8 @@ for (const scheme of ["light", "dark"] as const) {
         const problems = watch(page);
         await page.goto(`/#/${section}`);
         await expect(page.getByRole("region", { name: "Data source" })).toBeVisible();
-        await settled(page);
+        if (section === "live") await connected(page);
+        else await settled(page);
 
         await expect(page.getByRole("main")).not.toContainText("NaN");
         await expect(page.getByRole("main")).not.toContainText("undefined");
@@ -129,4 +136,31 @@ test("small screens: no horizontal page scroll", async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `horizontal overflow on ${section}`).toBeLessThanOrEqual(1);
   }
+});
+
+test("live: the replay is labelled as a replay, connects, and keeps advancing", async ({ page }) => {
+  const problems = watch(page);
+  await page.goto("/#/live");
+  await connected(page);
+  await expect(page.getByText("REPLAY, NOT LIVE.")).toBeVisible();
+  await expect(page.getByText("LIVE.", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Not live taxi data/)).toBeVisible();
+  const before = await page.getByText(/^hour \d+ of \d+/).first().textContent();
+  // The replay clock ticks on the server; the page must follow without any interaction.
+  await expect(page.getByText(/^hour \d+ of \d+/).first()).not.toHaveText(before ?? "", { timeout: 60_000 });
+  await expect(page.getByRole("main")).not.toContainText("NaN");
+  expect(problems).toEqual([]);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, "live.png"), fullPage: true });
+});
+
+test("live: a dropped connection is reported and then recovered", async ({ page }) => {
+  let attempts = 0;
+  await page.route("**/api/v1/live/stream", (route) => {
+    attempts += 1;
+    return attempts === 1 ? route.abort("connectionreset") : route.continue();
+  });
+  await page.goto("/#/live");
+  await expect(page.getByText(/Connection lost: reconnecting/)).toBeVisible({ timeout: 30_000 });
+  await connected(page); // the 1 s backoff, then a real connection
+  expect(attempts).toBeGreaterThanOrEqual(2);
 });
