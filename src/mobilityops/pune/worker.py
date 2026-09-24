@@ -34,7 +34,7 @@ from mobilityops.forecasting.model import load_model
 from mobilityops.log import get_logger
 from mobilityops.pune import live, simulate
 from mobilityops.pune.build import SEED, WEATHER_FILE, zone_frame
-from mobilityops.pune.sources import openmeteo
+from mobilityops.pune.sources import metno, openmeteo
 from mobilityops.pune.sources.base import Observation, SourceError
 from mobilityops.pune.store import StateStore
 
@@ -114,6 +114,7 @@ class Worker:
             Job("open-meteo-forecast", 900, self._weather),
             Job("open-meteo-air-quality", 3600, self._air),
             Job("open-meteo-rain-hourly", 900, self._rain_hourly),
+            Job("metno-forecast", 1800, self._metno),
             Job("simulated-demand", 60, self._demand),
         ]
         cached = self.settings.raw_dir / WEATHER_FILE
@@ -161,6 +162,19 @@ class Worker:
                 )
             )
         return len(frame), self.store.add_observations(obs)
+
+    def _metno(self, now: datetime) -> tuple[int, int]:
+        """The second weather provider (also the rain fallback for hours from now on)."""
+        lat, lon = self._centre
+        payload = metno.fetch(self.client, lat, lon)
+        obs = metno.parse_current(payload, lat, lon, now)
+        rain = metno.parse_rain(payload)
+        if not rain.empty:
+            # Fill only hours no better source has (Open-Meteo's own values win where present).
+            have = set(self.rain["hour_ts"])
+            fresh = rain[~rain["hour_ts"].isin(have)]
+            self.rain = pd.concat([self.rain, fresh], ignore_index=True).sort_values("hour_ts")
+        return len(obs), self.store.add_observations(obs)
 
     def _demand(self, now: datetime) -> tuple[int, int]:
         assert self._sim_model is not None

@@ -3,7 +3,7 @@ import { ChartPanel, DataClassTag } from "../../ui";
 const ROWS: { what: string; kind: string; real: string; note: string }[] = [
   { what: "Mobility demand (pickups, dropoffs)", kind: "SIMULATED", real: "No", note: "No open Pune trip source exists. A documented model generates the counts." },
   { what: "Rain, hourly", kind: "RECENT", real: "Yes (model output)", note: "Open-Meteo: ERA5 history plus the recent-hours model output. Drives the simulated demand." },
-  { what: "Weather now", kind: "NEAR-REAL-TIME", real: "Yes (model output)", note: "Latest 15-minute model step at 9 points, not a station reading." },
+  { what: "Weather now", kind: "NEAR-REAL-TIME", real: "Yes (model output)", note: "Open-Meteo: latest 15-minute model step at 9 points. MET Norway is a second provider (hourly, one point) used when Open-Meteo is unavailable. Neither is a station reading." },
   { what: "Air quality now", kind: "NEAR-REAL-TIME", real: "Yes (model output)", note: "CAMS atmospheric-composition model, coarse grid. Not a monitoring station." },
   { what: "Holidays", kind: "STATIC", real: "Yes", note: "The Maharashtra and India public-holiday calendar; many dates follow lunar calendars." },
   { what: "Zones and map", kind: "STATIC", real: "Yes", note: "OpenStreetMap suburbs; each zone is the area closest to one suburb. Not administrative wards." },
@@ -56,6 +56,7 @@ export function MethodPage() {
         <ChartPanel title="Attribution and licences">
           <ul className="plain small">
             <li>Weather and air quality: Open-Meteo.com, CC BY 4.0, free tier for non-commercial use.</li>
+            <li>Second weather provider: MET Norway (api.met.no), CC BY 4.0 / NLOD 2.0.</li>
             <li>Map data: © OpenStreetMap contributors, ODbL 1.0.</li>
             <li>Air-quality model data: Copernicus Atmosphere Monitoring Service via Open-Meteo.</li>
             <li>Code: MIT.</li>

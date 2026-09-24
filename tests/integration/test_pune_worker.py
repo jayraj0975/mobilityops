@@ -64,6 +64,31 @@ class FakeOpenMeteo:
             return httpx.Response(mode)
         if mode == "junk":
             return httpx.Response(200, content=b"<html>not json</html>")
+        if host == "api.met.no":
+            times = pd.date_range("2026-09-24 15:00", periods=48, freq="h", tz="UTC")
+            return httpx.Response(
+                200,
+                json={
+                    "properties": {
+                        "timeseries": [
+                            {
+                                "time": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "data": {
+                                    "instant": {
+                                        "details": {
+                                            "air_temperature": 22.4,
+                                            "relative_humidity": 84.7,
+                                            "wind_speed": 4.0,
+                                        }
+                                    },
+                                    "next_1_hours": {"details": {"precipitation_amount": 0.3}},
+                                },
+                            }
+                            for t in times
+                        ]
+                    }
+                },
+            )
         params = request.url.params
         n = len(params["latitude"].split(","))
         if "current" in params:
@@ -321,3 +346,56 @@ def test_the_loop_stops_at_once_when_asked(env: Settings, tmp_path: Path) -> Non
     assert not t.is_alive() and ticks == [1]
     assert time.monotonic() - started < 15  # it did not sit out the 15 s wait
     assert w.store.get_kv("worker_started_at")
+
+
+def test_when_open_meteo_is_throttled_the_second_provider_keeps_weather_live(
+    env: Settings, tmp_path: Path
+) -> None:
+    """The failure seen on the first cloud deployment: HTTP 429 from Open-Meteo's forecast host."""
+    from mobilityops.pune.state import StateService
+
+    fake, clock = FakeOpenMeteo(), [NOW]
+    fake.fail["api.open-meteo.com"] = 429
+    w = _worker(env, tmp_path, fake, clock)
+    w.tick(mono=0.0)
+    assert "HTTP 429" in w.store.source_status("open-meteo-forecast")["last_error"]
+    assert w.store.source_status("metno-forecast")["successes"] == 1
+    obs = {o["metric"]: o for o in w.store.latest_observations("metno-forecast")}
+    assert obs["temperature_2m"]["value"] == 22.4 and obs["wind_speed_10m"][
+        "value"
+    ] == pytest.approx(14.4)
+    assert all(o["modelled"] == 1 and o["source"] == "metno-forecast" for o in obs.values())
+    svc = StateService(env, w.store)
+    snap = svc.snapshot("now", NOW)
+    assert snap["environment"]["temperature"]["value"] == 22.4  # the working provider is shown
+    assert snap["environment"]["temperature"]["freshness"] == "LIVE"
+    assert snap["environment"]["us_aqi"]["freshness"] == "LIVE"  # air quality is a separate host
+    states = {s["key"]: s["freshness"] for s in snap["sources"]}
+    assert states["open-meteo-forecast"] == "OFFLINE" and states["metno-forecast"] == "LIVE"
+    # weather is covered by the second provider, so the overall picture is not reported as down
+    assert snap["freshness"] == "LIVE"
+    assert "MET Norway" in snap["environment"]["attribution"]
+
+
+def test_both_weather_providers_down_is_reported_as_down(env: Settings, tmp_path: Path) -> None:
+    from mobilityops.pune.state import StateService
+
+    fake, clock = FakeOpenMeteo(), [NOW]
+    fake.fail["api.open-meteo.com"] = 429
+    fake.fail["api.met.no"] = 503
+    w = _worker(env, tmp_path, fake, clock)
+    w.tick(mono=0.0)
+    snap = StateService(env, w.store).snapshot("now", NOW)
+    assert "temperature" not in snap["environment"]  # nothing is invented
+    assert snap["freshness"] == "OFFLINE"
+
+
+def test_the_fresher_healthy_provider_wins_when_both_answer(env: Settings, tmp_path: Path) -> None:
+    from mobilityops.pune.state import StateService
+
+    fake, clock = FakeOpenMeteo(), [NOW]
+    w = _worker(env, tmp_path, fake, clock)
+    w.tick(mono=0.0)
+    snap = StateService(env, w.store).snapshot("now", NOW)
+    assert snap["environment"]["temperature"]["value"] == 23.8  # Open-Meteo, observed 21:15 IST
+    assert snap["freshness"] == "LIVE"

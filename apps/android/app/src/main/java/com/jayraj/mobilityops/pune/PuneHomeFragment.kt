@@ -49,6 +49,6 @@ class PuneHomeFragment : PuneScreen() {
             content.addView(Ui.body(c, src.label))
             content.addView(freshnessLine(c, src.freshness, src.ageSeconds?.plus(elapsed)))
         }
-        content.addView(Ui.muted(c, "Weather data by Open-Meteo.com (CC BY 4.0). Map data © OpenStreetMap contributors (ODbL)."))
+        content.addView(Ui.muted(c, "Weather data by Open-Meteo.com and MET Norway (CC BY 4.0). Map data © OpenStreetMap contributors (ODbL)."))
     }
 }

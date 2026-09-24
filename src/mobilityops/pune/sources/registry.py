@@ -27,6 +27,9 @@ class SourceSpec:
     requires_key: str | None = None  # environment variable that would enable it
     always_on: bool = True
     implemented: bool = True  # False: listed for honesty, but no code fetches from it
+    # Sources that cover the same need. A need is met if any member is healthy, so a provider that
+    # is down does not make the whole picture look down while another one is answering.
+    groups: tuple[str, ...] = ()
 
     def enabled(self, env: Mapping[str, str] | None = None) -> bool:
         e = os.environ if env is None else env
@@ -57,6 +60,19 @@ SOURCES: tuple[SourceSpec, ...] = (
         "Latest 15-minute step of Open-Meteo's model blend at 9 grid points; not a station "
         "reading.",
         modelled=True,
+        groups=("weather",),
+    ),
+    SourceSpec(
+        "metno-forecast",
+        "Weather now (second provider)",
+        "MET Norway",
+        "NEAR-REAL-TIME",
+        3600,
+        "CC BY 4.0 / NLOD 2.0; attribution required",
+        "Hourly model values at one point in the city, used when Open-Meteo is unavailable or as a "
+        "cross-check. The rain is the amount expected in the coming hour, not a measurement.",
+        modelled=True,
+        groups=("weather", "rain"),
     ),
     SourceSpec(
         "open-meteo-air-quality",
@@ -78,6 +94,7 @@ SOURCES: tuple[SourceSpec, ...] = (
         "Hourly precipitation for the last days (each value is stamped at the start of its hour, "
         "so it is up to an hour old by design); drives the simulated demand's rain response.",
         modelled=True,
+        groups=("rain",),
     ),
     SourceSpec(
         "simulated-demand",

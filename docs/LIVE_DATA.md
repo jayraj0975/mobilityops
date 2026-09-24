@@ -37,6 +37,7 @@ looks healthy. A SIMULATED value can be LIVE-fresh: that only means the simulato
 | Source | Interval | Class | Notes |
 |---|---|---|---|
 | Open-Meteo forecast, `current` | 15 min | NEAR-REAL-TIME, MODELLED | 9 points over the study area; values validated against physical ranges |
+| MET Norway locationforecast | 30 min (hourly data) | NEAR-REAL-TIME, MODELLED | Second weather provider, one point; used when Open-Meteo is unavailable. A need with several providers is healthy if any one is |
 | Open-Meteo air quality, `current` | 60 min | NEAR-REAL-TIME, MODELLED | PM2.5, PM10, US AQI |
 | Open-Meteo hourly, recent days | 60 min data, polled 15 min | RECENT | Only hours up to the current one are stored as observations; the rest are forecasts and are not |
 | Simulated demand | 1 min | SIMULATED | yesterday and today, pro-rated inside the running hour |

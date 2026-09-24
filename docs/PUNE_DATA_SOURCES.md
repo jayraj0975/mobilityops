@@ -41,6 +41,7 @@ Pune traffic, and the documentation and interface never suggest otherwise.
 | 10 | OGD India / Smart Cities data portal | Government of India | portal | NDSAP | annual or static | Pune datasets exist (vehicle registrations 2014 to 2020); not verified in detail, not integrated |
 | 11 | TomTom Traffic Flow (Flow Segment Data) | TomTom | **API key** | terms not verified | on request | Free tier of 20,000 requests a month per its pricing page; **not implemented: registry entry only; never called** |
 | 12 | OpenAQ v3 | OpenAQ | **API key** (HTTP 401 without one, verified) | CC BY 4.0 (not verified here) | station-dependent | Not implemented: registry entry only; never called with a key |
+| 14 | MET Norway locationforecast (`api.met.no`) | MET Norway | no key; identifying User-Agent required | CC BY 4.0 / NLOD 2.0, attribution required | model runs several times a day; hourly steps | **Verified, used** as the second weather provider |
 | 13 | IISc PUDX (Pune Urban Data Exchange) | IISc | page returned 404 | unknown | unknown | Status unknown; not used |
 
 ### 1. Open-Meteo forecast (current weather)
@@ -81,6 +82,21 @@ Pune traffic, and the documentation and interface never suggest otherwise.
 * **What the zones are:** each zone is the service area of one OSM suburb (the region closer to it than to any other
   suburb, clipped to the study area). They are an analytical tessellation, **not** official wards or
   administrative boundaries; no ward polygons were found in OSM.
+
+### 14. MET Norway (second weather provider)
+
+* **Why it exists:** on the first deployment to Render's free plan, `api.open-meteo.com` answered **HTTP 429** to every request
+  from the shared egress address (verified in the ingestion run log; the air-quality host was unaffected, and the same calls
+  worked from a home connection). One provider is a single point of failure, so a second, independent one was added.
+* **Endpoint:** `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=&lon=`. **Verified:** HTTP 200 on 2026-09-24
+  with `expires` and `last-modified` headers; the first timeseries entry carries `air_temperature`, `relative_humidity`,
+  `wind_speed` (m/s) and `next_1_hours.precipitation_amount`.
+* **What it is:** hourly model values, at one point (the city centre). The rain is the amount expected in the *coming* hour,
+  not a measurement; it is labelled MODELLED and only fills hours no other source has.
+* **Terms:** free, attribution required (shown in the console, the app and here), an identifying `User-Agent` on every
+  request, and no more than a light load: the worker calls it every 30 minutes for one point.
+* **Use in the freshness logic:** weather is one *need* with two providers; it counts as healthy if either is, and the console
+  shows the healthiest provider's reading.
 
 ### 6 to 10. Transit and municipal data
 

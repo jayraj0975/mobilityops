@@ -61,7 +61,7 @@ test("the simulated label and attributions are always on screen", async ({ page 
   await page.goto("/#/overview");
   await ready(page);
   await expect(page.getByRole("region", { name: "Data source", exact: true })).toContainText("SIMULATED DEMAND");
-  await expect(page.getByText(/Open-Meteo.com \(CC BY 4.0\)/)).toBeVisible();
+  await expect(page.getByText(/Open-Meteo.com and MET Norway \(CC BY 4.0\)/)).toBeVisible();
   await expect(page.getByText(/OpenStreetMap contributors/).first()).toBeVisible();
   for (const route of SECTIONS.filter((s) => s !== "analyst")) {
     await page.goto(`/#/${route}`);

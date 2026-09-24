@@ -132,7 +132,15 @@ The worker container has its own healthcheck (a fresh heartbeat within 90 s). Lo
   weather and air-quality requests carry nine locations each, and Open-Meteo counts each location as a call, so that
   is roughly 1,200 calls a day. If you use this commercially you need their paid plan.
 
-## 6. What this does not give you
+## 6. Shared cloud addresses and free weather APIs
+
+Free weather APIs limit by client address. On Render's free plan the egress address is shared, and Open-Meteo's forecast host
+answered HTTP 429 to the worker from the first request (observed on 2026-09-24; the same code worked from a home connection).
+The worker records the failure, backs off, invents nothing and shows the source OFFLINE; a second provider (MET Norway) keeps
+"weather now" available. On a host with its own address this should not happen; if it does, use Open-Meteo's paid plan
+(a key is needed by the adapter, which does not yet read one) or accept the second provider alone.
+
+## 7. What this does not give you
 
 One shared API key, no user accounts, no audit log, no protection against a distributed flood, a single machine with
 no failover, and plain SQLite that does not scale out (ADR-018). It is a sound base for a personal or small-team

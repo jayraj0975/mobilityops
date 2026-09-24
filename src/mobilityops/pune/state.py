@@ -37,6 +37,11 @@ ENV_METRICS = {
 MIN_MOVER_TRIPS = 15
 
 
+def _invert(text: str) -> str:
+    """Sorts newer timestamps first when compared ascending (ISO strings of equal length)."""
+    return "".join(chr(0x10FFFF - ord(c)) for c in text)
+
+
 def _dt(text: str | None) -> datetime | None:
     return datetime.fromisoformat(text) if text else None
 
@@ -117,31 +122,57 @@ class StateService:
 
     @staticmethod
     def overall(sources: list[dict[str, Any]]) -> str:
-        applicable = [
-            Freshness(s["freshness"]) for s in sources if s["data_class"] not in ("STATIC",)
+        """The least healthy need. A need with several providers (weather: Open-Meteo and MET
+        Norway) is met if any one is healthy, so one provider down does not read as all down."""
+        order = [Freshness.LIVE, Freshness.DELAYED, Freshness.STALE, Freshness.OFFLINE]
+        by_key = {s["key"]: s for s in sources}
+        grouped: dict[str, list[Freshness]] = {}
+        loose: list[Freshness] = []
+        for spec in SOURCES:
+            s = by_key.get(spec.key)
+            if s is None or spec.data_class == "STATIC":
+                continue
+            state = Freshness(s["freshness"])
+            if spec.groups:
+                for g in spec.groups:
+                    grouped.setdefault(g, []).append(state)
+            else:
+                loose.append(state)
+        needs = [
+            min((x for x in members if x in order), key=order.index, default=Freshness.NOT_PERIODIC)
+            for members in grouped.values()
         ]
-        return worst(applicable).value
+        return worst([*loose, *needs]).value
 
     # ---------------------------------------------------------------------- environment
     def environment(self, now: datetime, sources: list[dict[str, Any]]) -> dict[str, Any]:
         fresh = {s["key"]: s["freshness"] for s in sources}
-        out: dict[str, Any] = {"attribution": "Weather data by Open-Meteo.com (CC BY 4.0)"}
-        for key in ("open-meteo-forecast", "open-meteo-air-quality"):
-            rows = self.store.latest_observations(key)
+        out: dict[str, Any] = {
+            "attribution": "Weather data by Open-Meteo.com (CC BY 4.0) and MET Norway (CC BY 4.0)"
+        }
+        rank = {"LIVE": 0, "DELAYED": 1, "STALE": 2, "OFFLINE": 3}
+        best: dict[str, tuple[tuple[int, str], dict[str, Any]]] = {}
+        for key in ("open-meteo-forecast", "metno-forecast", "open-meteo-air-quality"):
             by_metric: dict[str, list[dict[str, Any]]] = {}
-            for r in rows:
+            for r in self.store.latest_observations(key):
                 by_metric.setdefault(r["metric"], []).append(r)
             for metric, group in by_metric.items():
                 name = ENV_METRICS.get(metric)
                 if name is None:
                     continue
-                out[name] = {
+                newest = max(g["observed_at"] for g in group)
+                reading = {
                     "value": round(sum(g["value"] for g in group) / len(group), 2),
                     "unit": group[0]["unit"],
-                    "observed_at": max(g["observed_at"] for g in group),
+                    "observed_at": newest,
                     "freshness": fresh[key],
                     "modelled": bool(group[0]["modelled"]),
                 }
+                # the healthiest provider wins; among equals, the newest reading
+                rank_key = (rank.get(fresh[key], 4), _invert(newest))
+                if name not in best or rank_key < best[name][0]:
+                    best[name] = (rank_key, reading)
+        out.update({name: reading for name, (_, reading) in best.items()})
         return out
 
     # ----------------------------------------------------------------------- the snapshot

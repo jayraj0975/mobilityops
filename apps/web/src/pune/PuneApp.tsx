@@ -137,7 +137,7 @@ export default function PuneApp({ meta }: { meta: Schemas["Meta"] }) {
         </ErrorBoundary>
       </main>
       <footer className="ops-foot small muted">
-        Weather data by Open-Meteo.com (CC BY 4.0). Map data © OpenStreetMap contributors (ODbL). Demand is simulated;
+        Weather data by Open-Meteo.com and MET Norway (CC BY 4.0). Map data © OpenStreetMap contributors (ODbL). Demand is simulated;
         forecasts are estimates, not guarantees; optimisation outputs are simulations under stated assumptions.
       </footer>
     </PuneCtx.Provider>

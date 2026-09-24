@@ -207,7 +207,7 @@ def test_runs_can_be_filtered_by_source(client: TestClient) -> None:
 
 def test_when_the_worker_stops_everything_degrades_visibly(settings: Settings) -> None:
     app = create_app(settings)
-    app.state.state_provider.clock = lambda: NOW + timedelta(hours=6)
+    app.state.state_provider.clock = lambda: NOW + timedelta(hours=14)
     d = TestClient(app).get("/api/v1/state/snapshot").json()
     assert d["worker"]["freshness"] == "OFFLINE" and d["freshness"] == "OFFLINE"
     src = {s["key"]: s for s in d["sources"]}
