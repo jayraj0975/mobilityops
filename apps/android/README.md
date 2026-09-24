@@ -9,6 +9,9 @@ server address and API key. It talks to your own MobilityOps server
 It uses only platform networking (`HttpURLConnection`) and AndroidX/Material, so there is no
 third-party network library to trust. Minimum Android 7.0 (API 24).
 
+**Download:** the signed release APK and its checksum are on the
+[Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v1.0.0) (`android-v1.0.0`).
+
 ## Screens
 
 | Live | Live feeds | Overview | Forecast | Anomalies |
