@@ -5,6 +5,7 @@
 Refuses archive members that would land outside DEST.
 """
 
+# ruff: noqa: S310  (the URL scheme is checked to be https before any request)
 from __future__ import annotations
 
 import hashlib
@@ -18,7 +19,7 @@ def main(url: str, sha256: str, dest: str = ".") -> None:
     if not url.startswith("https://"):
         raise SystemExit("the demo URL must be https")
     req = urllib.request.Request(url, headers={"User-Agent": "mobilityops-fetch-demo"})
-    with urllib.request.urlopen(req, timeout=120) as r:  # noqa: S310 (https enforced above)
+    with urllib.request.urlopen(req, timeout=120) as r:
         blob = r.read(200 * 1024 * 1024)
     got = hashlib.sha256(blob).hexdigest()
     if got != sha256.lower():

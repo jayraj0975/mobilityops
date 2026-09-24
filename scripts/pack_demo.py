@@ -52,10 +52,10 @@ def main() -> None:
             with f.open("rb") as fh:
                 tar.addfile(info, fh)
         note = (
-            "MobilityOps demo bundle: derived aggregates of NYC TLC yellow-taxi records "
-            "(Jan-May 2024) and generated model artifacts. No trip-level rows. "
-            "See docs/DATA_SOURCES.md and NOTICE.\n"
-        ).encode()
+            b"MobilityOps demo bundle: derived aggregates of NYC TLC yellow-taxi records "
+            b"(Jan-May 2024) and generated model artifacts. No trip-level rows. "
+            b"See docs/DATA_SOURCES.md and NOTICE.\n"
+        )
         ti = tarfile.TarInfo("DEMO_README.txt")
         ti.size = len(note)
         tar.addfile(ti, io.BytesIO(note))
