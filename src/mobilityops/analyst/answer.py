@@ -278,7 +278,8 @@ def _anomalies(r: ToolResult) -> list[Statement]:
     out = [
         c.stmt(
             "FACT",
-            f"{c('total')} anomaly events match, among days scored {c('scored_days')}.",
+            f"{c('total')} anomaly events match ({c('filters')}), among days scored "
+            f"{c('scored_days')}.",
         )
     ]
     i = 1

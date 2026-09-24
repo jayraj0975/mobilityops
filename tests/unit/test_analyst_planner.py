@@ -241,3 +241,47 @@ def test_bare_month_with_year_and_nth_week_of_a_month_are_periods() -> None:
     assert w3 and (w3.start, w3.end_exclusive) == (date(2024, 4, 8), date(2024, 4, 15))
     last = parse_period("the last week of April", CTX)
     assert last and (last.start, last.end_exclusive) == (date(2024, 4, 24), date(2024, 5, 1))
+
+
+# ---------------------------------------------- defects found by re-running on a full year of data
+def _args(question: str) -> dict:  # type: ignore[type-arg]
+    plan = PLAN(question, CTX)
+    assert plan.calls, plan
+    return dict(plan.calls[0].args)
+
+
+@pytest.mark.parametrize(
+    ("question", "severity"),
+    [
+        ("show the low severity drops", "low"),
+        ("any minor anomalies last week?", "low"),
+        ("list anomalies with severity low", "low"),
+        ("show the high severity surges", "high"),
+        ("show the medium severity anomalies", "medium"),
+        ("show the anomalies", None),
+    ],
+)
+def test_the_severity_filter_is_extracted_for_every_level(
+    question: str, severity: str | None
+) -> None:
+    """'low' used to be ignored, so 'low severity drops' silently returned every drop."""
+    assert _args(question).get("severity") == severity
+
+
+def test_direction_and_severity_combine() -> None:
+    a = _args("show the low severity drops")
+    assert (a["severity"], a["direction"]) == ("low", "drop")
+
+
+def test_a_past_date_is_never_silently_replaced_by_tomorrows_forecast() -> None:
+    """'forecast for the week of 2024-07-04' used to answer with the next-day forecast."""
+    plan = PLAN("forecast for the week of 2024-05-04", CTX)
+    assert plan.intent == "clarify" and plan.clarification is not None
+    assert "2024-05-04" in plan.clarification and "2024-06-01" in plan.clarification
+
+
+def test_forecast_requests_that_are_supported_still_work() -> None:
+    assert _args("what is the forecast for tomorrow")["mode"] == "next_day"
+    assert _args("forecast for 2024-06-01")["mode"] == "next_day"  # the forecastable day itself
+    backtest = _args("how close was the forecast to actual on 2024-05-25?")
+    assert (backtest["mode"], backtest["day"]) == ("backtest", "2024-05-25")

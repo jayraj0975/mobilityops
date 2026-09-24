@@ -578,6 +578,10 @@ def _anomalies(ctx: ToolContext, r: ToolResult, a: AnomalyArgs) -> None:
         df = df[df["start"] < pd.Timestamp(a.end)]
     r.data = {"total": len(df), "returned": int(min(len(df), a.limit))}
     r.add("total", "Matching anomaly events", len(df), n(len(df)))
+    # Say which filters were applied, so an answer can never look filtered when it is not.
+    applied = [f"severity {a.severity}"] if a.severity else []
+    applied += [f"direction {a.direction}"] if a.direction else []
+    r.add("filters", "Filters applied", ", ".join(applied) if applied else "none")
     r.add("scored_days", "Days scored", f"{rep['scored_days'][0]} to {rep['scored_days'][1]}")
     for i, e in enumerate(df.head(a.limit).to_dict("records"), start=1):
         r.add(f"e{i}.zone", f"Event {i} zone", f"{e['zone']} ({e['borough']})")

@@ -636,6 +636,13 @@ class RulePlanner:
                 args["severity"] = "high"
             elif _has(low, r"\bmedium\b"):
                 args["severity"] = "medium"
+            elif _has(
+                low,
+                r"\blow[- ](severity|priority|level|grade)\b",
+                r"\bseverity\W+(of\W+|is\W+)?low\b",
+                r"\b(minor|least severe|lowest severity)\b",
+            ):
+                args["severity"] = "low"
             if _has(low, r"\b(surge|spike|increase|above|jump)s?\b"):
                 args["direction"] = "surge"
             elif _has(low, r"\b(drop|fall|decline|below|collapse|dip)s?\b"):
@@ -683,7 +690,7 @@ class RulePlanner:
             args = {}
             if zone_id is not None:
                 args["zone"] = zone_id
-            if dates and _has(
+            backtest_words = _has(
                 low,
                 r"\bactual",
                 r"\bvs\b",
@@ -693,7 +700,22 @@ class RulePlanner:
                 r"\bwas it",
                 r"\bhow well",
                 r"\bpredicted\b",
-            ):
+            )
+            # A date that is neither the forecastable day nor the subject of a comparison with
+            # actuals must not be silently replaced by tomorrow's forecast.
+            other_dates = [d for d in dates if d != next_day]
+            if other_dates and not backtest_words:
+                return Plan(
+                    "clarify",
+                    clarification=(
+                        f"I can only forecast the day after the last day of data ({next_day}); I cannot "
+                        f"produce a forecast for {other_dates[0]}. For the evaluation days "
+                        f"({ctx.eval_first} to {ctx.eval_last}) I can compare the forecast with what "
+                        "actually happened: ask how close the forecast was to actual on that day."
+                    ),
+                    assumptions=assumptions,
+                )
+            if dates and backtest_words:
                 args.update(mode="backtest", day=str(dates[0]))
             else:
                 args["mode"] = "next_day"

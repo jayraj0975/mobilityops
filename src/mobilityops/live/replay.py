@@ -136,7 +136,7 @@ def build_replay(
                     }
                 )
 
-    first, last = hours[0], hours[-1] + pd.Timedelta(hours=1)
+    first, last = hours[0], hours[-1]  # both inclusive: the last hour's own day
     label = (
         f"REPLAY of held-out days {first:%Y-%m-%d} to {last:%Y-%m-%d}: forecasts made before "
         "those days, shown against what happened. Not live taxi data"

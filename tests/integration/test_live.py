@@ -61,6 +61,12 @@ def test_replay_ticks_carry_actual_forecast_and_a_running_accuracy(replay: Repla
     assert "SYNTHETIC" in t["label"]  # sample mode is labelled as such
 
 
+def test_label_names_the_last_replayed_day_not_the_exclusive_end(replay: Replay) -> None:
+    first, last = replay.hours[0], replay.hours[-1]
+    assert f"{first:%Y-%m-%d} to {last:%Y-%m-%d}" in replay.label
+    assert replay.meta()["end"] > last.isoformat()  # the machine-readable end stays exclusive
+
+
 def test_replay_clock_is_shared_and_loops(replay: Replay) -> None:
     replay.t0 = 100.0
     sph = replay.seconds_per_hour
