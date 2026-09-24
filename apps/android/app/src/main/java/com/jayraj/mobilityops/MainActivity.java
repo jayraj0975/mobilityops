@@ -87,7 +87,8 @@ public final class MainActivity extends AppCompatActivity {
         return pune ? R.id.nav_pune_home : R.id.nav_live;
     }
 
-    private void applyMode(boolean nowPune) {
+    /** Switch between the New York and Pune tabs; called when the server's mode is learned. */
+    public void applyMode(boolean nowPune) {
         if (nowPune == pune) {
             return;
         }

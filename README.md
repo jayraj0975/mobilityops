@@ -114,7 +114,7 @@ The **Live** tab streams two clearly different things over server-sent events, e
   last good reading stays on screen and says it is not current.
 
 The same stream feeds the **native Android app** ([apps/android](apps/android/README.md)), built with
-Gradle (signed APK: [Releases, android-v2.0.0](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.0.0): includes the Pune tabs; 1.0.0 remains)): Live, Overview, Forecast, Anomalies and Settings tabs, verified on an Android 14 emulator against the
+Gradle (signed APK: [Releases, android-v2.1.0](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.1.0): includes the Pune tabs; earlier releases remain)): Live, Overview, Forecast, Anomalies and Settings tabs, verified on an Android 14 emulator against the
 real-data server.
 
 | Live (replay) | Live (feeds) | Overview | Forecast | Anomalies |

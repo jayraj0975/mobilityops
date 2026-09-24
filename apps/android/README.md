@@ -20,7 +20,7 @@ It uses only platform networking (`HttpURLConnection`) and AndroidX/Material, so
 third-party network library to trust. Minimum Android 7.0 (API 24).
 
 **Download:** the signed release APK and its checksum are on the
-[Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.0.0) (`android-v2.0.0`; the earlier `android-v1.0.0` remains).
+[Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.1.0) (`android-v2.1.0`; earlier releases remain).
 
 ## Screens
 
