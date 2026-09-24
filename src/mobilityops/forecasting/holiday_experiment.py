@@ -42,7 +42,7 @@ def _paired(
     t: DemandTensor, *, settings: Settings, label: str
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     cfg = _with_threads(default_config(t.n_days), settings)
-    base = walk_forward(t, cfg)
+    base = walk_forward(t, replace(cfg, holiday_features=False))
     hol = walk_forward(t, replace(cfg, holiday_features=True))
     key = ["fold", "zone_index", "day_index", "hour"]
     a, b = base.predictions, hol.predictions

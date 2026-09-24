@@ -35,6 +35,7 @@ from mobilityops.config import Settings
 from mobilityops.forecasting.baselines import BASELINES, baseline_forecasts
 from mobilityops.forecasting.features import (
     CATEGORICAL_FEATURES,
+    HOLIDAY_FEATURES,
     HOURS,
     LONGEST_LOOKBACK_DAYS,
     MIN_HISTORY_DAYS,
@@ -69,7 +70,9 @@ class EvalConfig:
     calib_days: int = 14
     coverage: float = DEFAULT_COVERAGE
     oracle_weather: bool = False
-    holiday_features: bool = False  # pre-registered experiment; the shipped model leaves it off
+    # Adopted under the pre-registered decision rule (docs/PREREGISTRATION_HOLIDAY.md, result in
+    # reports/holiday_experiment_real.md). The experiment itself sets it explicitly for both arms.
+    holiday_features: bool = True
     params: dict[str, Any] = field(default_factory=dict)
     seed: int = 7
 
@@ -405,7 +408,7 @@ def train_final(settings: Settings, cfg: EvalConfig | None = None) -> Path:
     """Fit on all data up to the last day (minus a calibration block) and register the model."""
     t = load_demand(settings.db_path)
     cfg = _with_threads(cfg or default_config(t.n_days), settings)
-    frame = build_features(t)
+    frame = build_features(t, holiday_features=cfg.holiday_features)
     day = frame["day_index"].to_numpy()
     cal_start = t.n_days - cfg.calib_days
     train_rows = frame[(day < cal_start)]
@@ -415,7 +418,7 @@ def train_final(settings: Settings, cfg: EvalConfig | None = None) -> Path:
     model = fit_model(
         train_rows,
         cal_rows,
-        feature_columns(),
+        feature_columns(holiday_features=cfg.holiday_features),
         list(CATEGORICAL_FEATURES),
         coverage=cfg.coverage,
         params=cfg.params,
@@ -448,7 +451,10 @@ def forecast_next_day(t: DemandTensor, model: ForecastModel) -> pd.DataFrame:
     # Only the last weeks matter to the features; slicing keeps memory small (DemandTensor.tail).
     ext = t.tail(LONGEST_LOOKBACK_DAYS + MIN_HISTORY_DAYS + 3).extended(1)
     idx = ext.n_days - 1
-    frame = build_features(ext, days=range(idx, idx + 1))
+    # The frame must carry whatever the registered model was trained on (older models predate the
+    # holiday features).
+    uses_holiday = any(f in model.features for f in HOLIDAY_FEATURES)
+    frame = build_features(ext, days=range(idx, idx + 1), holiday_features=uses_holiday)
     pred = model.predict(frame)
     out = pd.DataFrame(
         {

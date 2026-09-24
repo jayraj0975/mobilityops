@@ -147,19 +147,41 @@ def test_next_day_forecast_from_a_tail_equals_the_full_history_forecast(
     tensor, built_sample
 ) -> None:  # type: ignore[no-untyped-def]
     """The memory optimisation must not change a single prediction."""
-    from mobilityops.forecasting.features import build_features, feature_columns
+    from mobilityops.forecasting.features import HOLIDAY_FEATURES, build_features
 
     settings, _ = built_sample
     train_final(
         settings, EvalConfig(n_folds=1, fold_days=7, calib_days=7, params={"num_boost_round": 40})
     )
     model = load_model(settings)
+    assert set(HOLIDAY_FEATURES) <= set(model.features)  # adopted: the default model has them
     fast = forecast_next_day(tensor, model)
     ext = tensor.extended(1)  # the old way: features over the whole history
-    frame = build_features(ext, days=range(ext.n_days - 1, ext.n_days))
-    slow = model.predict(frame[feature_columns()])
+    frame = build_features(ext, days=range(ext.n_days - 1, ext.n_days), holiday_features=True)
+    slow = model.predict(frame)
     np.testing.assert_allclose(fast["pred"].to_numpy(), slow["pred"].to_numpy(), rtol=0, atol=1e-9)
     np.testing.assert_allclose(fast["hi"].to_numpy(), slow["hi"].to_numpy(), rtol=0, atol=1e-9)
     assert tensor.tail(10).n_days == 10 and tensor.tail(10_000).n_days == tensor.n_days
     with pytest.raises(ValueError):
         tensor.tail(0)
+
+
+def test_a_registered_model_without_holiday_features_still_serves(tensor, built_sample) -> None:  # type: ignore[no-untyped-def]
+    """Models trained before the holiday features were adopted must keep working."""
+    from mobilityops.forecasting.features import HOLIDAY_FEATURES
+
+    settings, _ = built_sample
+    train_final(
+        settings,
+        EvalConfig(
+            n_folds=1,
+            fold_days=7,
+            calib_days=7,
+            holiday_features=False,
+            params={"num_boost_round": 40},
+        ),
+    )
+    model = load_model(settings)
+    assert not set(HOLIDAY_FEATURES) & set(model.features)
+    out = forecast_next_day(tensor, model)
+    assert len(out) == tensor.n_zones * 24 and out["pred"].notna().all()
