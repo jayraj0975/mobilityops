@@ -60,6 +60,10 @@ What these results cannot tell you. Each item is also stated where the result ap
 
 ## Engineering
 
+* **Concurrent CPU-heavy jobs can starve each other.** LightGBM uses every core by default, and
+  oversubscribed OpenMP threads spin: two test suites started at once once took over 20 minutes
+  instead of 50 seconds. Set `MOBILITYOPS_THREADS` (for example 4) when several jobs share a machine;
+  the test suite does this itself. The API's prediction path is not thread-capped.
 * Not internet-ready (see SECURITY). Single-process, single-machine; the in-memory cache and
   metrics reset on restart and are not shared between processes.
 * The container image is large (925 MB) because of the scientific stack. It was built and run

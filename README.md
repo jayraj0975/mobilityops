@@ -30,7 +30,7 @@ produced it (nothing here is typed in by hand; regenerate with the commands in
 | API | 28 contract tests plus a concurrency smoke test on real data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | 32 component tests (run under 4 timezones), 18 real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use and phone width | VERIFIED |
 | Container | Built and run locally: whole pipeline and server inside the image, non-root, healthy | VERIFIED locally |
-| Tests | 360 Python tests at 95% line coverage; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 362 Python tests at 95% line coverage; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Hosted deployment, authentication beyond an optional API key, rate limiting, TLS | not built | NOT IMPLEMENTED |
 
 ## Screens

@@ -22,7 +22,7 @@ interval, because days (not rows) are the independent-ish units.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -336,6 +336,13 @@ def summarize(t: DemandTensor, wf: WalkForward, cfg: EvalConfig) -> dict[str, An
 
 
 # ------------------------------------------------------------------------------ orchestration
+def _with_threads(cfg: EvalConfig, settings: Settings) -> EvalConfig:
+    """Apply MOBILITYOPS_THREADS (0 = leave LightGBM's default) unless the config sets its own."""
+    if settings.threads and "num_threads" not in cfg.params:
+        return replace(cfg, params={**cfg.params, "num_threads": settings.threads})
+    return cfg
+
+
 def data_run_id(db_path: Path) -> str | None:
     con = duckdb.connect(str(db_path), read_only=True)
     try:
@@ -353,6 +360,7 @@ def run_evaluation(
     """Walk-forward evaluation on the gold layer; writes the report and predictions to artifacts."""
     t = load_demand(settings.db_path)
     cfg = cfg or default_config(t.n_days)
+    cfg = _with_threads(cfg, settings)
     wf = walk_forward(t, cfg)
     report: dict[str, Any] = {
         "generated_at_utc": datetime.now(UTC).isoformat(),
@@ -393,7 +401,7 @@ def run_evaluation(
 def train_final(settings: Settings, cfg: EvalConfig | None = None) -> Path:
     """Fit on all data up to the last day (minus a calibration block) and register the model."""
     t = load_demand(settings.db_path)
-    cfg = cfg or default_config(t.n_days)
+    cfg = _with_threads(cfg or default_config(t.n_days), settings)
     frame = build_features(t)
     day = frame["day_index"].to_numpy()
     cal_start = t.n_days - cfg.calib_days

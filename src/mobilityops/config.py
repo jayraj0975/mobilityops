@@ -33,6 +33,7 @@ class Settings:
     log_level: str
     anthropic_api_key: str | None
     llm_model: str | None
+    threads: int = 0  # LightGBM threads; 0 = all cores. Cap it when several jobs share a machine.
     api_key: str | None = None  # if set, every /api/v1 request must send it as X-API-Key
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
 
@@ -50,6 +51,9 @@ class Settings:
         key = (e.get("ANTHROPIC_API_KEY") or "").strip() or None
         model = (e.get("MOBILITYOPS_LLM_MODEL") or "").strip() or None
         api_key = (e.get("MOBILITYOPS_API_KEY") or "").strip() or None
+        raw_threads = (e.get("MOBILITYOPS_THREADS") or "0").strip()
+        if not raw_threads.isdigit() or int(raw_threads) > 256:
+            raise ConfigError("MOBILITYOPS_THREADS must be a whole number from 0 to 256")
         origins = tuple(
             o.strip() for o in (e.get("MOBILITYOPS_CORS_ORIGINS") or "").split(",") if o.strip()
         )
@@ -62,6 +66,7 @@ class Settings:
             log_level=level,
             anthropic_api_key=key,
             llm_model=model,
+            threads=int(raw_threads),
             api_key=api_key,
             **extra,
         )

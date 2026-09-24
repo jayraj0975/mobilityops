@@ -10,6 +10,15 @@ from mobilityops.config import Settings
 from mobilityops.sample import SampleFiles, SampleSpec, generate_sample
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _cap_lightgbm_threads() -> None:
+    """Small models gain nothing from every core, and two suites on one machine would otherwise
+    oversubscribe OpenMP threads (which spin) and slow each other down enormously."""
+    from mobilityops.forecasting import model
+
+    model.DEFAULT_PARAMS["num_threads"] = 4
+
+
 @pytest.fixture(scope="session")
 def sample_files(tmp_path_factory: pytest.TempPathFactory) -> SampleFiles:
     """TEST / SYNTHETIC DATA: the default 12-zone, 56-day sample."""

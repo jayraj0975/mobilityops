@@ -51,3 +51,20 @@ def test_ensure_dirs_creates_layout(tmp_path: Path) -> None:
     s = Settings.from_env({"MOBILITYOPS_DATA_DIR": str(tmp_path / "d")})
     s.ensure_dirs()
     assert s.raw_dir.is_dir() and s.processed_dir.is_dir() and s.manifests_dir.is_dir()
+
+
+def test_threads_setting_defaults_to_all_cores_and_rejects_nonsense() -> None:
+    assert Settings.from_env({}).threads == 0
+    assert Settings.from_env({"MOBILITYOPS_THREADS": "4"}).threads == 4
+    for bad in ("-1", "many", "999", "1.5"):
+        with pytest.raises(ConfigError, match="MOBILITYOPS_THREADS"):
+            Settings.from_env({"MOBILITYOPS_THREADS": bad})
+
+
+def test_thread_cap_reaches_the_model_parameters_unless_overridden() -> None:
+    from mobilityops.forecasting.evaluate import EvalConfig, _with_threads
+
+    capped = Settings.from_env({"MOBILITYOPS_THREADS": "3"})
+    assert _with_threads(EvalConfig(), capped).params["num_threads"] == 3
+    assert _with_threads(EvalConfig(params={"num_threads": 1}), capped).params["num_threads"] == 1
+    assert "num_threads" not in _with_threads(EvalConfig(), Settings.from_env({})).params
