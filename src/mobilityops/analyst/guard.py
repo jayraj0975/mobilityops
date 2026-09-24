@@ -91,7 +91,7 @@ _OUT_OF_SCOPE: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     for p, why in (
         (
             r"\b(stock|bitcoin|crypto|lottery|horoscope|recipe|joke|poem|song)\b",
-            "That is outside what I can analyse: NYC yellow-taxi demand, forecasts, anomalies "
+            "That is outside what I can analyse: zone-level mobility demand, forecasts, anomalies "
             "and simulated repositioning.",
         ),
         (

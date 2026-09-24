@@ -75,6 +75,32 @@ def cmd_build(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pune_build(settings: Settings, args: argparse.Namespace) -> int:
+    """Build the Pune database: real rain history and geography, SIMULATED demand."""
+    from datetime import date
+
+    from mobilityops.pune.build import build_pune
+    from mobilityops.pune.sources.base import SourceError
+
+    if settings.mode != "pune":
+        print("pune-build needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+        return 2
+    window = (date.fromisoformat(args.start), date.fromisoformat(args.end)) if args.start else None
+    try:
+        res = build_pune(settings, window, refresh_weather=args.refresh_weather)
+    except SourceError as exc:
+        print(f"cannot fetch the rain history: {exc}", file=sys.stderr)
+        return 1
+    except (QualityGateError, ValueError) as exc:
+        print(f"BUILD STOPPED: {exc}", file=sys.stderr)
+        return 1
+    print(f"built {res.db_path} (run {res.run_id})")
+    start, end = res.window
+    print(f"  SIMULATED demand: {res.trips:,} trips, {res.zones} zones, {start} to {end}")
+    print(f"  quality[gold]: {res.report.overall.value}; planted events: {len(res.events)}")
+    return 0
+
+
 def cmd_status(settings: Settings, args: argparse.Namespace) -> int:
     """Print the latest quality reports."""
     found = False
@@ -420,6 +446,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     i.set_defaults(func=cmd_ingest)
     sub.add_parser("build", help="run the pipeline with quality gates").set_defaults(func=cmd_build)
+    pb = sub.add_parser("pune-build", help="build the Pune database (SIMULATED demand)")
+    pb.add_argument("--start", help="first day, YYYY-MM-DD (default: one year ending a week ago)")
+    pb.add_argument("--end", help="end day, exclusive, YYYY-MM-DD")
+    pb.add_argument("--refresh-weather", action="store_true", help="fetch the rain history again")
+    pb.set_defaults(func=cmd_pune_build)
     sub.add_parser("status", help="show the latest quality reports").set_defaults(func=cmd_status)
     fe = sub.add_parser("forecast-eval", help="walk-forward evaluation vs baselines")
     fe.add_argument("--folds", type=int, default=0)

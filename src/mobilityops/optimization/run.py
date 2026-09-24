@@ -79,7 +79,7 @@ def summarize(df: pd.DataFrame, t: DemandTensor, seed: int = 7) -> dict[str, Any
     day_kind = pd.Series(
         np.where(
             cal["is_holiday"].to_numpy()[df["day_index"].to_numpy()],
-            "federal holiday",
+            t.city.holiday_kind,
             np.where(
                 cal["is_weekend"].to_numpy()[df["day_index"].to_numpy()], "weekend", "weekday"
             ),

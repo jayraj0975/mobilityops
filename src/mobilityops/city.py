@@ -49,6 +49,9 @@ class City:
     bbox: tuple[float, float, float, float]  # (min_lat, min_lon, max_lat, max_lon)
     holiday_lookup: HolidayLookup
     holiday_label: str  # what the holidays are, for documents ("US federal holidays")
+    holiday_phrase: str  # singular, after "a": "US federal holiday"
+    holiday_kind: str  # day-type label used in reports: "federal holiday"
+    scope: str  # what the analyst is told the data covers
 
     def holidays(self, start: date, end: date) -> dict[date, str]:
         """Holiday name by date, for every holiday in [start, end] inclusive."""
@@ -66,6 +69,9 @@ NYC = City(
     bbox=(40.49, -74.27, 40.92, -73.68),
     holiday_lookup=_us_federal,
     holiday_label="US federal holidays",
+    holiday_phrase="US federal holiday",
+    holiday_kind="federal holiday",
+    scope="NYC yellow-taxi demand",
 )
 
 PUNE = City(
@@ -75,6 +81,9 @@ PUNE = City(
     bbox=(18.40, 73.70, 18.68, 74.02),
     holiday_lookup=_india_maharashtra,
     holiday_label="public holidays of India and Maharashtra",
+    holiday_phrase="public holiday in Maharashtra",
+    holiday_kind="public holiday",
+    scope="simulated Pune mobility demand",
 )
 
 CITIES: dict[str, City] = {c.key: c for c in (NYC, PUNE)}

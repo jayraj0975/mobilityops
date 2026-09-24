@@ -363,7 +363,7 @@ def annotate(
 
 
 def _long_weekend(t: DemandTensor, d_idx: int) -> bool:
-    """Saturday/Sunday next to a Monday or Friday federal holiday (a 'long weekend')."""
+    """Saturday/Sunday next to a Monday or Friday holiday (a 'long weekend')."""
     dow = int(t.calendar["day_of_week"].iloc[d_idx])
     if dow not in (5, 6):
         return False
@@ -375,16 +375,17 @@ def _context(
     t: DemandTensor, d_idx: int, share: float, scope: str, overlapping: int = 0
 ) -> list[str]:
     out: list[str] = []
+    hol = t.city.holiday_phrase
     if 0 <= d_idx < t.n_days:
         cal = t.calendar.iloc[d_idx]
         if bool(cal["is_holiday"]):
-            out.append("a US federal holiday")
+            out.append(f"a {hol}")
         if bool(cal["is_day_after_holiday"]):
-            out.append("the day after a US federal holiday")
+            out.append(f"the day after a {hol}")
         if bool(cal["is_day_before_holiday"]):
-            out.append("the day before a US federal holiday")
+            out.append(f"the day before a {hol}")
         if _long_weekend(t, d_idx):
-            out.append("a weekend adjoining a US federal holiday")
+            out.append(f"a weekend adjoining a {hol}")
         w = t.weather.iloc[d_idx]
         prcp = pd.to_numeric(pd.Series([w["prcp_mm"]]), errors="coerce").iloc[0]
         tmax = pd.to_numeric(pd.Series([w["tmax_c"]]), errors="coerce").iloc[0]

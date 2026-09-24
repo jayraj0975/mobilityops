@@ -63,7 +63,7 @@ def _overview(r: ToolResult) -> list[Statement]:
     return [
         c.stmt(
             "FACT",
-            f"The loaded data is {c('label')}: {c('trips')} valid taxi trips across {c('zones')} "
+            f"The loaded data is {c('label')}: {c('trips')} valid trips across {c('zones')} "
             f"zones, from {c('start')} to {c('end')}.",
         )
     ]
