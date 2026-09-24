@@ -49,15 +49,15 @@ public final class OverviewFragment extends ScreenFragment {
         d.meta = api.getObject("/api/v1/meta", null);
         String endExclusive = d.meta.optString("data_end", "").substring(0, 10);
         String start = d.meta.optString("data_start", "").substring(0, 10);
-        String weekAgo = Times.addDays(endExclusive, -7);
-        String twoWeeksAgo = Times.addDays(endExclusive, -14);
+        String[] w = Times.weekOverWeek(endExclusive, start);
+        String weekAgo = w[2];
         d.from = weekAgo;
         d.to = Times.addDays(endExclusive, -1);
         Map<String, String> cmp = new LinkedHashMap<>();
-        cmp.put("a_start", weekAgo);
-        cmp.put("a_end", endExclusive);
-        cmp.put("b_start", twoWeeksAgo.compareTo(start) < 0 ? start : twoWeeksAgo);
-        cmp.put("b_end", weekAgo);
+        cmp.put("a_start", w[0]); // the earlier week
+        cmp.put("a_end", w[1]);
+        cmp.put("b_start", w[2]); // the latest week: the change is measured from A to B
+        cmp.put("b_end", w[3]);
         d.compare = api.getObject("/api/v1/demand/compare", cmp);
         Map<String, String> top = new LinkedHashMap<>();
         top.put("start", weekAgo);
@@ -90,13 +90,13 @@ public final class OverviewFragment extends ScreenFragment {
                 synthetic ? R.color.surface : R.color.live_bg, synthetic ? R.color.warn : R.color.live_border));
 
         content.addView(Ui.heading(c, "Last 7 days"));
-        JSONObject a = d.compare.optJSONObject("period_a");
-        JSONObject b = d.compare.optJSONObject("period_b");
+        JSONObject earlier = d.compare.optJSONObject("period_a");
+        JSONObject latest = d.compare.optJSONObject("period_b");
         Double change = d.compare.isNull("per_day_change_pct") ? null : d.compare.optDouble("per_day_change_pct");
         content.addView(Ui.kpiGrid(c, Arrays.asList(
-                new String[] {"Pickups per day", a == null ? "n/a" : Fmt.integer(a.optDouble("per_day")), d.from + " to " + d.to},
+                new String[] {"Pickups per day", latest == null ? "n/a" : Fmt.integer(latest.optDouble("per_day")), d.from + " to " + d.to},
                 new String[] {"Change vs previous week", Fmt.signedPercent(change, 1),
-                        b == null ? null : "was " + Fmt.integer(b.optDouble("per_day")) + " per day"},
+                        earlier == null ? null : "was " + Fmt.integer(earlier.optDouble("per_day")) + " per day"},
                 new String[] {"Zones in the data", Fmt.integer((long) d.meta.optInt("n_zones")), null},
                 new String[] {"Trips analysed", Fmt.integer((long) d.meta.optLong("rows_valid")), "after cleaning"})));
         if (!d.compare.optBoolean("equal_length", true)) {

@@ -39,7 +39,7 @@ public final class SettingsFragment extends ScreenFragment {
         content.addView(urlLayout);
 
         TextInputLayout keyLayout = new TextInputLayout(c);
-        keyLayout.setHint("API key (only if the server requires one)");
+        keyLayout.setHint("API key (if required)");
         TextInputEditText key = new TextInputEditText(keyLayout.getContext());
         key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         key.setSingleLine(true);

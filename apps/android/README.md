@@ -9,6 +9,15 @@ server address and API key. It talks to your own MobilityOps server
 It uses only platform networking (`HttpURLConnection`) and AndroidX/Material, so there is no
 third-party network library to trust. Minimum Android 7.0 (API 24).
 
+## Screens
+
+| Live | Live feeds | Overview | Forecast | Anomalies |
+|---|---|---|---|---|
+| ![](../../docs/images/android-live.png) | ![](../../docs/images/android-live-feeds.png) | ![](../../docs/images/android-overview.png) | ![](../../docs/images/android-forecast.png) | ![](../../docs/images/android-anomalies.png) |
+
+Screenshots are of the real app on an emulator, on the real data. The Live tab's top section is a
+labelled replay; the lower section is live Citi Bike and weather data.
+
 ## Build
 
 You need JDK 17 and the Android SDK (platform 34, build-tools 34). Gradle itself comes from the
@@ -18,7 +27,7 @@ wrapper.
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=/path/to/android-sdk          # or put sdk.dir=... in local.properties
 ./gradlew assembleDebug                           # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest lintDebug             # 26 unit tests and Android lint
+./gradlew testDebugUnitTest lintDebug             # 27 unit tests and Android lint
 ```
 
 Install on a device or emulator: `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
@@ -49,4 +58,4 @@ anything beyond your local network.
 The stream client is tested against a real local server (delivery in order, the API key header,
 reconnect after a dropped connection, the server's own refusal message, a malformed event not ending
 the stream, backoff timing), together with the event parser, JSON models, formatting, address
-normalisation and date arithmetic. Android lint reports no errors.
+normalisation and date arithmetic. Android lint reports no errors. Every screen was run on an Android 14 emulator against the real-data server (which is how a reversed week-over-week comparison and a chart axis reaching below zero were found and fixed).

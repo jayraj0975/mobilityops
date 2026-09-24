@@ -41,6 +41,24 @@ public final class Times {
                 c.get(Calendar.DAY_OF_MONTH));
     }
 
+    /**
+     * The two 7-day windows for a week-over-week comparison, as {aStart, aEnd, bStart, bEnd} with
+     * half-open [start, end) dates. A is the EARLIER week and B the latest one: the API measures the
+     * change from A to B, so a positive change means demand rose into the latest week. The earlier
+     * week is clamped to the start of the data.
+     */
+    public static String[] weekOverWeek(String dataEndExclusive, String dataStart) {
+        String bEnd = dataEndExclusive.substring(0, 10);
+        String bStart = addDays(bEnd, -7);
+        String aEnd = bStart;
+        String aStart = addDays(bEnd, -14);
+        String first = dataStart.substring(0, 10);
+        if (aStart.compareTo(first) < 0) {
+            aStart = first;
+        }
+        return new String[] {aStart, aEnd, bStart, bEnd};
+    }
+
     /** Seconds between an ISO timestamp and now; -1 when the timestamp cannot be read. */
     public static long ageSeconds(String iso, long nowMs) {
         long t = parseIso(iso);

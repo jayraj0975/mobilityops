@@ -53,6 +53,17 @@ public class UtilTest {
     }
 
     @Test
+    public void weekOverWeekComparesTheEarlierWeekWithTheLatestNotTheOtherWayRound() {
+        String[] w = Times.weekOverWeek("2025-01-01T00:00:00", "2024-01-01T00:00:00");
+        assertEquals("2024-12-18", w[0]); // A: the earlier week [Dec 18, Dec 25)
+        assertEquals("2024-12-25", w[1]);
+        assertEquals("2024-12-25", w[2]); // B: the latest week [Dec 25, Jan 1)
+        assertEquals("2025-01-01", w[3]);
+        String[] clamped = Times.weekOverWeek("2024-01-05", "2024-01-01");
+        assertEquals("2024-01-01", clamped[0]); // never before the start of the data
+    }
+
+    @Test
     public void calendarArithmeticCrossesMonthsYearsAndLeapDays() {
         assertEquals("2024-12-24", Times.addDays("2024-12-31", -7));
         assertEquals("2025-01-01", Times.addDays("2024-12-31", 1));

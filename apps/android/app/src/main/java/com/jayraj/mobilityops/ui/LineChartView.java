@@ -114,9 +114,13 @@ public final class LineChartView extends View {
         if (hi - lo < 1e-9) {
             hi = lo + 1;
         }
+        boolean nonNegative = lo >= 0;
         double pad = (hi - lo) * 0.08;
         lo -= pad;
         hi += pad;
+        if (nonNegative && lo < 0) {
+            lo = 0; // counts never go below zero; do not draw an axis that says they can
+        }
 
         gridPaint.setColor(gridColor);
         textPaint.setTextAlign(Paint.Align.RIGHT);
