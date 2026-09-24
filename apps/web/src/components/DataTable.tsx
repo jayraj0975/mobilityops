@@ -19,6 +19,8 @@ export function DataTable<R>({
   rowKey: (row: R) => string;
 }) {
   return (
+    // A wide table scrolls sideways; keyboard users must be able to focus it to scroll (WCAG 2.1.1).
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
     <div className="table-wrap" tabIndex={0} role="region" aria-label={caption}>
       <table>
         <caption className="sr-only">{caption}</caption>

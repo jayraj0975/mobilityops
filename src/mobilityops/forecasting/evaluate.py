@@ -197,7 +197,6 @@ class WalkForward:
     folds: list[dict[str, Any]]
     last_model: ForecastModel
     fallbacks: dict[str, int]
-    frame_rows: int
 
 
 def walk_forward(t: DemandTensor, cfg: EvalConfig) -> WalkForward:
@@ -257,7 +256,7 @@ def walk_forward(t: DemandTensor, cfg: EvalConfig) -> WalkForward:
     assert model is not None
     preds = pd.concat(parts, ignore_index=True)
     preds["hour_ts"] = hour_timestamps(t, preds)
-    return WalkForward(preds, info, model, fallbacks, len(frame))
+    return WalkForward(preds, info, model, fallbacks)
 
 
 def summarize(t: DemandTensor, wf: WalkForward, cfg: EvalConfig) -> dict[str, Any]:

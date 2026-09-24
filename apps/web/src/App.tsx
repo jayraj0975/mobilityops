@@ -1,16 +1,19 @@
-import { useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { api } from "./api/client";
 import { DataBanner } from "./components/Banner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Async } from "./components/State";
+import { Async, Loading } from "./components/State";
 import { useAsync } from "./lib/useAsync";
 import { ROUTES, useHashRoute } from "./lib/useHashRoute";
-import { Analyst } from "./pages/Analyst";
-import { Anomalies } from "./pages/Anomalies";
-import { Demand } from "./pages/Demand";
-import { Forecast } from "./pages/Forecast";
-import { Overview } from "./pages/Overview";
-import { Scenarios } from "./pages/Scenarios";
+
+// Each section is its own chunk, so the first paint downloads the shell only, and the charting
+// library loads with the first section that draws a chart.
+const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
+const Demand = lazy(() => import("./pages/Demand").then((m) => ({ default: m.Demand })));
+const Forecast = lazy(() => import("./pages/Forecast").then((m) => ({ default: m.Forecast })));
+const Anomalies = lazy(() => import("./pages/Anomalies").then((m) => ({ default: m.Anomalies })));
+const Scenarios = lazy(() => import("./pages/Scenarios").then((m) => ({ default: m.Scenarios })));
+const Analyst = lazy(() => import("./pages/Analyst").then((m) => ({ default: m.Analyst })));
 
 export default function App() {
   const [route, go] = useHashRoute();
@@ -57,12 +60,14 @@ export default function App() {
               {(z) => (
                 <ErrorBoundary key={route}>
                   <h2 className="sr-only">{ROUTES.find((r) => r.id === route)?.label}</h2>
+                  <Suspense fallback={<Loading what="section" />}>
                   {route === "overview" && <Overview meta={m} />}
                   {route === "demand" && <Demand meta={m} zones={z} />}
                   {route === "forecast" && <Forecast zones={z} />}
                   {route === "anomalies" && <Anomalies />}
                   {route === "scenarios" && <Scenarios zones={z} />}
                   {route === "analyst" && <Analyst />}
+                  </Suspense>
                 </ErrorBoundary>
               )}
             </Async>

@@ -16,9 +16,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin app
 WORKDIR /app
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE requirements.lock ./
 COPY src ./src
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir -c requirements.lock .
 COPY --from=web /web/dist ./apps/web/dist
 RUN mkdir -p /app/data /app/artifacts /app/reports && chown -R app:app /app
 USER app

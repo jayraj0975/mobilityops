@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup sample test test-all lint format typecheck check audit clean web-install web-types web-check web-build serve e2e-live e2e-browser
+.PHONY: help setup sample test test-all lint format typecheck check audit clean lock web-install web-types web-check web-build serve e2e-live e2e-browser
 
 help:            ## Show available commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*## "}{printf "  make %-10s %s\n",$$1,$$2}'
@@ -58,3 +58,6 @@ e2e-live:        ## Run the UI against a live API: E2E_API_URL=http://127.0.0.1:
 
 e2e-browser:     ## Real-browser tests + accessibility scans: start `make serve` first, then E2E_BASE=... make e2e-browser
 	cd apps/web && npx playwright install chromium && npm run e2e
+
+lock:            ## Record the exact installed Python versions in requirements.lock
+	$(PY) scripts/lock.py

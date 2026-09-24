@@ -87,7 +87,7 @@ docker run -p 127.0.0.1:8000:8000 -v "$PWD/data:/app/data" -v "$PWD/artifacts:/a
 | `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` for the held-out set) |
 | `serve`, `openapi` | HTTP API and UI; OpenAPI contract for the frontend types |
 
-Frontend: `make web-check` (types + tests), `make e2e-live` (UI against a running API),
+Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),
 `make e2e-browser` (Playwright with accessibility scans).
 
 ## Documentation

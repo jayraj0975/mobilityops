@@ -26,7 +26,7 @@ here and are simply skipped, never read as zero demand.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import duckdb
@@ -246,7 +246,3 @@ def hour_timestamps(t: DemandTensor, frame: pd.DataFrame) -> pd.DatetimeIndex:
     """Local timestamp of each row's target hour."""
     base = t.days[frame["day_index"].to_numpy()]
     return pd.DatetimeIndex(base) + pd.to_timedelta(frame["hour"].to_numpy(dtype=int), unit="h")
-
-
-def target_date(t: DemandTensor, day_index: int) -> date:
-    return t.days[day_index].date()

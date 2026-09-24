@@ -6,12 +6,23 @@
 make setup                       # Python 3.12+, virtualenv, dev tools
 make web-install                 # Node 20+, frontend dependencies
 make check                       # ruff, ruff format, mypy, pytest (what CI runs)
-make web-check                   # tsc --noEmit + vitest
+make web-check                   # eslint (incl. accessibility rules) + tsc --noEmit + vitest
 ```
 
 CI (`.github/workflows/ci.yml`) runs the Python checks with synthetic data only (it never
 downloads the real datasets) and a web job (type generation drift, typecheck, tests, build,
 `npm audit`).
+
+## Dependencies
+
+* Python ranges live in `pyproject.toml`; `requirements.lock` records the exact versions the
+  reported results were produced with and is used as pip constraints by the Docker build.
+  After upgrading, run `make lock`, then re-run `forecast-eval`, `anomalies` and the analyst
+  benchmark: library versions can change numeric results, and the committed reports must still
+  match (`tests/unit/test_docs_consistency.py` checks the documents against them).
+* Dependabot opens weekly grouped updates for pip, npm, GitHub Actions and Docker. TypeScript is
+  held at 5.x because `openapi-typescript` needs its JavaScript compiler API (TypeScript 7 removed
+  it); ESLint is held at 9 until the React and accessibility plugins support 10.
 
 ## Rules that keep the results honest
 

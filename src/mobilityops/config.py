@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -108,8 +107,3 @@ class Settings:
             f"log_level={self.log_level!r}, anthropic_api_key=<{key}>, "
             f"llm_model={self.llm_model!r}, api_key=<{api}>)"
         )
-
-
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    return Settings.from_env()

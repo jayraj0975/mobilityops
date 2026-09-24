@@ -183,10 +183,6 @@ class Period:
     end_exclusive: date
     text: str  # how it was understood, for the assumption line
 
-    @property
-    def last_day(self) -> date:
-        return self.end_exclusive - timedelta(days=1)
-
 
 def _clip(start: date, end_excl: date, ctx: PlanningContext) -> tuple[date, date]:
     return max(start, ctx.data_first), min(end_excl, ctx.data_last + timedelta(days=1))
