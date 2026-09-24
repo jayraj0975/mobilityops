@@ -37,15 +37,20 @@ python -m mobilityops.cli optimize-backtest  # about an hour; skip it and the Sc
 Leave out `--services green,fhvhv` to fetch yellow taxis only (about 0.6 GB). Interrupted downloads
 resume: the manifest is saved after every file.
 
-**B. Use the aggregate bundle (fast start).** The repository's Releases page carries a bundle of
-the derived, aggregate-only files with its SHA-256 (no trip-level rows). From a checkout:
+**B. Use an aggregate bundle (fast start).** A bundle holds only the derived, aggregate-only files (no
+trip-level rows), with a SHA-256 to check. The bundle published on the repository's Releases page
+(`demo-data-v1`) is the **earlier January to May snapshot**, which the public demo serves; it works, but it is
+not the full-year data described in the README. To make a current one from your own run of option A:
 
 ```bash
-python scripts/fetch_demo.py <bundle-url> <sha256> .
+python scripts/pack_demo.py --out dist/mobilityops-demo-real.tar.gz   # about 21 MB; writes a .sha256 beside it
+# on the machine that will serve it, in the checkout's root:
+sha256sum -c mobilityops-demo-real.tar.gz.sha256 && tar -xzf mobilityops-demo-real.tar.gz
 ```
 
-The bundle contains everything the dashboard needs except the Live tab's replay, which is built
-from `artifacts/real/forecast/predictions.parquet`; it is included.
+To publish a bundle for others, `scripts/fetch_demo.py <https-url> <sha256> <dest>` downloads, verifies and
+unpacks it. The bundle contains everything the dashboard needs, including
+`artifacts/real/forecast/predictions.parquet`, which the Live tab's replay is built from.
 
 ## Option 1: Docker Compose
 

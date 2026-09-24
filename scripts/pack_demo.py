@@ -27,6 +27,22 @@ INCLUDE = (
 )
 
 
+def bundle_note() -> str:
+    """The README inside the archive, naming the window the data actually covers."""
+    window = ""
+    manifest = ROOT / "data" / "manifests" / "real" / "manifest.json"
+    if manifest.exists():
+        w = json.loads(manifest.read_text()).get("window") or {}
+        if w.get("start") and w.get("end"):
+            window = f" for {w['start']} up to (not including) {w['end']}"
+    return (
+        "MobilityOps data bundle: derived aggregates of NYC TLC trip records"
+        f"{window} and generated model artifacts. Which services it holds (yellow taxis, and green "
+        "taxis and high-volume for-hire vehicles when they were ingested) is recorded in the "
+        "database's dim_service table. No trip-level rows. See docs/DATA_SOURCES.md and NOTICE.\n"
+    )
+
+
 def files() -> list[Path]:
     out: list[Path] = []
     for rel in INCLUDE:
@@ -51,11 +67,7 @@ def main() -> None:
             info.mtime = 0  # deterministic archive
             with f.open("rb") as fh:
                 tar.addfile(info, fh)
-        note = (
-            b"MobilityOps demo bundle: derived aggregates of NYC TLC yellow-taxi records "
-            b"(Jan-May 2024) and generated model artifacts. No trip-level rows. "
-            b"See docs/DATA_SOURCES.md and NOTICE.\n"
-        )
+        note = bundle_note().encode()
         ti = tarfile.TarInfo("DEMO_README.txt")
         ti.size = len(note)
         tar.addfile(ti, io.BytesIO(note))
@@ -64,7 +76,9 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "archive": str(out.relative_to(ROOT)),
+                "archive": str(
+                    out.resolve().relative_to(ROOT) if out.resolve().is_relative_to(ROOT) else out
+                ),
                 "bytes": out.stat().st_size,
                 "sha256": digest,
                 "files": len(listing),
