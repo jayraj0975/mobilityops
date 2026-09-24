@@ -291,7 +291,7 @@ def _summarise(
         "label": label,
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "question_set": questions.name,
         "planner": "deterministic",
         "llm_status": "UNVERIFIED: no LLM key was available; LLM mode was not benchmarked",

@@ -161,7 +161,7 @@ def save_model(settings: Settings, model: ForecastModel, metrics: dict[str, Any]
         "model_id": model_id,
         "created_at_utc": created.isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "features": model.features,
         "categorical": model.categorical,
         "conformal_q_bins": model.q_bins,

@@ -689,6 +689,11 @@
             "title": "Built At Utc",
             "type": "string"
           },
+          "city": {
+            "default": "New York City",
+            "title": "City",
+            "type": "string"
+          },
           "data_end": {
             "description": "Exclusive end of the data window (local time).",
             "format": "date-time",
@@ -711,7 +716,8 @@
           "mode": {
             "enum": [
               "sample",
-              "real"
+              "real",
+              "pune"
             ],
             "title": "Mode",
             "type": "string"

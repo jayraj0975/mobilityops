@@ -80,8 +80,8 @@ def build_gold(
     path.unlink(missing_ok=True)
 
     dim_zone = build_dim_zone(settings)
-    dim_date = build_dim_date(start, end)
-    dim_hour = build_dim_hour(start, end)
+    dim_date = build_dim_date(start, end, settings.city)
+    dim_hour = build_dim_hour(start, end, settings.city)
     weather = adapters.read_weather(settings.raw_dir / WEATHER_NAME)
     weather = weather[
         (weather["date"] >= pd.Timestamp(start)) & (weather["date"] < pd.Timestamp(end))

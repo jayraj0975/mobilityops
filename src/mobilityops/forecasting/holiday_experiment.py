@@ -166,7 +166,7 @@ def analyse(t: DemandTensor, settings: Settings, *, label: str) -> dict[str, Any
 
 
 def run_experiment(settings: Settings) -> dict[str, Any]:
-    t = load_demand(settings.db_path)
+    t = load_demand(settings.db_path, settings.city)
     primary = analyse(t, settings, label="primary: last 56 days of the data")
     secondary = None
     cutoff = pd.Timestamp(SECONDARY_END)
@@ -176,7 +176,7 @@ def run_experiment(settings: Settings) -> dict[str, Any]:
     return {
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "mode": settings.mode,
-        "data_label": "TEST / SYNTHETIC DATA" if settings.mode == "sample" else "real data",
+        "data_label": settings.data_label,
         "data_run_id": data_run_id(settings.db_path),
         "preregistration": "docs/PREREGISTRATION_HOLIDAY.md",
         "primary": primary,

@@ -295,6 +295,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             llm_configured=settings.llm_configured,
             artifacts=services.available(),
             services=[s.ServiceInfo(**r) for r in _records(services.analytics().service_list())],
+            timezone=settings.city.timezone_note,
+            city=settings.city.name,
         )
 
     @api.get("/ops/metrics", response_model=s.ArtifactDocument, tags=["operations"])

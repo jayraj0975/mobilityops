@@ -95,7 +95,9 @@ class Analyst:
             eval_last = t.days[int(preds["day_index"].max())].date()
         except NotReady:
             pass
-        return PlanningContext(first, last, an.zones(), eval_first, eval_last)
+        return PlanningContext(
+            first, last, an.zones(), eval_first, eval_last, self.services.settings.city
+        )
 
     # ---------------------------------------------------------------------------- ask
     def ask(self, question: str) -> AnalystAnswer:

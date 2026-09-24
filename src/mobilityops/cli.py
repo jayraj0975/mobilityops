@@ -107,7 +107,7 @@ def cmd_forecast_eval(settings: Settings, args: argparse.Namespace) -> int:
     if not settings.db_path.exists():
         print("no database yet; run `ingest` and `build` first", file=sys.stderr)
         return 1
-    cfg = default_config(load_demand(settings.db_path).n_days)
+    cfg = default_config(load_demand(settings.db_path, settings.city).n_days)
     if args.folds or args.fold_days or args.calib_days:
         cfg = EvalConfig(
             n_folds=args.folds or cfg.n_folds,

@@ -866,6 +866,11 @@ export interface components {
             /** Built At Utc */
             built_at_utc: string;
             /**
+             * City
+             * @default New York City
+             */
+            city?: string;
+            /**
              * Data End
              * Format: date-time
              * @description Exclusive end of the data window (local time).
@@ -884,7 +889,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "sample" | "real";
+            mode: "sample" | "real" | "pune";
             /** N Zones */
             n_zones: number;
             /** Rows Valid */

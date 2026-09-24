@@ -17,9 +17,9 @@ from datetime import date, timedelta
 from typing import Any, Protocol
 
 import pandas as pd
-from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from mobilityops.analyst.glossary import GLOSSARY
+from mobilityops.city import DEFAULT_CITY, City
 
 MONTHS = {
     m: i
@@ -62,17 +62,11 @@ class PlanningContext:
     zones: pd.DataFrame
     eval_first: date | None = None
     eval_last: date | None = None
+    city: City = DEFAULT_CITY
 
     def holidays(self) -> dict[str, date]:
-        cal = USFederalHolidayCalendar()
-        found = cal.holidays(
-            start=pd.Timestamp(self.data_first).to_pydatetime(),
-            end=pd.Timestamp(self.data_last).to_pydatetime(),
-            return_name=True,
-        )
         out: dict[str, date] = {}
-        for ts, name in zip(pd.DatetimeIndex(found.index), found.to_numpy(), strict=True):
-            d = ts.date()
+        for d, name in self.city.holidays(self.data_first, self.data_last).items():
             nm = str(name).lower().replace("\u2019", "'")
             out[nm] = d
             for alias, keys in (

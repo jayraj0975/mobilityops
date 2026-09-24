@@ -79,7 +79,7 @@ class Services:
         return self._cached(
             "tensor",
             self.settings.db_path,
-            lambda: load_demand(self.settings.db_path),
+            lambda: load_demand(self.settings.db_path, self.settings.city),
             "run `ingest` and `build` first",
         )
 
@@ -159,4 +159,4 @@ class Services:
 
     @property
     def data_label(self) -> str:
-        return "TEST / SYNTHETIC DATA" if self.settings.mode == "sample" else "real data"
+        return self.settings.data_label

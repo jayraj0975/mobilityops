@@ -47,7 +47,7 @@ class ServiceInfo(Model):
 
 class Meta(Model):
     api_version: str
-    mode: Literal["sample", "real"]
+    mode: Literal["sample", "real", "pune"]
     data_label: str
     synthetic: bool
     data_start: datetime
@@ -63,6 +63,7 @@ class Meta(Model):
         description="Services in the data. Only 'yellow' unless green / for-hire files were built.",
     )
     timezone: str = "America/New_York (timestamps are naive local time)"
+    city: str = "New York City"
 
 
 class QualityCheck(Model):
