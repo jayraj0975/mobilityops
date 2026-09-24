@@ -2,7 +2,9 @@
 
 Scope: a local analytics tool with an HTTP API and a browser UI. It handles public open data only
 (NYC TLC trips, NOAA weather); there are no accounts and no personal data. It is designed to run
-on localhost. **It is not hardened for exposure to the internet** (see "Not covered").
+on localhost. The public demo (see DEPLOYMENT.md) is a read-only, rate-limited deployment of that
+same public data with no secrets or accounts. **It is not hardened as a general internet service**
+(see "Not covered").
 
 ## Assets and threats considered
 
@@ -41,7 +43,7 @@ Test coverage for the controls above lives in `tests/integration/test_api.py`,
 (0 vulnerabilities), regex scan of the working tree and full git history for common key and
 token formats (0 matches), no tracked file over 1 MB, only `.env.example` tracked.
 
-## Not covered (do not deploy this to the internet as is)
+## Not covered (do not treat this as a hardened internet service)
 
 * **Authentication and authorisation** beyond one optional shared key; no users, roles or audit trail.
 * **TLS**: terminate it in a reverse proxy; the app speaks plain HTTP.

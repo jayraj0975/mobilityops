@@ -55,7 +55,7 @@ What these results cannot tell you. Each item is also stated where the result ap
 
 * The rule planner covers the intents it encodes: **77.5%, 60.0% and 80.0%** on the first runs of three
   sets of unseen questions (40 each, written by the author; 72.5% pooled), with some answers that used the wrong
-  tool. Both sets were fixed against afterwards, so no unseen estimate remains beyond those two
+  tool. All three sets were fixed against afterwards, so no unseen estimate remains beyond those three
   first runs. It handles English only.
 * LLM mode is **UNVERIFIED** (mocked tests only).
 * It cannot answer about anything outside the 13 tools, by design.
@@ -66,11 +66,14 @@ What these results cannot tell you. Each item is also stated where the result ap
   oversubscribed OpenMP threads spin: two test suites started at once once took over 20 minutes
   instead of 50 seconds. Set `MOBILITYOPS_THREADS` (for example 4) when several jobs share a machine;
   the test suite does this itself. The API's prediction path is not thread-capped.
-* Not internet-ready (see SECURITY). Single-process, single-machine; the in-memory cache and
+* Not hardened as a general internet service (see SECURITY); the public demo is a read-only,
+  rate-limited deployment of public data. Single-process, single-machine; the in-memory cache and
   metrics reset on restart and are not shared between processes.
-* The container image is large (925 MB) because of the scientific stack. It was built and run
-  locally; it is not published anywhere.
+* The container image is large (about 930 MB) because of the scientific stack. It is not published
+  to a registry; the demo host builds it from the Dockerfile.
 * Browser tests cover Chromium only (they run in CI on the synthetic sample and were also run on the real data). Accessibility checks are automated scans, not assistive
   technology testing. Screenshots are of the real app on real data at one viewport.
 * The concurrency numbers come from one 12-thread machine and are a sanity check, not a benchmark.
-* No hosted demo exists; nothing here has been deployed.
+* The hosted demo runs on a free plan: it sleeps when idle (the first request afterwards takes tens
+  of seconds), has one small instance, and is a snapshot rather than a live feed. Details in
+  [DEPLOYMENT](DEPLOYMENT.md).
