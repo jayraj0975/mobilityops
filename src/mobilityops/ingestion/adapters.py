@@ -17,7 +17,12 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from mobilityops.geo import polygon_centroid
-from mobilityops.schema import TLC_REQUIRED_COLUMNS, WEATHER_COLUMNS, ZONE_LOOKUP_COLUMNS
+from mobilityops.schema import (
+    SERVICE_SPECS,
+    TLC_REQUIRED_COLUMNS,
+    WEATHER_COLUMNS,
+    ZONE_LOOKUP_COLUMNS,
+)
 
 
 class SchemaError(ValueError):
@@ -69,6 +74,26 @@ def inspect_trips(path: Path) -> TripsFileInfo:
     if pf.metadata.num_rows == 0:
         raise SchemaError(f"{path.name}: file contains no rows")
     return TripsFileInfo(path, pf.metadata.num_rows, columns, canonical)
+
+
+def inspect_service_trips(path: Path, service: str) -> TripsFileInfo:
+    """Footer check for a green or for-hire file: the columns the aggregation needs."""
+    spec = SERVICE_SPECS[service]
+    try:
+        pf = pq.ParquetFile(path)
+    except Exception as exc:
+        raise SchemaError(f"{path.name}: not a readable Parquet file ({exc})") from exc
+    columns = {f.name: str(f.type) for f in pf.schema_arrow}
+    needed = (spec.pickup, spec.dropoff, spec.pu_zone, spec.distance, spec.amount)
+    missing = sorted(set(needed) - set(columns))
+    if missing:
+        raise SchemaError(
+            f"{path.name}: missing required columns {missing} for service {service!r}. "
+            f"Found columns: {sorted(columns)}. Update SERVICE_SPECS if the publisher renamed them."
+        )
+    if pf.metadata.num_rows == 0:
+        raise SchemaError(f"{path.name}: file contains no rows")
+    return TripsFileInfo(path, pf.metadata.num_rows, columns, {c: c for c in needed})
 
 
 def read_zone_lookup(path: Path) -> pd.DataFrame:

@@ -8,6 +8,7 @@ time, no timezone** (that is how the TLC publishes them); see "Time" below.
 | Source | What | URL config | Notes |
 |---|---|---|---|
 | `tlc_trips` | NYC TLC yellow-taxi trip records, one Parquet file per month | `MOBILITYOPS_TLC_URL_TEMPLATE` | Terms: see the TLC Trip Record Data page (`ingestion/sources.py`). Not redistributed by this repo. |
+| `tlc_service_trips` | Optional: NYC TLC green-taxi (`green_tripdata_*`) and high-volume for-hire (`fhvhv_tripdata_*`, Uber/Lyft and similar) files, one Parquet file per month and service | `MOBILITYOPS_TLC_SERVICE_URL_TEMPLATE` | Fetched with `ingest --services green,fhvhv`. The for-hire files are about 470 MB and 20 million trips a month. The older "FHV" (non high-volume) files are not used. Not redistributed by this repo. |
 | `tlc_zone_lookup` | Zone id -> borough / zone name / service zone | `MOBILITYOPS_ZONE_LOOKUP_URL` | Includes ids 264/265, which are "unknown", not real zones. |
 | `zones_geojson` | Zone polygons (lon/lat) from NYC Open Data | `MOBILITYOPS_ZONES_GEOJSON_URL` | Some zone ids have no polygon (see `dim_zone`). |
 | `noaa_daily` | NOAA GHCN-Daily summaries, station USW00094728 (Central Park), metric units | `MOBILITYOPS_NOAA_URL`, `MOBILITYOPS_NOAA_STATION` | One station stands in for the whole city (see limitations). |
@@ -48,10 +49,21 @@ Every rejected row is kept here with the **first** rule it failed, in this order
 | `pickup_out_of_window` | The TLC files contain rows dated years outside their month |
 | `dropoff_before_pickup` | Impossible ordering |
 | `excessive_duration` | Longer than 6 hours: almost always a meter left running |
-| `negative_amount` | Refunds/disputes, not completed trips for demand purposes. **This is a judgement call and the largest rule by count on real data (~1.3%)** |
+| `negative_amount` | Refunds/disputes, not completed trips for demand purposes. **This is a judgement call and the largest rule by count on real data (1.8% of all 2024 rows; 1.3% of January's, 2.2% of December's)** |
 | `invalid_distance` | Negative, or over 200 miles |
 | `unknown_pickup_zone` | TLC ids 264/265, or ids not in the zone table |
 | `duplicate_row` | Exact duplicate of a kept row |
+
+### `service_<name>_hourly.parquet` (green taxis and for-hire vehicles; grain: zone x local hour)
+
+These services are aggregated straight to pickup counts instead of being kept trip by trip (the
+for-hire file alone would add gigabytes). Columns: `service`, `location_id`, `hour_ts`, `pickups`
+(only hours that had trips). The same ordered rules as for yellow taxis are applied to each
+family's own columns (`schema.SERVICE_SPECS`: pickup and dropoff time, pickup zone, `trip_distance`
+or `trip_miles`, and `fare_amount` or `base_passenger_fare` for the refund rule). Rejected rows are
+**counted** by first failing rule and by file in `service_<name>_hourly.summary.json` but not
+written out. Exact-duplicate removal is the one rule not applied (it needs the whole trip table in
+memory; the yellow data has 4 duplicates in 41 million rows).
 
 ## Gold: `data/processed/<mode>/mobilityops.duckdb`
 
@@ -86,6 +98,14 @@ holidays from pandas' calendar).
 | `passengers` | Sum of `passenger_count` of those pickups |
 
 Zones x hours is complete by construction and checked by a quality rule.
+
+### `dim_service` and `fact_service_zone_hourly` (only when a green or for-hire file was ingested)
+
+`fact_service_zone_hourly` has one row per service x real zone x valid local hour (PK
+`(service, location_id, hour_ts)`), zero-filled like the yellow fact table. Its `pickups` column
+is a BIGINT because for-hire counts are large. The `yellow` rows are copied from
+`fact_zone_hourly_demand`, and a quality check confirms they match. Each other service is checked
+against its cleaned trips in valid hours.
 
 ### `fact_weather_daily` (grain: one date; PK `date`)
 

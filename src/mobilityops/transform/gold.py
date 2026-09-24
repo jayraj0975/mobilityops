@@ -7,6 +7,9 @@ Tables (grain in brackets; see docs/DATA_DICTIONARY.md for columns):
 * ``dim_hour``                    [one row per local hour, with DST flags]
 * ``fact_zone_hourly_demand``     [zone x valid local hour, zero-filled]
 * ``fact_weather_daily``          [one row per date]
+* ``dim_service`` and ``fact_service_zone_hourly``  [service x zone x valid local hour, zero-filled;
+  yellow taxis plus any green / for-hire files that were ingested. Present only when at least
+  one other service exists.]
 
 The trip-level table is not copied into DuckDB: it stays in Parquet (``silver/trips.parquet``)
 and is queried in place, which avoids duplicating hundreds of MB.
@@ -32,6 +35,7 @@ from mobilityops.log import get_logger
 from mobilityops.schema import TLC_UNKNOWN_ZONE_IDS
 from mobilityops.sqlutil import quote_literal
 from mobilityops.transform.calendar import build_dim_date, build_dim_hour
+from mobilityops.transform.services import ServiceSilver
 from mobilityops.transform.silver import SilverResult
 
 log = get_logger("transform.gold")
@@ -45,6 +49,7 @@ class GoldResult:
     n_zones: int
     n_hours: int
     fact_rows: int
+    service_rows: int = 0
 
 
 def building_path(settings: Settings) -> Path:
@@ -63,7 +68,12 @@ def build_dim_zone(settings: Settings) -> pd.DataFrame:
     return dim.sort_values("location_id").reset_index(drop=True)
 
 
-def build_gold(settings: Settings, silver: SilverResult, window: tuple[date, date]) -> GoldResult:
+def build_gold(
+    settings: Settings,
+    silver: SilverResult,
+    window: tuple[date, date],
+    services: list[ServiceSilver] | None = None,
+) -> GoldResult:
     start, end = window
     path = building_path(settings)
     path.unlink(missing_ok=True)
@@ -134,10 +144,44 @@ def build_gold(settings: Settings, silver: SilverResult, window: tuple[date, dat
         n_zones = int(con.execute("SELECT count(*) FROM dim_zone WHERE is_real_zone").fetchone()[0])  # type: ignore[index]
         n_hours = int(con.execute("SELECT count(*) FROM dim_hour WHERE is_valid").fetchone()[0])  # type: ignore[index]
         fact_rows = int(con.execute("SELECT count(*) FROM fact_zone_hourly_demand").fetchone()[0])  # type: ignore[index]
+        service_rows = _build_service_fact(con, services or [])
     finally:
         con.close()
     log.info("gold built", extra={"ctx": {"zones": n_zones, "hours": n_hours, "rows": fact_rows}})
-    return GoldResult(path, n_zones, n_hours, fact_rows)
+    return GoldResult(path, n_zones, n_hours, fact_rows, service_rows)
+
+
+def _build_service_fact(con: duckdb.DuckDBPyConnection, services: list[ServiceSilver]) -> int:
+    """Yellow plus the aggregated services on one zone-hour grid. Returns the row count."""
+    if not services:
+        return 0
+    con.execute("CREATE TABLE dim_service(service VARCHAR, label VARCHAR)")
+    con.execute("INSERT INTO dim_service VALUES ('yellow', 'Yellow taxis')")
+    con.executemany(
+        "INSERT INTO dim_service VALUES (?, ?)", [(s.service, s.label) for s in services]
+    )
+    parts = [
+        "SELECT 'yellow' AS service, location_id, hour_ts, pickups::BIGINT AS pickups "
+        "FROM fact_zone_hourly_demand"
+    ]
+    for s in services:
+        parts.append(
+            f"""
+            SELECT {quote_literal(s.service)} AS service, g.location_id, g.hour_ts,
+                   coalesce(a.pickups, 0)::BIGINT AS pickups
+            FROM (SELECT z.location_id, h.hour_ts
+                  FROM dim_zone z CROSS JOIN dim_hour h
+                  WHERE z.is_real_zone AND h.is_valid) g
+            LEFT JOIN read_parquet({quote_literal(s.hourly_path.as_posix())}) a
+                 ON a.location_id = g.location_id AND a.hour_ts = g.hour_ts
+            """
+        )
+    con.execute(
+        "CREATE TABLE fact_service_zone_hourly AS "
+        + " UNION ALL ".join(parts)
+        + " ORDER BY 1, 2, 3"
+    )
+    return int(con.execute("SELECT count(*) FROM fact_service_zone_hourly").fetchone()[0])  # type: ignore[index]
 
 
 def promote(settings: Settings) -> Path:

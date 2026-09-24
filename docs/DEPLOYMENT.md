@@ -38,7 +38,11 @@ docker run --rm -p 127.0.0.1:8000:8000 -e MOBILITYOPS_MODE=real mobilityops-demo
 ## Known properties of the free plan
 
 * The service sleeps after about 15 minutes without traffic; the first request afterwards waits for
-  a cold start (tens of seconds).
+  a cold start (measured at about 34 seconds on 2026-09-24). The wait happens before the page
+  loads, so the app cannot show anything during it; once the page is up, any request slower than
+  four seconds shows an explanation instead of a bare "Loading". A scheduled request every ten
+  minutes from an uptime monitor would keep the service awake, at the cost of keeping the free instance
+  running continuously; this project does not do that.
 * 512 MB of memory (536,870,900 bytes reported as the limit). Measured on the live service with
   Render's metrics: about 224 MB after start-up and analyst traffic, and 267 MB after three
   scenario solves and a next-day forecast, so there is roughly twice the headroom. Locally the same

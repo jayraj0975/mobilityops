@@ -25,6 +25,7 @@ from mobilityops.ingestion.download import sha256_file
 from mobilityops.ingestion.manifest import Manifest
 from mobilityops.sqlutil import quote_literal
 from mobilityops.transform.gold import GoldResult
+from mobilityops.transform.services import ServiceSilver
 from mobilityops.transform.silver import SilverResult
 
 # Thresholds, stated once so they are easy to find, discuss and change.
@@ -227,8 +228,51 @@ def check_silver(
 
 
 # --------------------------------------------------------------------------------- gold
+def check_services(services: list[ServiceSilver], window: tuple[date, date]) -> QualityReport:
+    """Cleaning and coverage of the aggregated services (green taxis, for-hire vehicles)."""
+    r = QualityReport("services")
+    n_days = (window[1] - window[0]).days
+    for s in services:
+        r.add(
+            f"{s.service}:rows_present",
+            Status.PASS if s.rows_valid else Status.FAIL,
+            f"{s.rows_valid:,} valid rows from {len(s.files)} file(s)",
+            rows_valid=s.rows_valid,
+        )
+        rate = s.rows_rejected / s.rows_in if s.rows_in else 1.0
+        r.add(
+            f"{s.service}:rejection_rate",
+            _rate_status(rate, REJECT_RATE_WARN, REJECT_RATE_FAIL),
+            f"{rate:.2%} of raw rows rejected; counts per reason and file are in "
+            f"silver/service_{s.service}_hourly.summary.json",
+            rate=rate,
+            rejected=s.rejected,
+        )
+        days = (
+            duckdb.connect(":memory:")
+            .execute(
+                "SELECT count(DISTINCT date_trunc('day', hour_ts)) "
+                f"FROM read_parquet({quote_literal(s.hourly_path.as_posix())})"
+            )
+            .fetchone()
+        )
+        covered = int(days[0]) if days else 0
+        cov = covered / n_days if n_days else 0.0
+        r.add(
+            f"{s.service}:day_coverage",
+            _rate_status(1 - cov, 1 - DAY_COVERAGE_WARN, 1 - DAY_COVERAGE_FAIL),
+            f"{covered} of {n_days} window days contain trips ({cov:.1%})",
+            coverage=cov,
+        )
+    return r
+
+
 def check_gold(
-    db_path: Path, gold: GoldResult, silver: SilverResult, window: tuple[date, date]
+    db_path: Path,
+    gold: GoldResult,
+    silver: SilverResult,
+    window: tuple[date, date],
+    services: list[ServiceSilver] | None = None,
 ) -> QualityReport:
     r = QualityReport("gold")
     con = duckdb.connect(str(db_path), read_only=True)
@@ -286,6 +330,45 @@ def check_gold(
             fact=got,
             silver=expected_pickups,
         )
+        if services:
+            expected_service_rows = (1 + len(services)) * expected_rows
+            r.add(
+                "service_grid_complete",
+                Status.PASS if gold.service_rows == expected_service_rows else Status.FAIL,
+                f"{gold.service_rows:,} rows, expected (1 + {len(services)}) services x zones x "
+                f"valid hours = {expected_service_rows:,}",
+                rows=gold.service_rows,
+                expected=expected_service_rows,
+            )
+            yellow = scalar(
+                "SELECT coalesce(sum(pickups), 0) FROM fact_service_zone_hourly "
+                "WHERE service = 'yellow'"
+            )
+            r.add(
+                "service_yellow_matches_zone_fact",
+                Status.PASS if yellow == got else Status.FAIL,
+                f"yellow pickups in the service table {yellow:,} vs zone fact {got:,}",
+            )
+            for s in services:
+                src = f"read_parquet({quote_literal(s.hourly_path.as_posix())})"
+                want = scalar(
+                    f"""
+                    SELECT coalesce(sum(a.pickups), 0) FROM {src} a
+                    JOIN dim_zone z ON z.location_id = a.location_id AND z.is_real_zone
+                    JOIN dim_hour h ON h.hour_ts = a.hour_ts AND h.is_valid
+                    """
+                )
+                have = scalar(
+                    "SELECT coalesce(sum(pickups), 0) FROM fact_service_zone_hourly "
+                    f"WHERE service = {quote_literal(s.service)}"
+                )
+                r.add(
+                    f"service_reconcile:{s.service}",
+                    Status.PASS if want == have else Status.FAIL,
+                    f"fact pickups {have:,} vs cleaned trips in valid hours {want:,}",
+                    fact=have,
+                    silver=want,
+                )
         n_dates = (window[1] - window[0]).days
         weather_days = scalar("SELECT count(*) FROM fact_weather_daily WHERE prcp_mm IS NOT NULL")
         cov = weather_days / n_dates if n_dates else 0.0

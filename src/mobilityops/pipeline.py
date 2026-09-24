@@ -26,6 +26,7 @@ from mobilityops.quality.checks import (
     QualityReport,
     check_bronze,
     check_gold,
+    check_services,
     check_silver,
 )
 from mobilityops.transform.gold import (
@@ -34,6 +35,11 @@ from mobilityops.transform.gold import (
     build_gold,
     building_path,
     promote,
+)
+from mobilityops.transform.services import (
+    ServiceSilver,
+    available_services,
+    build_service_silver,
 )
 from mobilityops.transform.silver import SilverResult, build_silver
 
@@ -47,6 +53,7 @@ class BuildResult:
     silver: SilverResult
     gold: GoldResult
     reports: dict[str, QualityReport]
+    services: list[ServiceSilver]
 
 
 def quality_dir(settings: Settings) -> Path:
@@ -145,8 +152,15 @@ def build_all(settings: Settings) -> BuildResult:
         silver = build_silver(settings, window, zone_ids)
         gate(check_silver(silver, window, zone_ids))
 
-        gold = build_gold(settings, silver, window)
-        gate(check_gold(gold.building_path, gold, silver, window))
+        services = [
+            build_service_silver(settings, window, zone_ids, name)
+            for name in available_services(settings)
+        ]
+        if services:
+            gate(check_services(services, window))
+
+        gold = build_gold(settings, silver, window, services)
+        gate(check_gold(gold.building_path, gold, silver, window, services))
 
         run_id = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:8]}"
         _write_run_metadata(gold.building_path, settings, run_id, window, silver, reports)
@@ -155,4 +169,4 @@ def build_all(settings: Settings) -> BuildResult:
         building_path(settings).unlink(missing_ok=True)  # never leave a half-built database
         raise
     log.info("pipeline complete", extra={"ctx": {"run_id": run_id, "db": str(db_path)}})
-    return BuildResult(run_id, db_path, silver, gold, reports)
+    return BuildResult(run_id, db_path, silver, gold, reports, services)

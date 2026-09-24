@@ -252,6 +252,98 @@ class Analytics:
             raise NoData("no demand data for that zone and period")
         return df
 
+    # -------------------------------------------------------------------- services
+    def has_services(self) -> bool:
+        """True when green-taxi or for-hire data were ingested for this database."""
+        (n,) = self._row(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = 'fact_service_zone_hourly'"
+        )
+        return bool(n)
+
+    def service_list(self) -> pd.DataFrame:
+        """The services present (``service``, ``label``); empty for a yellow-taxi-only database."""
+        if not self.has_services():
+            return pd.DataFrame({"service": [], "label": []})
+        return self._df("SELECT service, label FROM dim_service ORDER BY service")
+
+    def _require_services(self) -> None:
+        if not self.has_services():
+            raise NoData(
+                "this database holds yellow-taxi data only; ingest with "
+                "`--services green,fhvhv` and rebuild to compare services"
+            )
+
+    def service_mix(
+        self,
+        start: date | datetime,
+        end: date | datetime,
+        zone_id: int | None = None,
+        grain: Literal["month", "total"] = "month",
+    ) -> pd.DataFrame:
+        """Pickups per service and each service's share of all services' pickups.
+
+        The share is of *cleaned pickups counted in these files*: it is not the share of all
+        mobility in the city (subways, buses, private cars and the older for-hire files are not
+        here). Columns: ``period`` (start of the month, or of the requested period), ``service``,
+        ``label``, ``pickups``, ``share``.
+        """
+        if grain not in ("month", "total"):
+            raise InvalidQuery("grain must be 'month' or 'total'")
+        self._require_services()
+        s, e = self._check_range(start, end)
+        self._check_zone(zone_id)
+        bucket = "CAST(date_trunc('month', f.hour_ts) AS TIMESTAMP)" if grain == "month" else "?"
+        params: list[Any] = ([s] if grain == "total" else []) + [s, e]
+        where = "f.hour_ts >= ? AND f.hour_ts < ?"
+        if zone_id is not None:
+            where += " AND f.location_id = ?"
+            params.append(int(zone_id))
+        df = self._df(
+            f"""
+            WITH agg AS (
+              SELECT {bucket} AS period, f.service, sum(f.pickups) AS pickups
+              FROM fact_service_zone_hourly f WHERE {where} GROUP BY 1, 2
+            )
+            SELECT a.period, a.service, d.label, a.pickups::DOUBLE AS pickups,
+                   a.pickups::DOUBLE / nullif(sum(a.pickups) OVER (PARTITION BY a.period), 0)
+                     AS share
+            FROM agg a JOIN dim_service d USING (service)
+            ORDER BY a.period, a.service
+            """,  # noqa: S608 (bucket/where from fixed fragments; values bound)
+            params,
+        )
+        if df.empty:
+            raise NoData("no service data for that period")
+        return df
+
+    def service_hourly_profile(
+        self, start: date | datetime, end: date | datetime, zone_id: int | None = None
+    ) -> pd.DataFrame:
+        """Average pickups by hour of day (0-23) for each service."""
+        self._require_services()
+        s, e = self._check_range(start, end)
+        self._check_zone(zone_id)
+        where = "f.hour_ts >= ? AND f.hour_ts < ?"
+        params: list[Any] = [s, e]
+        if zone_id is not None:
+            where += " AND f.location_id = ?"
+            params.append(int(zone_id))
+        df = self._df(
+            f"""
+            WITH hourly AS (
+              SELECT f.service, f.hour_ts, sum(f.pickups) AS p FROM fact_service_zone_hourly f
+              WHERE {where} GROUP BY 1, 2
+            )
+            SELECT hourly.service, h.hour_of_day, avg(p)::DOUBLE AS avg_pickups, count(*) AS n_hours
+            FROM hourly JOIN dim_hour h USING (hour_ts) GROUP BY 1, 2 ORDER BY 1, 2
+            """,  # noqa: S608 (where from fixed fragments; values bound)
+            params,
+        )
+        if df.empty:
+            raise NoData("no service data for that zone and period")
+        return df
+
     def weekday_profile(
         self, start: date | datetime, end: date | datetime, zone_id: int | None = None
     ) -> pd.DataFrame:

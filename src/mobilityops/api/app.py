@@ -285,6 +285,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             built_at_utc=r.built_at_utc,
             llm_configured=settings.llm_configured,
             artifacts=services.available(),
+            services=[s.ServiceInfo(**r) for r in _records(services.analytics().service_list())],
         )
 
     @api.get("/ops/metrics", response_model=s.ArtifactDocument, tags=["operations"])
@@ -297,7 +298,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         import json
 
         out: list[s.QualityStage] = []
-        for stage in ("bronze", "silver", "gold"):
+        for stage in ("bronze", "silver", "services", "gold"):
             path: FsPath = quality_dir(settings) / f"{stage}.json"
             if path.exists():
                 out.append(s.QualityStage(**json.loads(path.read_text())))
@@ -359,6 +360,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             start, end, metric=metric, limit=limit, ascending=ascending
         )
         return [s.TopZone(**r) for r in _records(df)]
+
+    @api.get("/demand/services", response_model=list[s.ServiceMixPoint], tags=["demand"])
+    def service_mix(
+        start: date,
+        end: date,
+        zone_id: OptZoneId = None,
+        grain: Literal["month", "total"] = "month",
+    ) -> list[s.ServiceMixPoint]:
+        """Pickups per service (yellow, green, for-hire) and each one's share, by month or total."""
+        df = services.analytics().service_mix(start, end, zone_id=zone_id, grain=grain)
+        return [s.ServiceMixPoint(**r) for r in _records(df)]
+
+    @api.get(
+        "/demand/services/profile", response_model=list[s.ServiceProfilePoint], tags=["demand"]
+    )
+    def service_profile(
+        start: date, end: date, zone_id: OptZoneId = None
+    ) -> list[s.ServiceProfilePoint]:
+        """Average pickups by hour of day for each service."""
+        df = services.analytics().service_hourly_profile(start, end, zone_id=zone_id)
+        return [s.ServiceProfilePoint(**r) for r in _records(df)]
 
     @api.get("/demand/profile/hourly", response_model=list[s.HourProfilePoint], tags=["demand"])
     def hourly_profile(

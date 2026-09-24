@@ -44,7 +44,12 @@ def cmd_ingest(settings: Settings, args: argparse.Namespace) -> int:
             if not (args.start and args.end):
                 print("real mode needs --start YYYY-MM and --end YYYY-MM", file=sys.stderr)
                 return 2
-            m = ingest_real(settings, MonthRange(parse_month(args.start), parse_month(args.end)))
+            services = tuple(x for x in (args.services or "").split(",") if x)
+            m = ingest_real(
+                settings,
+                MonthRange(parse_month(args.start), parse_month(args.end)),
+                services=services,
+            )
     except (DownloadError, FileNotFoundError, ValueError) as exc:
         print(f"ingestion failed: {exc}", file=sys.stderr)
         return 1
@@ -410,6 +415,9 @@ def build_parser() -> argparse.ArgumentParser:
     i = sub.add_parser("ingest", help="register sample files, or download real data")
     i.add_argument("--start", help="first month, YYYY-MM (real mode)")
     i.add_argument("--end", help="last month, YYYY-MM (real mode)")
+    i.add_argument(
+        "--services", help="also fetch these services, comma separated: green, fhvhv (real mode)"
+    )
     i.set_defaults(func=cmd_ingest)
     sub.add_parser("build", help="run the pipeline with quality gates").set_defaults(func=cmd_build)
     sub.add_parser("status", help="show the latest quality reports").set_defaults(func=cmd_status)

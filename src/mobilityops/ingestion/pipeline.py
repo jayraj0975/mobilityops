@@ -20,6 +20,7 @@ from mobilityops.ingestion.download import download, sha256_file
 from mobilityops.ingestion.manifest import Manifest, ManifestEntry, utc_now
 from mobilityops.ingestion.sources import USAGE_NOTES, SourceConfig
 from mobilityops.log import get_logger
+from mobilityops.schema import SERVICE_SPECS
 
 log = get_logger("ingestion")
 
@@ -105,8 +106,15 @@ def ingest_real(
     months: MonthRange,
     sources: SourceConfig | None = None,
     client: httpx.Client | None = None,
+    services: tuple[str, ...] = (),
 ) -> Manifest:
-    """Download and validate real data. Existing valid files are kept; nothing is deleted."""
+    """Download and validate real data. Existing valid files are kept; nothing is deleted.
+
+    ``services`` adds green-taxi and/or high-volume for-hire files (names in ``SERVICE_SPECS``);
+    yellow taxis are always ingested."""
+    unknown = sorted(set(services) - set(SERVICE_SPECS))
+    if unknown:
+        raise ValueError(f"unknown service(s) {unknown}; choose from {sorted(SERVICE_SPECS)}")
     if settings.mode != "real":
         raise RuntimeError("ingest_real requires MOBILITYOPS_MODE=real")
     sources = sources or SourceConfig.from_env()
@@ -125,9 +133,37 @@ def ingest_real(
                 settings, "tlc_trips", url, path, digest, when, rows=info.rows, columns=info.columns
             )
         )
+        manifest.save(manifest_path)  # progress survives an interrupted run
         log.info(
             "trips ingested", extra={"ctx": {"month": f"{year}-{month:02d}", "rows": info.rows}}
         )
+
+    for service in services:
+        spec = SERVICE_SPECS[service]
+        for year, month in months.months():
+            dest = settings.raw_dir / f"{spec.file_prefix}_{year}-{month:02d}.parquet"
+            url = sources.service_url(spec.file_prefix, year, month)
+            path, digest, when = _fetch(settings, manifest, "tlc_service_trips", url, dest, client)
+            info = adapters.inspect_service_trips(path, service)
+            manifest.upsert(
+                _entry(
+                    settings,
+                    "tlc_service_trips",
+                    url,
+                    path,
+                    digest,
+                    when,
+                    rows=info.rows,
+                    columns=info.columns,
+                )
+            )
+            manifest.save(manifest_path)  # progress survives an interrupted run
+            log.info(
+                "service trips ingested",
+                extra={
+                    "ctx": {"service": service, "month": f"{year}-{month:02d}", "rows": info.rows}
+                },
+            )
 
     tables = (
         ("tlc_zone_lookup", sources.zone_lookup_url, ZONE_LOOKUP_NAME, adapters.read_zone_lookup),

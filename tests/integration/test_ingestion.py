@@ -34,6 +34,30 @@ class FakePublisher:
         self.weather = sample_files.weather.read_bytes()
         self.requests: list[str] = []
         self.missing = missing_months or set()
+        stamp = pd.Timestamp("2024-01-10 08:00")
+        self.service_bytes: dict[str, bytes] = {}
+        for prefix, cols in (
+            (
+                "green_tripdata",
+                ("lpep_pickup_datetime", "lpep_dropoff_datetime", "trip_distance", "fare_amount"),
+            ),
+            (
+                "fhvhv_tripdata",
+                ("pickup_datetime", "dropoff_datetime", "trip_miles", "base_passenger_fare"),
+            ),
+        ):
+            frame = pd.DataFrame(
+                {
+                    cols[0]: [stamp],
+                    cols[1]: [stamp + pd.Timedelta(minutes=10)],
+                    "PULocationID": [3],
+                    cols[2]: [1.0],
+                    cols[3]: [8.0],
+                }
+            )
+            out = io.BytesIO()
+            frame.to_parquet(out, index=False)
+            self.service_bytes[prefix] = out.getvalue()
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -43,6 +67,9 @@ class FakePublisher:
             if month in self.missing:
                 return httpx.Response(404)
             return httpx.Response(200, content=self.trips_bytes)
+        for prefix, content in self.service_bytes.items():
+            if f"/{prefix}_" in url:
+                return httpx.Response(200, content=content)
         if "taxi_zone_lookup" in url:
             return httpx.Response(200, content=self.lookup)
         if "geospatial" in url:
@@ -134,6 +161,67 @@ def test_unreleased_month_fails_clearly_and_keeps_earlier_months(
         real_settings.raw_dir / "yellow_tripdata_2024-01.parquet"
     ).exists()  # valid data preserved
     assert not (real_settings.raw_dir / "yellow_tripdata_2024-02.parquet").exists()
+
+
+def test_interrupted_ingestion_keeps_finished_files_and_resumes(
+    sample_files, real_settings: Settings
+) -> None:  # type: ignore[no-untyped-def]
+    broken = FakePublisher(sample_files, missing_months={"2024-02"})
+    with pytest.raises(DownloadError):
+        ingest_real(
+            real_settings, MonthRange((2024, 1), (2024, 2)), SourceConfig(), broken.client()
+        )
+    saved = load_manifest(real_settings)  # read back from disk: January survived the failure
+    assert [e.path for e in saved.entries.values()] == ["raw/real/yellow_tripdata_2024-01.parquet"]
+    fixed = FakePublisher(sample_files)
+    ingest_real(real_settings, MonthRange((2024, 1), (2024, 2)), SourceConfig(), fixed.client())
+    assert not any("yellow_tripdata_2024-01" in u for u in fixed.requests)  # not fetched again
+    assert any("yellow_tripdata_2024-02" in u for u in fixed.requests)
+
+
+def test_service_files_are_fetched_validated_and_recorded(
+    sample_files, real_settings: Settings
+) -> None:  # type: ignore[no-untyped-def]
+    pub = FakePublisher(sample_files)
+    m = ingest_real(
+        real_settings,
+        MonthRange((2024, 1), (2024, 1)),
+        SourceConfig(),
+        pub.client(),
+        services=("green", "fhvhv"),
+    )
+    svc = sorted(e.path for e in m.entries.values() if e.source == "tlc_service_trips")
+    assert svc == [
+        "raw/real/fhvhv_tripdata_2024-01.parquet",
+        "raw/real/green_tripdata_2024-01.parquet",
+    ]
+    assert all(e.rows == 1 for e in m.entries.values() if e.source == "tlc_service_trips")
+
+
+def test_unknown_service_and_missing_columns_are_refused(
+    sample_files, real_settings: Settings
+) -> None:  # type: ignore[no-untyped-def]
+    pub = FakePublisher(sample_files)
+    with pytest.raises(ValueError, match="unknown service"):
+        ingest_real(
+            real_settings,
+            MonthRange((2024, 1), (2024, 1)),
+            SourceConfig(),
+            pub.client(),
+            services=("uber",),
+        )
+    bad = pd.DataFrame({"pickup_datetime": [pd.Timestamp("2024-01-10")], "PULocationID": [3]})
+    out = io.BytesIO()
+    bad.to_parquet(out, index=False)
+    pub.service_bytes["fhvhv_tripdata"] = out.getvalue()
+    with pytest.raises(SchemaError, match="trip_miles"):
+        ingest_real(
+            real_settings,
+            MonthRange((2024, 1), (2024, 1)),
+            SourceConfig(),
+            pub.client(),
+            services=("fhvhv",),
+        )
 
 
 def test_publisher_schema_change_is_caught_at_ingestion(

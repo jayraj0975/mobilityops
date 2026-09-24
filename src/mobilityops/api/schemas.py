@@ -40,6 +40,11 @@ class ErrorResponse(Model):
     error: ErrorBody
 
 
+class ServiceInfo(Model):
+    service: str
+    label: str
+
+
 class Meta(Model):
     api_version: str
     mode: Literal["sample", "real"]
@@ -53,6 +58,10 @@ class Meta(Model):
     built_at_utc: str
     llm_configured: bool
     artifacts: dict[str, bool]
+    services: list[ServiceInfo] = Field(
+        default=[],
+        description="Services in the data. Only 'yellow' unless green / for-hire files were built.",
+    )
     timezone: str = "America/New_York (timestamps are naive local time)"
 
 
@@ -101,6 +110,24 @@ class TopZone(Model):
     borough: str
     value: float
     share: float = Field(description="Share of the citywide total for the same period.")
+
+
+class ServiceMixPoint(Model):
+    period: datetime = Field(description="Start of the month, or of the requested period.")
+    service: str
+    label: str
+    pickups: float
+    share: float = Field(
+        description="Share of all listed services' cleaned pickups in the same period. Not a "
+        "share of all mobility: subways, buses, private cars and older for-hire files are absent."
+    )
+
+
+class ServiceProfilePoint(Model):
+    service: str
+    hour_of_day: int
+    avg_pickups: float
+    n_hours: int
 
 
 class HourProfilePoint(Model):
