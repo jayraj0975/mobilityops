@@ -45,6 +45,7 @@ from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
+from mobilityops.api.limits import BodyLimitMiddleware, RateLimiter, client_ip
 from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
 from mobilityops.config import Settings
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     services = Services(settings)
     metrics = Metrics()
+    limiter = RateLimiter()
     planner: Planner = (
         AnthropicPlanner(settings.anthropic_api_key, settings.llm_model)  # type: ignore[arg-type]
         if settings.llm_configured
@@ -138,12 +140,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         incoming = request.headers.get("x-request-id", "")
+        who = client_ip(
+            request.client.host if request.client else None,
+            request.headers.get("x-forwarded-for"),
+            settings.trust_proxy,
+        )
         rid = incoming if _REQUEST_ID.match(incoming) else uuid.uuid4().hex
         request.state.request_id = rid
         started = time.perf_counter()
         length = request.headers.get("content-length")
-        if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+        limited: tuple[bool, float] = (True, 0.0)
+        if request.url.path.startswith("/api/v1/") and request.method != "OPTIONS":
+            heavy = request.url.path.startswith(
+                ("/api/v1/analyst/ask", "/api/v1/optimization/scenario")
+            )
+            limited = limiter.check(
+                who,
+                "heavy" if heavy else "api",
+                settings.rate_limit_heavy if heavy else settings.rate_limit,
+            )
+        if not limited[0]:
+            metrics.event("rate_limited")
             response: Response = _error(
+                "rate_limited",
+                "too many requests; slow down and retry shortly",
+                429,
+                request,
+            )
+            response.headers["Retry-After"] = str(int(limited[1]) + 1)
+        elif length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+            response = _error(
                 "payload_too_large", f"request body exceeds {MAX_BODY_BYTES} bytes", 413, request
             )
         else:
@@ -158,6 +184,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        if settings.trust_proxy and request.headers.get("x-forwarded-proto") == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"
         response.headers.setdefault("Cache-Control", "no-store")
         path = request.url.path
         if not path.startswith(("/api", "/docs", "/redoc", "/openapi", "/health", "/ready")):
@@ -625,6 +653,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ops)
     app.include_router(api)
     _mount_web(app)
+    app.add_middleware(BodyLimitMiddleware, max_bytes=MAX_BODY_BYTES)
     return app
 
 

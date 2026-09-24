@@ -1,0 +1,11 @@
+MobilityOps
+Copyright (c) 2026 Jay Gaikwad. Released under the MIT License (see LICENSE).
+
+This software downloads and analyses public data published by the NYC Taxi & Limousine Commission,
+NYC Open Data and NOAA NCEI. That data is not part of this repository and is subject to its
+publishers' terms; see docs/DATA_SOURCES.md. This project is not affiliated with or endorsed by
+those organisations.
+
+Third-party software is used under its own licenses (DuckDB, pandas, NumPy, SciPy, PyArrow,
+LightGBM, FastAPI, Pydantic, Uvicorn, HTTPX, React, Recharts, Vite and others); see their
+distributions for license texts.

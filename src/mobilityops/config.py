@@ -33,6 +33,11 @@ class Settings:
     anthropic_api_key: str | None
     llm_model: str | None
     threads: int = 0  # LightGBM threads; 0 = all cores. Cap it when several jobs share a machine.
+    rate_limit: int = 0  # requests per minute per client on /api/v1 (0 = off)
+    rate_limit_heavy: int = 0  # per minute for the analyst and scenario endpoints (0 = off)
+    trust_proxy: bool = (
+        False  # take the client IP from X-Forwarded-For (only behind your own proxy)
+    )
     api_key: str | None = None  # if set, every /api/v1 request must send it as X-API-Key
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
 
@@ -50,6 +55,20 @@ class Settings:
         key = (e.get("ANTHROPIC_API_KEY") or "").strip() or None
         model = (e.get("MOBILITYOPS_LLM_MODEL") or "").strip() or None
         api_key = (e.get("MOBILITYOPS_API_KEY") or "").strip() or None
+
+        def whole(name: str, hi: int) -> int:
+            raw = (e.get(name) or "0").strip()
+            if not raw.isdigit() or int(raw) > hi:
+                raise ConfigError(f"{name} must be a whole number from 0 to {hi}")
+            return int(raw)
+
+        rate_limit = whole("MOBILITYOPS_RATE_LIMIT", 100_000)
+        rate_limit_heavy = whole("MOBILITYOPS_RATE_LIMIT_HEAVY", 100_000)
+        trust_proxy = (e.get("MOBILITYOPS_TRUST_PROXY") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
         raw_threads = (e.get("MOBILITYOPS_THREADS") or "0").strip()
         if not raw_threads.isdigit() or int(raw_threads) > 256:
             raise ConfigError("MOBILITYOPS_THREADS must be a whole number from 0 to 256")
@@ -66,6 +85,9 @@ class Settings:
             anthropic_api_key=key,
             llm_model=model,
             threads=int(raw_threads),
+            rate_limit=rate_limit,
+            rate_limit_heavy=rate_limit_heavy,
+            trust_proxy=trust_proxy,
             api_key=api_key,
             **extra,
         )

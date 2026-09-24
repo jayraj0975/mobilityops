@@ -462,3 +462,79 @@ def test_concurrent_cold_requests_load_an_expensive_artifact_once(settings, monk
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert len(loads) == 1 and len(out) == 12 and set(out) <= {200, 404}
+
+
+# ------------------------------------------------------------------ public-facing limits
+def _limited(settings, **kw):  # type: ignore[no-untyped-def]
+    return TestClient(create_app(dataclasses.replace(settings, **kw)))
+
+
+def test_rate_limit_returns_a_clear_429_with_retry_after(settings) -> None:  # type: ignore[no-untyped-def]
+    c = _limited(settings, rate_limit=3)
+    assert [c.get(f"{API}/zones").status_code for _ in range(3)] == [200, 200, 200]
+    r = c.get(f"{API}/zones")
+    assert r.status_code == 429 and error_code(r) == "rate_limited"
+    assert int(r.headers["Retry-After"]) >= 1
+    assert c.get("/health").status_code == 200 and c.get("/ready").status_code in (200, 503)
+    assert c.get(f"{API}/ops/metrics").status_code == 429  # every /api/v1 route shares the budget
+
+
+def test_heavy_endpoints_have_their_own_tighter_budget(settings) -> None:  # type: ignore[no-untyped-def]
+    c = _limited(settings, rate_limit=100, rate_limit_heavy=2)
+    ask = lambda: c.post(f"{API}/analyst/ask", json={"question": "What does WAPE mean?"})  # noqa: E731
+    assert [ask().status_code for _ in range(2)] == [200, 200]
+    assert ask().status_code == 429
+    assert c.get(f"{API}/zones").status_code == 200  # ordinary reads are unaffected
+
+
+def test_forged_forwarded_for_cannot_dodge_the_limit_unless_the_proxy_is_trusted(settings) -> None:  # type: ignore[no-untyped-def]
+    untrusted = _limited(settings, rate_limit=2)
+    codes = [
+        untrusted.get(f"{API}/zones", headers={"X-Forwarded-For": f"9.9.9.{i}"}).status_code
+        for i in range(4)
+    ]
+    assert codes == [200, 200, 429, 429]
+    trusted = _limited(settings, rate_limit=1, trust_proxy=True)
+    a = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "1.1.1.1"}).status_code
+    b = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "2.2.2.2"}).status_code
+    again = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "1.1.1.1"}).status_code
+    assert (a, b, again) == (200, 200, 429)
+
+
+def test_rate_limiting_is_recorded_in_metrics_and_off_by_default(settings) -> None:  # type: ignore[no-untyped-def]
+    c = _limited(settings, rate_limit=1)
+    c.get(f"{API}/zones")
+    c.get(f"{API}/zones")
+    off = TestClient(create_app(settings))
+    assert all(off.get(f"{API}/zones").status_code == 200 for _ in range(30))
+    assert c.app.state.metrics.snapshot()["events"]["rate_limited"] == 1  # type: ignore[attr-defined]
+
+
+def test_hsts_only_when_the_trusted_proxy_says_the_request_was_https(settings) -> None:  # type: ignore[no-untyped-def]
+    c = _limited(settings, trust_proxy=True)
+    assert "Strict-Transport-Security" not in c.get("/health").headers
+    secure = c.get("/health", headers={"X-Forwarded-Proto": "https"})
+    assert "max-age" in secure.headers["Strict-Transport-Security"]
+    plain = TestClient(create_app(settings)).get("/health", headers={"X-Forwarded-Proto": "https"})
+    assert (
+        "Strict-Transport-Security" not in plain.headers
+    )  # header ignored when not behind our proxy
+
+
+def test_a_chunked_upload_without_content_length_is_still_capped(settings) -> None:  # type: ignore[no-untyped-def]
+    c = TestClient(create_app(settings))
+
+    def chunks():  # type: ignore[no-untyped-def]
+        yield b"{"
+        for _ in range(MAX_BODY_BYTES // 1024 + 8):
+            yield b" " * 1024
+        yield b"}"
+
+    r = c.post(
+        f"{API}/optimization/scenario",
+        content=chunks(),
+        headers={"content-type": "application/json"},
+    )
+    assert r.status_code == 413 and error_code(r) == "payload_too_large"
+    ok = c.post(f"{API}/analyst/ask", json={"question": "What does WAPE mean?"})
+    assert ok.status_code == 200  # the server is healthy afterwards

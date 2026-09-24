@@ -38,6 +38,7 @@ from mobilityops.transform.calendar import build_dim_date
 HOURS = 24
 MIN_HISTORY_DAYS = 14  # the longest lag; origins earlier than this lack full history
 LEVEL_DAYS = 28
+LONGEST_LOOKBACK_DAYS = 28  # the 4-week seasonal mean and the 28-day level reach back this far
 
 # Features that use history only. Order is part of the model contract (stored with the model).
 HISTORY_FEATURES: tuple[str, ...] = (
@@ -84,6 +85,21 @@ class DemandTensor:
     @property
     def n_days(self) -> int:
         return int(self.y.shape[1])
+
+    def tail(self, n_days: int) -> DemandTensor:
+        """The most recent ``n_days`` days. Features only look back ``LONGEST_LOOKBACK_DAYS``, so
+        forecasting from a tail is identical to forecasting from the full history, at a fraction of
+        the memory (the difference matters on a small server)."""
+        if n_days < 1:
+            raise ValueError("n_days must be >= 1")
+        k = min(n_days, self.n_days)
+        return DemandTensor(
+            self.y[:, -k:, :],
+            self.zones,
+            self.days[-k:],
+            self.calendar.iloc[-k:],
+            self.weather.iloc[-k:],
+        )
 
     def extended(self, extra_days: int = 1) -> DemandTensor:
         """Append future days with unknown demand (NaN) so an unobserved day can be forecast."""

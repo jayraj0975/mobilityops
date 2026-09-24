@@ -89,7 +89,7 @@ every run.
 
 | Check | Result |
 |---|---|
-| Python tests | 362 passing, 95% line coverage (`pytest --cov`) |
+| Python tests | 376 passing, 96% line coverage (`pytest --cov`) |
 | Lint, format, types | ruff, ruff format, mypy: clean; frontend ESLint (React hooks + jsx-a11y) and strict TypeScript: clean |
 | Python versions | full suite passes on 3.12, 3.13 and 3.14 (Docker containers); the synthetic pipeline gives identical results on all three (LightGBM WAPE 22.3%, interval coverage 80.8%, 3 planted anomalies found); CI runs the matrix |
 | Reproducibility | regenerating the real-data forecast and anomaly reports with today's code gives files identical to the committed ones (apart from the timestamp); `requirements.lock` records the versions used |

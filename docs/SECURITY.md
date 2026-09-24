@@ -11,7 +11,7 @@ on localhost. **It is not hardened for exposure to the internet** (see "Not cove
 | Database and artifacts | modification through the API or the analyst | all connections are `read_only`; the analyst has no write tool (a test asserts no tool name suggests writing); requests to write are refused |
 | Database | SQL injection | user input is never interpolated into SQL: bound parameters, whitelisted identifiers, typed and bounded API parameters; injection-style inputs are tested and rejected |
 | Pipeline SQL | injection via file names / settings | values go through `quote_literal`; the ruff `S608` exemption is limited to the pipeline modules and documented in `pyproject.toml` |
-| Service availability | oversized bodies, expensive requests | 16 KiB body cap (checked from `Content-Length`; see below); bounded query sizes; scenario solves capped at 10 s and 2 concurrent (429 beyond that); single-flight caching |
+| Service availability | oversized bodies, floods, expensive requests | 16 KiB body cap enforced even for chunked uploads (the body is buffered, then refused with 413); per-client rate limits (`MOBILITYOPS_RATE_LIMIT`, and a tighter `_HEAVY` budget for the analyst and scenario endpoints; 429 with `Retry-After`); the client IP comes from `X-Forwarded-For` only when `MOBILITYOPS_TRUST_PROXY` is set, so it cannot be forged to dodge the limit; bounded query sizes; scenario solves capped at 10 s and 2 concurrent (429 beyond that); single-flight caching |
 | Secrets (LLM key, API key) | leakage through logs, errors, git | read only from the environment; never logged (tests check logs, request bodies and reprs); `Settings.__repr__` masks them; the UI never receives a key (the dev proxy adds it server-side); secret scan of tree and full history: none |
 | Analyst | prompt injection from questions or data | screening; planner sees only the question and can only pick fixed tools; never sees tool outputs; numbers are grounded in tool facts; a poisoned zone name is shown as data and changes nothing (test) |
 | Browser | XSS, clickjacking, mixed content | React escapes output; served UI carries a strict Content-Security-Policy (`script-src 'self'`, no `unsafe-eval`, `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff`, `no-referrer` |
@@ -45,9 +45,8 @@ token formats (0 matches), no tracked file over 1 MB, only `.env.example` tracke
 
 * **Authentication and authorisation** beyond one optional shared key; no users, roles or audit trail.
 * **TLS**: terminate it in a reverse proxy; the app speaks plain HTTP.
-* **Body size for chunked uploads**: the 16 KiB cap reads `Content-Length`, so a chunked request without
-  that header is not capped by this app (a reverse proxy should enforce it).
-* **Rate limiting** per client (only the solver has a concurrency cap) and abuse protection.
+* **Distributed abuse protection.** The rate limiter is in-memory and per process: it stops a single
+  client hammering one instance, not a distributed flood (use a CDN / WAF for that).
 * **A web application firewall, intrusion detection, alerting.**
 * **Penetration testing**: none was done; the controls above are tested by the project's own tests.
 * **LLM-specific risks in LLM mode** (UNVERIFIED): only mocked-transport tests exist.

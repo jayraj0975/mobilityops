@@ -30,7 +30,7 @@ produced it (nothing here is typed in by hand; regenerate with the commands in
 | API | 28 contract tests plus a concurrency smoke test on real data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | 32 component tests (run under 4 timezones), 18 real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use and phone width | VERIFIED |
 | Container | Built and run locally: whole pipeline and server inside the image, non-root, healthy | VERIFIED locally |
-| Tests | 362 Python tests at 95% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 376 Python tests at 96% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Hosted deployment, authentication beyond an optional API key, rate limiting, TLS | not built | NOT IMPLEMENTED |
 
 ## Screens
@@ -102,6 +102,7 @@ Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make
 | [SECURITY](docs/SECURITY.md) | threat model, controls, what is and is not covered |
 | [LIMITATIONS](docs/LIMITATIONS.md) | what these results cannot tell you |
 | [DECISIONS](docs/DECISIONS.md) | 12 architecture decision records, including changes made after seeing results |
+| [DATA_SOURCES](docs/DATA_SOURCES.md) | where the data comes from, attribution, what is and is not published |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | development workflow and rules |
 
 ## Layout
@@ -117,6 +118,8 @@ reports/           generated result reports (committed so the numbers are inspec
 tests/             unit and integration tests (synthetic data only; CI downloads nothing)
 ```
 
-## License
+## Data and license
 
-MIT
+Code is MIT-licensed. The data is public data from the NYC TLC, NYC Open Data and NOAA; no raw trips are
+stored or redistributed here, and this project is not affiliated with those organisations. See
+[DATA_SOURCES](docs/DATA_SOURCES.md) and [NOTICE](NOTICE).

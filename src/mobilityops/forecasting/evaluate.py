@@ -36,6 +36,7 @@ from mobilityops.forecasting.baselines import BASELINES, baseline_forecasts
 from mobilityops.forecasting.features import (
     CATEGORICAL_FEATURES,
     HOURS,
+    LONGEST_LOOKBACK_DAYS,
     MIN_HISTORY_DAYS,
     DemandTensor,
     build_features,
@@ -441,7 +442,8 @@ def train_final(settings: Settings, cfg: EvalConfig | None = None) -> Path:
 
 def forecast_next_day(t: DemandTensor, model: ForecastModel) -> pd.DataFrame:
     """Forecast every zone-hour of the day after the last observed day."""
-    ext = t.extended(1)
+    # Only the last weeks matter to the features; slicing keeps memory small (DemandTensor.tail).
+    ext = t.tail(LONGEST_LOOKBACK_DAYS + MIN_HISTORY_DAYS + 3).extended(1)
     idx = ext.n_days - 1
     frame = build_features(ext, days=range(idx, idx + 1))
     pred = model.predict(frame)
