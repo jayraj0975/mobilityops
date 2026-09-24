@@ -14,11 +14,28 @@ android {
         versionName '1.0.0'
     }
 
+    // Release signing comes from the environment so no key or password is ever in the repository.
+    // Without MOBILITYOPS_KEYSTORE the release build is produced unsigned.
+    def keystorePath = System.getenv('MOBILITYOPS_KEYSTORE')
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv('MOBILITYOPS_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MOBILITYOPS_KEY_ALIAS') ?: 'mobilityops'
+                keyPassword System.getenv('MOBILITYOPS_KEY_PASSWORD') ?: System.getenv('MOBILITYOPS_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

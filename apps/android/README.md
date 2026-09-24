@@ -35,16 +35,21 @@ Install on a device or emulator: `adb install -r app/build/outputs/apk/debug/app
 ### Signed release build
 
 A release APK must be signed with your own key. Create one and keep it out of the repository (`*.jks`
-is ignored):
+is ignored), then give Gradle its location through the environment (nothing secret is ever written into
+the project):
 
 ```bash
 keytool -genkeypair -v -keystore ~/mobilityops-release.jks -alias mobilityops \
         -keyalg RSA -keysize 2048 -validity 10000
-./gradlew assembleRelease
-$ANDROID_HOME/build-tools/34.0.0/apksigner sign --ks ~/mobilityops-release.jks \
-        --out app-release-signed.apk app/build/outputs/apk/release/app-release-unsigned.apk
-$ANDROID_HOME/build-tools/34.0.0/apksigner verify app-release-signed.apk
+export MOBILITYOPS_KEYSTORE=~/mobilityops-release.jks
+export MOBILITYOPS_KEYSTORE_PASSWORD=...          # the password you chose
+./gradlew assembleRelease                         # app/build/outputs/apk/release/app-release.apk
+$ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose app-release.apk
 ```
+
+Without `MOBILITYOPS_KEYSTORE` the release build is produced unsigned. The release build is minified and
+resource-shrunk (about 1.7 MB against 5.6 MB for the debug APK). **Lose the key and you cannot update an
+installed copy**; back it up.
 
 ## Connecting to the server
 
