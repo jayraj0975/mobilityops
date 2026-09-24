@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export const ROUTES = [
   { id: "overview", label: "Overview" },
+  { id: "live", label: "Live" },
   { id: "demand", label: "Demand" },
   { id: "forecast", label: "Forecast" },
   { id: "anomalies", label: "Anomalies" },

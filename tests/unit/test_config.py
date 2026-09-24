@@ -68,3 +68,31 @@ def test_thread_cap_reaches_the_model_parameters_unless_overridden() -> None:
     assert _with_threads(EvalConfig(), capped).params["num_threads"] == 3
     assert _with_threads(EvalConfig(params={"num_threads": 1}), capped).params["num_threads"] == 1
     assert "num_threads" not in _with_threads(EvalConfig(), Settings.from_env({})).params
+
+
+def test_live_settings_have_safe_defaults_and_are_validated() -> None:
+    s = Settings.from_env({})
+    assert (s.live_seconds_per_hour, s.live_feeds, s.live_max_streams) == (2.0, True, 32)
+    t = Settings.from_env(
+        {
+            "MOBILITYOPS_LIVE_SECONDS_PER_HOUR": "0.5",
+            "MOBILITYOPS_LIVE_FEEDS": "false",
+            "MOBILITYOPS_LIVE_MAX_STREAMS": "4",
+        }
+    )
+    assert (t.live_seconds_per_hour, t.live_feeds, t.live_max_streams) == (0.5, False, 4)
+
+
+@pytest.mark.parametrize(
+    ("env", "fragment"),
+    [
+        ({"MOBILITYOPS_LIVE_SECONDS_PER_HOUR": "0"}, "SECONDS_PER_HOUR"),
+        ({"MOBILITYOPS_LIVE_SECONDS_PER_HOUR": "fast"}, "SECONDS_PER_HOUR"),
+        ({"MOBILITYOPS_LIVE_SECONDS_PER_HOUR": "99999"}, "SECONDS_PER_HOUR"),
+        ({"MOBILITYOPS_LIVE_FEEDS": "maybe"}, "LIVE_FEEDS"),
+        ({"MOBILITYOPS_LIVE_MAX_STREAMS": "-1"}, "LIVE_MAX_STREAMS"),
+    ],
+)
+def test_invalid_live_settings_fail_clearly(env: dict[str, str], fragment: str) -> None:
+    with pytest.raises(ConfigError, match=fragment):
+        Settings.from_env(env)

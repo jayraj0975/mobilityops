@@ -45,7 +45,7 @@ describe("shell", () => {
     render(<App />);
     expect(await screen.findByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("button")).toHaveLength(7);
+    expect(within(nav).getAllByRole("button")).toHaveLength(8);
     expect(within(nav).getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
     await goTo("Forecast");
     expect(within(nav).getByRole("button", { name: "Forecast" })).toHaveAttribute("aria-current", "page");

@@ -3406,6 +3406,170 @@
         ]
       }
     },
+    "/api/v1/live/snapshot": {
+      "get": {
+        "description": "The current state in one document: the replay's recent hours and the latest feed data.",
+        "operationId": "live_snapshot_api_v1_live_snapshot_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live Snapshot",
+        "tags": [
+          "live"
+        ]
+      }
+    },
+    "/api/v1/live/status": {
+      "get": {
+        "description": "Whether the replay is available, how many streams are open, and the replay's clock.",
+        "operationId": "live_status_api_v1_live_status_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live Status",
+        "tags": [
+          "live"
+        ]
+      }
+    },
+    "/api/v1/live/stream": {
+      "get": {
+        "description": "Server-sent events: ``hello``, then ``replay`` (hourly ticks of held-out days, labelled\nREPLAY), ``feed`` (live Citi Bike and weather) and ``history`` events. ``limit`` stops the\nstream after that many events (useful for tests and ``curl``).",
+        "operationId": "live_stream_api_v1_live_stream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Server-sent events"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live Stream",
+        "tags": [
+          "live"
+        ]
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "meta_api_v1_meta_get",

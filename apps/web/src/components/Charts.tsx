@@ -200,3 +200,47 @@ export function ShareBarsChart({
     </Figure>
   );
 }
+
+/** Two or three lines on one time axis (for example actual vs forecast), with a text alternative. */
+export function LinesChart({
+  title,
+  data,
+  series,
+  yLabel = "pickups",
+}: {
+  title: string;
+  data: ({ x: string } & Record<string, number | string | null>)[];
+  series: { key: string; label: string; dashed?: boolean }[];
+  yLabel?: string;
+}) {
+  const colors = [C.main, C.second, C.third];
+  return (
+    <Figure
+      title={title}
+      summary={`${data.length} points; lines: ${series.map((s) => s.label).join(", ")}.`}
+      table={data.map((d) => ({ ...d }))}
+      columns={cols("Time", ...series.map((s): [string, string] => [s.key, s.label]))}
+    >
+      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+        <CartesianGrid stroke={C.grid} strokeDasharray="3 3" />
+        <XAxis dataKey="x" tick={{ fill: C.text, fontSize: 12 }} minTickGap={32} />
+        <YAxis tick={{ fill: C.text, fontSize: 12 }} width={56} label={{ value: yLabel, angle: -90, position: "insideLeft", fill: C.text, fontSize: 12 }} />
+        <Tooltip />
+        <Legend />
+        {series.map((s, i) => (
+          <Line
+            key={s.key}
+            isAnimationActive={false}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={colors[i % colors.length]}
+            strokeDasharray={s.dashed ? "6 4" : undefined}
+            dot={false}
+            strokeWidth={2}
+          />
+        ))}
+      </LineChart>
+    </Figure>
+  );
+}

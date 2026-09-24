@@ -38,6 +38,9 @@ class Settings:
     trust_proxy: int = 0  # own proxies in front; client = that entry from the right of XFF
     api_key: str | None = None  # if set, every /api/v1 request must send it as X-API-Key
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+    live_seconds_per_hour: float = 2.0  # replay speed: seconds of wall clock per hour of data
+    live_feeds: bool = True  # poll the public live feeds (Citi Bike, NWS) while someone watches
+    live_max_streams: int = 32  # concurrent /live/stream connections
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -78,6 +81,19 @@ class Settings:
         if "*" in origins:
             raise ConfigError("MOBILITYOPS_CORS_ORIGINS must list explicit origins, not '*'")
         extra = {"cors_origins": origins} if origins else {}
+        raw_sph = (e.get("MOBILITYOPS_LIVE_SECONDS_PER_HOUR") or "2").strip()
+        try:
+            sph = float(raw_sph)
+        except ValueError:
+            sph = -1.0
+        if not 0.05 <= sph <= 3600:
+            raise ConfigError(
+                "MOBILITYOPS_LIVE_SECONDS_PER_HOUR must be a number from 0.05 to 3600"
+            )
+        raw_feeds = (e.get("MOBILITYOPS_LIVE_FEEDS") or "true").strip().lower()
+        if raw_feeds not in ("true", "false", "1", "0", "yes", "no"):
+            raise ConfigError("MOBILITYOPS_LIVE_FEEDS must be true or false")
+        max_streams = whole("MOBILITYOPS_LIVE_MAX_STREAMS", 1000) or 32
         return cls(
             data_dir=Path(e.get("MOBILITYOPS_DATA_DIR", "./data")).expanduser().resolve(),
             mode=mode,  # type: ignore[arg-type]
@@ -89,6 +105,9 @@ class Settings:
             rate_limit_heavy=rate_limit_heavy,
             trust_proxy=trust_proxy,
             api_key=api_key,
+            live_seconds_per_hour=sph,
+            live_feeds=raw_feeds in ("true", "1", "yes"),
+            live_max_streams=max_streams,
             **extra,
         )
 

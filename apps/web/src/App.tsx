@@ -9,6 +9,7 @@ import { ROUTES, useHashRoute } from "./lib/useHashRoute";
 // Each section is its own chunk, so the first paint downloads the shell only, and the charting
 // library loads with the first section that draws a chart.
 const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
+const Live = lazy(() => import("./pages/Live").then((m) => ({ default: m.Live })));
 const Demand = lazy(() => import("./pages/Demand").then((m) => ({ default: m.Demand })));
 const Forecast = lazy(() => import("./pages/Forecast").then((m) => ({ default: m.Forecast })));
 const Anomalies = lazy(() => import("./pages/Anomalies").then((m) => ({ default: m.Anomalies })));
@@ -63,6 +64,7 @@ export default function App() {
                   <h2 className="sr-only">{ROUTES.find((r) => r.id === route)?.label}</h2>
                   <Suspense fallback={<Loading what="section" />}>
                   {route === "overview" && <Overview meta={m} />}
+                  {route === "live" && <Live />}
                   {route === "demand" && <Demand meta={m} zones={z} />}
                   {route === "forecast" && <Forecast zones={z} />}
                   {route === "anomalies" && <Anomalies />}

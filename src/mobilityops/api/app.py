@@ -37,7 +37,7 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from mobilityops import __version__
 from mobilityops.analyst.agent import Analyst, tool_catalog
@@ -49,6 +49,7 @@ from mobilityops.api.limits import BodyLimitMiddleware, RateLimiter, client_ip
 from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
 from mobilityops.config import Settings
+from mobilityops.live.hub import LiveBusy, LiveHub
 from mobilityops.log import get_logger
 from mobilityops.optimization.model import RebalanceParams
 from mobilityops.optimization.run import scenario_report
@@ -124,6 +125,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.services = services
     app.state.metrics = metrics
     app.state.analyst = analyst
+    hub = LiveHub(settings, services)
+    app.state.hub = hub
 
     app.add_middleware(
         CORSMiddleware,
@@ -226,6 +229,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(NotReady)
     async def _not_ready(request: Request, exc: NotReady) -> JSONResponse:
         return _error("not_ready", str(exc), 503, request)
+
+    @app.exception_handler(LiveBusy)
+    async def _live_busy(request: Request, exc: LiveBusy) -> JSONResponse:
+        response = _error("busy", str(exc), 429, request)
+        response.headers["Retry-After"] = "5"
+        return response
 
     @app.exception_handler(Busy)
     async def _busy(request: Request, exc: Busy) -> JSONResponse:
@@ -672,6 +681,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             tools_used=[s.AnalystToolTrace(**t.__dict__) for t in ans.tools_used],
             warnings=ans.warnings,
             grounding=ans.grounding,
+        )
+
+    # ---------------------------------------------------------------------------- live
+    @api.get("/live/status", response_model=s.ArtifactDocument, tags=["live"])
+    def live_status() -> dict[str, Any]:
+        """Whether the replay is available, how many streams are open, and the replay's clock."""
+        return hub.status()
+
+    @api.get("/live/snapshot", response_model=s.ArtifactDocument, tags=["live"])
+    def live_snapshot() -> dict[str, Any]:
+        """The current state in one document: the replay's recent hours and the latest feed data."""
+        return hub.hello()
+
+    @api.get(
+        "/live/stream",
+        tags=["live"],
+        response_class=StreamingResponse,
+        responses={
+            200: {"content": {"text/event-stream": {}}, "description": "Server-sent events"}
+        },
+    )
+    async def live_stream(
+        request: Request, limit: Annotated[int | None, Query(ge=1, le=10_000)] = None
+    ) -> StreamingResponse:
+        """Server-sent events: ``hello``, then ``replay`` (hourly ticks of held-out days, labelled
+        REPLAY), ``feed`` (live Citi Bike and weather) and ``history`` events. ``limit`` stops the
+        stream after that many events (useful for tests and ``curl``)."""
+        if hub.streams >= settings.live_max_streams:
+            raise LiveBusy(f"{settings.live_max_streams} live streams are already open")
+        return StreamingResponse(
+            hub.stream(request, limit),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     app.include_router(ops)
