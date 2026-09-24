@@ -46,6 +46,24 @@ GRID = 3  # weather is fetched on a GRID x GRID lattice over the study area
 RAIN_PAST_DAYS = 9
 
 
+def start_worker_thread(settings: Settings) -> tuple[threading.Thread, threading.Event]:
+    """Run the worker inside this process, on a daemon thread; returns the thread and stop event.
+
+    For hosts that offer no separate background process (Render's free web service). The worker is
+    still the only writer to the store; the API opens it query-only. In a normal deployment run
+    ``pune-worker`` as its own process instead (ADR-019).
+    """
+    stop = threading.Event()
+
+    def run() -> None:
+        with httpx.Client(follow_redirects=False) as client:
+            Worker(settings, StateStore(settings.state_path), client).run_forever(stop)
+
+    thread = threading.Thread(target=run, name="pune-worker", daemon=True)
+    thread.start()
+    return thread, stop
+
+
 def weather_grid(
     bbox: tuple[float, float, float, float], n: int = GRID
 ) -> list[tuple[float, float]]:

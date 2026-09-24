@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Sequence
 
@@ -396,6 +397,21 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     # Event streams never end on their own, so uvicorn's graceful shutdown would wait for every
     # connected viewer forever and `docker stop` / `systemctl stop` would hang until killed. Bound
     # it: in-flight requests get a few seconds, open streams are then cancelled (clients reconnect).
+    if args.with_worker or os.environ.get("MOBILITYOPS_WITH_WORKER", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        if settings.mode != "pune":
+            print("--with-worker only applies in pune mode", file=sys.stderr)
+            return 2
+        if not settings.db_path.exists():
+            print("no Pune database yet; run `pune-build` first", file=sys.stderr)
+            return 1
+        from mobilityops.pune.worker import start_worker_thread
+
+        settings.ensure_dirs()
+        start_worker_thread(settings)
     uvicorn.run(
         create_app(settings),
         host=args.host,
@@ -541,6 +557,12 @@ def build_parser() -> argparse.ArgumentParser:
     sv = sub.add_parser("serve", help="start the HTTP API")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument(
+        "--with-worker",
+        action="store_true",
+        help="pune mode: run the ingestion worker on a thread in this process (for hosts with no "
+        "separate background process; also MOBILITYOPS_WITH_WORKER=true)",
+    )
     sv.add_argument(
         "--allow-unauthenticated",
         action="store_true",
