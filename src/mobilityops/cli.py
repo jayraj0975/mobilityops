@@ -78,7 +78,7 @@ def cmd_build(settings: Settings, args: argparse.Namespace) -> int:
 def cmd_status(settings: Settings, args: argparse.Namespace) -> int:
     """Print the latest quality reports."""
     found = False
-    for stage in ("bronze", "silver", "gold"):
+    for stage in ("bronze", "silver", "services", "gold"):
         path = quality_dir(settings) / f"{stage}.json"
         if not path.exists():
             continue

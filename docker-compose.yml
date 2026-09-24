@@ -1,0 +1,58 @@
+# Self-hosted MobilityOps: the API, the web dashboard and the live stream in one container, on a
+# machine you control. Nothing here depends on a hosting platform.
+#
+#   cp deploy/mobilityops.env.example .env      # then edit: set MOBILITYOPS_API_KEY
+#   docker compose up -d --build
+#
+# The container reads ./data and ./artifacts (read-only); you produce them on the host with the
+# pipeline commands in docs/SELF_HOSTING.md. HTTPS is optional: `docker compose --profile tls up -d`.
+services:
+  mobilityops:
+    build: .
+    image: mobilityops:local
+    restart: unless-stopped
+    # Bind to localhost by default; set MOBILITYOPS_BIND=0.0.0.0 to serve your local network.
+    ports:
+      - "${MOBILITYOPS_BIND:-127.0.0.1}:${MOBILITYOPS_PORT:-8000}:8000"
+    environment:
+      MOBILITYOPS_MODE: ${MOBILITYOPS_MODE:-real}
+      # Required: the server refuses to listen on a network address without one.
+      MOBILITYOPS_API_KEY: ${MOBILITYOPS_API_KEY:?set MOBILITYOPS_API_KEY in .env (see deploy/mobilityops.env.example)}
+      MOBILITYOPS_RATE_LIMIT: ${MOBILITYOPS_RATE_LIMIT:-240}
+      MOBILITYOPS_RATE_LIMIT_HEAVY: ${MOBILITYOPS_RATE_LIMIT_HEAVY:-20}
+      MOBILITYOPS_TRUST_PROXY: ${MOBILITYOPS_TRUST_PROXY:-0}
+      MOBILITYOPS_LIVE_FEEDS: ${MOBILITYOPS_LIVE_FEEDS:-true}
+      MOBILITYOPS_LIVE_SECONDS_PER_HOUR: ${MOBILITYOPS_LIVE_SECONDS_PER_HOUR:-2}
+      MOBILITYOPS_THREADS: ${MOBILITYOPS_THREADS:-2}
+    # No --allow-unauthenticated here: a key is mandatory.
+    command: ["serve", "--host", "0.0.0.0"]
+    volumes:
+      - ./data:/app/data:ro
+      - ./artifacts:/app/artifacts:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # Optional HTTPS in front (automatic certificates, or Caddy's local CA for a LAN name).
+  # Set MOBILITYOPS_DOMAIN and MOBILITYOPS_TRUST_PROXY=1 in .env, then use --profile tls.
+  caddy:
+    image: caddy:2
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - mobilityops
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      MOBILITYOPS_DOMAIN: ${MOBILITYOPS_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
+volumes:
+  caddy_data:

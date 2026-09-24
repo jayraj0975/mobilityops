@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import { authHeaders } from "../api/key";
 import { parseSse } from "./sse";
 import type { CitibikeData, Feed, HistoryPoint, Hello, ReplayTick, WeatherData } from "./live";
 
@@ -90,7 +91,7 @@ export function useLiveStream(url = "/api/v1/live/stream"): LiveState {
           dispatch({ type: "status", status: attempt === 0 ? "connecting" : "reconnecting" });
           attempt += 1;
           arm();
-          const res = await fetch(url, { signal: link.signal, headers: { Accept: "text/event-stream" } });
+          const res = await fetch(url, { signal: link.signal, headers: { Accept: "text/event-stream", ...authHeaders() } });
           if (!res.ok || !res.body) {
             let detail = `The server answered HTTP ${res.status}.`;
             try {

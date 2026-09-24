@@ -1,0 +1,8 @@
+# HTTPS reverse proxy for MobilityOps. flush_interval -1 matters: without it the proxy buffers
+# the live event stream and the Live tab appears to freeze.
+{$MOBILITYOPS_DOMAIN:localhost} {
+	encode gzip
+	reverse_proxy mobilityops:8000 {
+		flush_interval -1
+	}
+}

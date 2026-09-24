@@ -1,3 +1,4 @@
+import { authHeaders } from "./key";
 import type { components } from "./schema";
 
 export type Schemas = components["schemas"];
@@ -52,7 +53,7 @@ export async function request<T>(
   try {
     res = await fetch(`${path}${qs(init?.query)}`, {
       ...init,
-      headers: { Accept: "application/json", ...(init?.headers ?? {}) },
+      headers: { Accept: "application/json", ...authHeaders(), ...(init?.headers ?? {}) },
     });
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;

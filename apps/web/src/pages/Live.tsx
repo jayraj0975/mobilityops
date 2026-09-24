@@ -77,7 +77,7 @@ function Replay({ ticks, label }: { ticks: ReplayTick[]; label: string }) {
         <Kpi label="Replay hour (New York time)" value={last.hour_ts.slice(0, 16).replace("T", " ")} note={`hour ${last.index + 1} of ${last.of}${last.loop > 0 ? `, loop ${last.loop + 1}` : ""}`} />
         <Kpi label="Actual pickups this hour" value={fmtInt(last.actual)} />
         <Kpi label="Forecast made beforehand" value={fmtInt(last.forecast)} note={errPct == null ? undefined : `off by ${fmtPct(errPct)}`} />
-        <Kpi label="Accuracy so far (WAPE)" value={fmtPct(last.running_wape)} note="lower is better; over the replay so far" />
+        <Kpi label="City-total error so far (WAPE)" value={fmtPct(last.running_wape)} note="hourly totals over all zones; easier than one zone, whose error is on the Forecast page" />
       </div>
       <LinesChart
         title="City pickups per hour: actual against the forecast"
