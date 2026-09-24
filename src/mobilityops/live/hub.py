@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import threading
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
@@ -70,27 +71,29 @@ class LiveHub:
         self._origin = time.monotonic()
         self._feeds: LiveFeeds | None = None
         self._client: httpx.AsyncClient | None = None
+        self._replay_lock = threading.Lock()
 
     # ------------------------------------------------------------------ replay
     def replay(self) -> Replay | None:
         """The replay, built on first use; retried at most every 30 s while unavailable."""
-        now = time.monotonic()
-        if self._replay is None and now - self._replay_tried >= RETRY_REPLAY_SECONDS:
-            self._replay_tried = now
-            art = self.services.artifacts
-            try:
-                self._replay = build_replay(
-                    art / "forecast" / "predictions.parquet",
-                    self.services.analytics().zones(),
-                    art / "anomaly" / "events.parquet",
-                    seconds_per_hour=self.settings.live_seconds_per_hour,
-                    data_label=self.services.data_label,
-                )
-                self._replay.t0 = self._origin
-                self._replay_error = None
-            except (ReplayUnavailable, NotReady) as exc:  # no forecasts, or no database yet
-                self._replay_error = str(exc)
-        return self._replay
+        with self._replay_lock:  # the start-up warm-up and a first request must not both build it
+            now = time.monotonic()
+            if self._replay is None and now - self._replay_tried >= RETRY_REPLAY_SECONDS:
+                self._replay_tried = now
+                art = self.services.artifacts
+                try:
+                    self._replay = build_replay(
+                        art / "forecast" / "predictions.parquet",
+                        self.services.analytics().zones(),
+                        art / "anomaly" / "events.parquet",
+                        seconds_per_hour=self.settings.live_seconds_per_hour,
+                        data_label=self.services.data_label,
+                    )
+                    self._replay.t0 = self._origin
+                    self._replay_error = None
+                except (ReplayUnavailable, NotReady) as exc:  # no forecasts, or no database yet
+                    self._replay_error = str(exc)
+            return self._replay
 
     # -------------------------------------------------------------- subscriptions
     @property

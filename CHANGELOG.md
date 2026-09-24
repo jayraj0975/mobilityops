@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Live replay is built at start-up**, in the background, instead of by the first viewer (that first request took about 24 s on
+  Render's free CPU). A lock makes a request that arrives during the build wait for it rather than report the replay unavailable.
 - **Android toolchain upgraded together** (the Dependabot bumps each needed the others): Gradle 9.7.1 (wrapper regenerated,
   checksum pinned), Android Gradle Plugin 9.4.1 with built-in Kotlin, compileSdk 36, androidx appcompat 1.8.0, Material 1.14.0,
   org.json 20260814. 45 unit tests, lint, debug, minified release and AAB builds pass, and the app was re-run on the emulator.

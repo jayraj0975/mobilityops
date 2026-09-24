@@ -13,11 +13,13 @@ Design rules (see docs/SECURITY.md):
 
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path as FsPath
 from typing import Annotated, Any, Literal
@@ -113,7 +115,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         else RulePlanner()
     )
     analyst = Analyst(services, planner)
+    hub = LiveHub(settings, services)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        # Build the replay once in the background so the first viewer does not wait for it (about
+        # 24 s on a shared free-tier CPU). A failure is recorded by the hub and retried on demand.
+        warm = asyncio.create_task(asyncio.to_thread(hub.replay))
+        try:
+            yield
+        finally:
+            warm.cancel()
+
     app = FastAPI(
+        lifespan=lifespan,
         title="MobilityOps API",
         version=__version__,
         description=(
@@ -126,7 +141,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.services = services
     app.state.metrics = metrics
     app.state.analyst = analyst
-    hub = LiveHub(settings, services)
     app.state.hub = hub
 
     app.add_middleware(
