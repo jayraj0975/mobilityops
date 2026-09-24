@@ -57,11 +57,20 @@ def test_memory_is_bounded_even_under_a_flood_of_distinct_clients(monkeypatch) -
 
 
 def test_forwarded_for_is_ignored_unless_the_proxy_is_trusted() -> None:
-    assert client_ip("10.0.0.1", "1.2.3.4", trust_proxy=False) == "10.0.0.1"
-    assert client_ip("10.0.0.1", "1.2.3.4, 10.0.0.9", trust_proxy=True) == "1.2.3.4"
-    assert client_ip("10.0.0.1", None, trust_proxy=True) == "10.0.0.1"
-    assert client_ip(None, None, trust_proxy=False) == "unknown"
-    assert client_ip("10.0.0.1", "x" * 200, trust_proxy=True) == "10.0.0.1"  # absurd header ignored
+    assert client_ip("10.0.0.1", "1.2.3.4", 0) == "10.0.0.1"
+    assert client_ip("10.0.0.1", None, 1) == "10.0.0.1"
+    assert client_ip(None, None, 0) == "unknown"
+    assert client_ip("10.0.0.1", "x" * 200, 1) == "10.0.0.1"  # absurd header ignored
+
+
+def test_the_client_is_counted_from_the_right_so_a_forged_prefix_changes_nothing() -> None:
+    # one trusted proxy appended the real client address after whatever the client sent
+    assert client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4", 1) == "1.2.3.4"
+    assert client_ip("10.0.0.1", "7.7.7.7, 6.6.6.6, 1.2.3.4", 1) == "1.2.3.4"
+    # two trusted proxies: the client is second from the right
+    assert client_ip("10.0.0.1", "6.6.6.6, 1.2.3.4, 172.16.0.5", 2) == "1.2.3.4"
+    # a chain shorter than the trusted depth did not come through our proxies
+    assert client_ip("10.0.0.1", "1.2.3.4", 2) == "10.0.0.1"
 
 
 def test_settings_validate_the_limit_variables() -> None:
@@ -72,9 +81,12 @@ def test_settings_validate_the_limit_variables() -> None:
             "MOBILITYOPS_TRUST_PROXY": "true",
         }
     )
-    assert (s.rate_limit, s.rate_limit_heavy, s.trust_proxy) == (120, 10, True)
+    assert (s.rate_limit, s.rate_limit_heavy, s.trust_proxy) == (120, 10, 1)
     d = Settings.from_env({})
-    assert (d.rate_limit, d.rate_limit_heavy, d.trust_proxy) == (0, 0, False)
+    assert (d.rate_limit, d.rate_limit_heavy, d.trust_proxy) == (0, 0, 0)
+    assert Settings.from_env({"MOBILITYOPS_TRUST_PROXY": "2"}).trust_proxy == 2
+    with pytest.raises(ConfigError, match="TRUST_PROXY"):
+        Settings.from_env({"MOBILITYOPS_TRUST_PROXY": "many"})
     for bad in ("-5", "lots", "9999999"):
         with pytest.raises(ConfigError, match="RATE_LIMIT"):
             Settings.from_env({"MOBILITYOPS_RATE_LIMIT": bad})

@@ -203,6 +203,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "path": getattr(route, "path", request.url.path),
                     "status": response.status_code,
                     "ms": round(elapsed_ms, 1),
+                    # only while rate limiting is on: the address is what the limit counts by
+                    **({"client": who} if settings.rate_limit > 0 else {}),
                 }
             },
         )

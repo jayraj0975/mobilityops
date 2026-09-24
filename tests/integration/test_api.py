@@ -494,11 +494,18 @@ def test_forged_forwarded_for_cannot_dodge_the_limit_unless_the_proxy_is_trusted
         for i in range(4)
     ]
     assert codes == [200, 200, 429, 429]
-    trusted = _limited(settings, rate_limit=1, trust_proxy=True)
+    trusted = _limited(settings, rate_limit=1, trust_proxy=1)
     a = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "1.1.1.1"}).status_code
     b = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "2.2.2.2"}).status_code
     again = trusted.get(f"{API}/zones", headers={"X-Forwarded-For": "1.1.1.1"}).status_code
     assert (a, b, again) == (200, 200, 429)
+    # the proxy appends the real client; whatever the client put on the left is not trusted
+    fixed = _limited(settings, rate_limit=1, trust_proxy=1)
+    codes = [
+        fixed.get(f"{API}/zones", headers={"X-Forwarded-For": f"9.9.9.{i}, 3.3.3.3"}).status_code
+        for i in range(3)
+    ]
+    assert codes == [200, 429, 429]
 
 
 def test_rate_limiting_is_recorded_in_metrics_and_off_by_default(settings) -> None:  # type: ignore[no-untyped-def]
@@ -511,7 +518,7 @@ def test_rate_limiting_is_recorded_in_metrics_and_off_by_default(settings) -> No
 
 
 def test_hsts_only_when_the_trusted_proxy_says_the_request_was_https(settings) -> None:  # type: ignore[no-untyped-def]
-    c = _limited(settings, trust_proxy=True)
+    c = _limited(settings, trust_proxy=1)
     assert "Strict-Transport-Security" not in c.get("/health").headers
     secure = c.get("/health", headers={"X-Forwarded-Proto": "https"})
     assert "max-age" in secure.headers["Strict-Transport-Security"]

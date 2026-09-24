@@ -58,11 +58,21 @@ class RateLimiter:
             return True, 0.0
 
 
-def client_ip(peer: str | None, forwarded_for: str | None, trust_proxy: bool) -> str:
-    if trust_proxy and forwarded_for:
-        first = forwarded_for.split(",")[0].strip()
-        if first and len(first) <= 64:
-            return first
+def client_ip(peer: str | None, forwarded_for: str | None, trusted_hops: int) -> str:
+    """The address rate limits are counted against.
+
+    Each proxy *appends* the address it received the request from, so the left of
+    ``X-Forwarded-For`` is whatever the client chose to send and the entries a client cannot forge
+    are the ones on the right. With ``trusted_hops`` proxies of our own in front, the client is the
+    ``trusted_hops``-th entry from the right. A chain shorter than that means the request did not
+    come through them, so the socket peer is used instead.
+    """
+    if trusted_hops > 0 and forwarded_for:
+        parts = [p.strip() for p in forwarded_for.split(",")]
+        if len(parts) >= trusted_hops:
+            chosen = parts[-trusted_hops]
+            if chosen and len(chosen) <= 64:
+                return chosen
     return peer or "unknown"
 
 

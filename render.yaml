@@ -1,0 +1,28 @@
+# Render Blueprint for the public demo (free plan). The service in use was created from these
+# same settings; see docs/DEPLOYMENT.md.
+services:
+  - type: web
+    name: mobilityops
+    runtime: docker
+    plan: free
+    region: oregon
+    autoDeployTrigger: commit
+    envVars:
+      - key: DEMO_URL
+        value: https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v1/mobilityops-demo-real.tar.gz
+      - key: DEMO_SHA256
+        value: bdaa3dead2b4450678918d25523f3cac0da204866e0a1a1a389a3dc26be46a9d
+      - key: MOBILITYOPS_MODE
+        value: real
+      - key: MOBILITYOPS_RATE_LIMIT
+        value: "120"
+      - key: MOBILITYOPS_RATE_LIMIT_HEAVY
+        value: "12"
+      - key: MOBILITYOPS_TRUST_PROXY
+        value: "1"
+      - key: MOBILITYOPS_THREADS
+        value: "1"
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: PORT
+        value: "8000"

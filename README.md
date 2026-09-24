@@ -102,6 +102,7 @@ Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make
 | [SECURITY](docs/SECURITY.md) | threat model, controls, what is and is not covered |
 | [LIMITATIONS](docs/LIMITATIONS.md) | what these results cannot tell you |
 | [DECISIONS](docs/DECISIONS.md) | 12 architecture decision records, including changes made after seeing results |
+| [DEPLOYMENT](docs/DEPLOYMENT.md) | how the public demo is built, hosted and rebuilt, and the free-plan limits |
 | [DATA_SOURCES](docs/DATA_SOURCES.md) | where the data comes from, attribution, what is and is not published |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | development workflow and rules |
 

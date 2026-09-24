@@ -35,9 +35,7 @@ class Settings:
     threads: int = 0  # LightGBM threads; 0 = all cores. Cap it when several jobs share a machine.
     rate_limit: int = 0  # requests per minute per client on /api/v1 (0 = off)
     rate_limit_heavy: int = 0  # per minute for the analyst and scenario endpoints (0 = off)
-    trust_proxy: bool = (
-        False  # take the client IP from X-Forwarded-For (only behind your own proxy)
-    )
+    trust_proxy: int = 0  # own proxies in front; client = that entry from the right of XFF
     api_key: str | None = None  # if set, every /api/v1 request must send it as X-API-Key
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
 
@@ -64,11 +62,13 @@ class Settings:
 
         rate_limit = whole("MOBILITYOPS_RATE_LIMIT", 100_000)
         rate_limit_heavy = whole("MOBILITYOPS_RATE_LIMIT_HEAVY", 100_000)
-        trust_proxy = (e.get("MOBILITYOPS_TRUST_PROXY") or "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        raw_proxy = (e.get("MOBILITYOPS_TRUST_PROXY") or "0").strip().lower()
+        raw_proxy = {"true": "1", "yes": "1", "false": "0", "no": "0"}.get(raw_proxy, raw_proxy)
+        if not raw_proxy.isdigit() or int(raw_proxy) > 5:
+            raise ConfigError(
+                "MOBILITYOPS_TRUST_PROXY must be the number of proxies in front (0 to 5)"
+            )
+        trust_proxy = int(raw_proxy)
         raw_threads = (e.get("MOBILITYOPS_THREADS") or "0").strip()
         if not raw_threads.isdigit() or int(raw_threads) > 256:
             raise ConfigError("MOBILITYOPS_THREADS must be a whole number from 0 to 256")
