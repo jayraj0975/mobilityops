@@ -9,9 +9,9 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: DEMO_URL
-        value: https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v2/mobilityops-demo-real.tar.gz
+        value: https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v3/mobilityops-demo-real.tar.gz
       - key: DEMO_SHA256
-        value: edb68cde2dd894023270d230f06cc42a2ab843fe465214f50861822cac058f42
+        value: 63c0578536a1d044aefac51cb79a21a9718fcc5ff24f3531a7d2b69eb2b12c53
       - key: MOBILITYOPS_MODE
         value: real
       - key: MOBILITYOPS_RATE_LIMIT

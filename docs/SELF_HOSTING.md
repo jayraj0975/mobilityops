@@ -38,16 +38,16 @@ Leave out `--services green,fhvhv` to fetch yellow taxis only (about 0.6 GB). In
 resume: the manifest is saved after every file.
 
 **B. Use the aggregate bundle (fast start).** A bundle holds only the derived, aggregate-only files (no
-trip-level rows), with a SHA-256 to check. The one on the repository's Releases page (`demo-data-v2`) covers all
+trip-level rows), with a SHA-256 to check. The one on the repository's Releases page (`demo-data-v3`) covers all
 of 2024 and all three services. From a checkout, this downloads, verifies and unpacks it (about 21 MB):
 
 ```bash
 python scripts/fetch_demo.py \
-  https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v2/mobilityops-demo-real.tar.gz \
-  edb68cde2dd894023270d230f06cc42a2ab843fe465214f50861822cac058f42 .
+  https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v3/mobilityops-demo-real.tar.gz \
+  63c0578536a1d044aefac51cb79a21a9718fcc5ff24f3531a7d2b69eb2b12c53 .
 ```
 
-(`demo-data-v1` is the earlier January to May snapshot, yellow taxis only.) To make your own from a run of
+(`demo-data-v1` is the earlier January to May snapshot, yellow taxis only; `demo-data-v2` is the full year before the dropoff-accounting checks.) To make your own from a run of
 option A:
 
 ```bash

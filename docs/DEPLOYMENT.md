@@ -9,7 +9,7 @@ read-only.
 | Piece | Where it comes from |
 |---|---|
 | Code | this repository, `main`, built from the `Dockerfile` |
-| Data | the aggregate-only bundle attached to the GitHub release `demo-data-v2` (all of 2024, all three services; `demo-data-v1` is the earlier January to May snapshot and is left in place), downloaded at build time and checked against a pinned SHA-256 (`scripts/fetch_demo.py`) |
+| Data | the aggregate-only bundle attached to the GitHub release `demo-data-v3` (all of 2024, all three services; `demo-data-v1` is the earlier January to May snapshot and is left in place), downloaded at build time and checked against a pinned SHA-256 (`scripts/fetch_demo.py`) |
 | Settings | environment variables in [`render.yaml`](../render.yaml): real mode, per-client rate limits, trusted-proxy depth 3 (measured, see below), one model thread, `MALLOC_ARENA_MAX=2` |
 
 The bundle holds pickups per zone per hour, the zone dimension, daily weather, quality results and
@@ -21,7 +21,7 @@ the generated model artifacts. It holds no trip-level rows and no secrets. Sourc
 ```bash
 # regenerate the real-mode artifacts first (commands in docs/EVALUATION.md)
 python scripts/pack_demo.py # writes dist/mobilityops-demo-real.tar.gz and its .sha256
-gh release create demo-data-v2 dist/mobilityops-demo-real.tar.gz --title "Demo data bundle v2"
+gh release create demo-data-v3 dist/mobilityops-demo-real.tar.gz --title "Demo data bundle v2"
 ```
 
 Then update `DEMO_URL` and `DEMO_SHA256` on the service. A wrong checksum fails the build instead of
