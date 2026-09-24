@@ -39,10 +39,12 @@ docker run --rm -p 127.0.0.1:8000:8000 -e MOBILITYOPS_MODE=real mobilityops-demo
 
 * The service sleeps after about 15 minutes without traffic; the first request afterwards waits for
   a cold start (tens of seconds).
-* 512 MB of memory. Measured peak resident memory on the real snapshot after exercising the
-  forecast, analyst and scenario endpoints was about 410 MB, so it fits with little headroom. The
-  scenario solver is capped at 2 concurrent solves and the heavy endpoints have their own, lower
-  rate limit. If the process is killed for memory, upgrade the plan; nothing else needs changing.
+* 512 MB of memory (536,870,900 bytes reported as the limit). Measured on the live service with
+  Render's metrics: about 224 MB after start-up and analyst traffic, and 267 MB after three
+  scenario solves and a next-day forecast, so there is roughly twice the headroom. Locally the same
+  process shows a resident size of about 410 MB, which counts shared libraries differently; trust
+  the platform number. The scenario solver is capped at 2 concurrent solves and the heavy endpoints
+  have their own, lower rate limit. A scenario request takes about 8 seconds on the free CPU.
 * The URL is `https://mobilityops.onrender.com`. Health: `/health`, readiness: `/ready`.
 
 ## Client addresses behind Render
