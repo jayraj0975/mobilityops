@@ -109,12 +109,15 @@ test("anomalies: filtering and paging change the list", async ({ page }) => {
   await page.goto("/#/anomalies");
   await settled(page);
   await expect(page.getByText(/^Showing 1 to/)).toBeVisible();
+  // The previous (unfiltered) list stays on screen until the filtered request returns, so wait for it.
+  const filtered = page.waitForResponse((r) => r.url().includes("severity=high") && r.ok());
   await page.getByLabel("Severity").selectOption("high");
+  await filtered;
   await expect(page.getByText(/^Showing 1 to/)).toBeVisible();
   const cards = page.locator("ul.cards > li");
-  const n = await cards.count();
-  expect(n).toBeGreaterThan(0);
-  for (const badge of await cards.locator("text=/severity/").allInnerTexts()) expect(badge).toContain("high");
+  await expect(cards.first()).toContainText("high severity");
+  expect(await cards.count()).toBeGreaterThan(0);
+  await expect(cards.filter({ hasNotText: "high severity" })).toHaveCount(0);
   await expect(page.getByText(/not a cause/).first()).toBeVisible();
 });
 

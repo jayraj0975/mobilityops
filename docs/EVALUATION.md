@@ -89,7 +89,7 @@ every run.
 
 | Check | Result |
 |---|---|
-| Python tests | 353 passing, 95% line coverage (`pytest --cov`) |
+| Python tests | 360 passing, 95% line coverage (`pytest --cov`) |
 | Lint, format, types | ruff, ruff format, mypy: clean |
 | Frontend | 32 unit tests (also under Pacific/Auckland, Los Angeles, Kolkata, UTC); TypeScript strict |
 | Browser | 18 Playwright tests: 12 axe-core WCAG 2.1 A/AA scans (6 sections × light/dark), keyboard use, analyst, scenario, filtering, phone width |
