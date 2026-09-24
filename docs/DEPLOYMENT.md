@@ -65,3 +65,21 @@ with depth 2 a rotating Cloudflare address, and with depth 3 the address of the 
 request, unchanged by forged `X-Forwarded-For` prefixes. A first attempt that trusted the leftmost
 entry let a forged header dodge the limit on the live site; that is fixed and covered by tests
 (`tests/unit/test_limits.py`). If the hosting provider changes its proxy chain, re-measure.
+
+
+## The Pune console on Render (added 2026-09-24)
+
+A second free web service, `mobilityops-pune` (<https://mobilityops-pune.onrender.com>), built from the same `Dockerfile`, with
+`MOBILITYOPS_MODE=pune` and the `demo-data-pune-v1` bundle (9.4 MB: the database, the latest model only, the rain cache).
+Its settings are in [`render.yaml`](../render.yaml).
+
+* **The worker runs on a thread inside the API process** (`MOBILITYOPS_WITH_WORKER=true`) because free web services have no
+  background workers. It is still the only writer to the live store. In a normal deployment it is its own process ([PRODUCTION](PRODUCTION.md)).
+* **Sleep:** the free service sleeps when idle, so the worker stops with it; on wake the store starts empty and refills within
+  a cycle, and every source shows honest freshness meanwhile. The simulated history is baked in at build time and ages: the
+  console reports how many days behind the database is. Refresh it by rebuilding the bundle and redeploying.
+* **Memory:** measured 182 to 186 MB under a 512 MB cap with six stream viewers (a local rehearsal of the same image).
+* **Shared address:** Open-Meteo's forecast host answers HTTP 429 to Render's shared egress address, so weather now comes from
+  MET Norway there (a second provider is built in); Open-Meteo's air-quality host is unaffected. See PUNE_DATA_SOURCES.md.
+* **Deploys:** pushes to `main` do not deploy this account's services; trigger a deploy from the dashboard, or change an
+  environment variable.

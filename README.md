@@ -15,6 +15,10 @@ results below, including the Live tab.
 
 ![Overview screen on real data](docs/images/overview.png)
 
+**Live on Render's free plan** (each sleeps after ~15 minutes idle; the first request takes about half a minute):
+[New York, real data](https://mobilityops.onrender.com) and
+[Pune, **simulated demand** on live weather](https://mobilityops-pune.onrender.com).
+
 ## Pune: a real-time platform on simulated demand
 
 The same pipeline also runs as a real-time console for **Pune** (`MOBILITYOPS_MODE=pune`). Read this first:
