@@ -55,6 +55,8 @@ jobs:
       MOBILITYOPS_MODE: sample
       MOBILITYOPS_THREADS: "2"
       MOBILITYOPS_LOG_LEVEL: ERROR
+      # Absolute: the server is started from apps/web, the pipeline from the repo root.
+      MOBILITYOPS_DATA_DIR: ${{ github.workspace }}/data
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -85,6 +87,9 @@ jobs:
         run: |
           python -m mobilityops.cli serve --port 8000 > ../../serve.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/ready >/dev/null && break; sleep 1; done
+          # Fail fast, with the API's own message, if the data did not load (instead of 16 timeouts).
+          curl -sS http://127.0.0.1:8000/ready; echo
+          curl -sSf http://127.0.0.1:8000/api/v1/meta >/dev/null
           E2E_BASE=http://127.0.0.1:8000 npx playwright test
       - if: failure()
         run: cat serve.log | tail -50
