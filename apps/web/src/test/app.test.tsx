@@ -45,7 +45,7 @@ describe("shell", () => {
     render(<App />);
     expect(await screen.findByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
     const nav = screen.getByRole("navigation", { name: "Sections" });
-    expect(within(nav).getAllByRole("button")).toHaveLength(6);
+    expect(within(nav).getAllByRole("button")).toHaveLength(7);
     expect(within(nav).getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
     await goTo("Forecast");
     expect(within(nav).getByRole("button", { name: "Forecast" })).toHaveAttribute("aria-current", "page");
@@ -218,6 +218,26 @@ describe("scenarios", () => {
     const table = await screen.findByRole("table", { name: "Served share by planner" });
     expect(within(table).getByText("Plan with the LightGBM forecast")).toBeInTheDocument();
     expect(screen.getByText(/-0.20 points/)).toBeInTheDocument();
+  });
+});
+
+describe("about", () => {
+  it("says which data the site shows and links to the source", async () => {
+    mockApi({ ...baseRoutes, "/api/v1/meta": realMeta });
+    render(<App />);
+    await goTo("About");
+    expect(await screen.findByRole("heading", { name: "What this is" })).toBeInTheDocument();
+    expect(screen.getByText(/NYC Taxi and Limousine Commission yellow-taxi trip records/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Source code/ })).toHaveAttribute("href", "https://github.com/jayraj0975/mobilityops");
+  });
+
+  it("does not claim real trips when the data is synthetic", async () => {
+    mockApi(baseRoutes);
+    render(<App />);
+    await goTo("About");
+    expect(await screen.findByRole("heading", { name: "The data on this site" })).toBeInTheDocument();
+    expect(screen.getAllByText(/these are not real trips/).length).toBeGreaterThan(1);
+    expect(screen.queryByText(/Taxi and Limousine Commission yellow-taxi trip records/)).not.toBeInTheDocument();
   });
 });
 

@@ -14,6 +14,7 @@ const Forecast = lazy(() => import("./pages/Forecast").then((m) => ({ default: m
 const Anomalies = lazy(() => import("./pages/Anomalies").then((m) => ({ default: m.Anomalies })));
 const Scenarios = lazy(() => import("./pages/Scenarios").then((m) => ({ default: m.Scenarios })));
 const Analyst = lazy(() => import("./pages/Analyst").then((m) => ({ default: m.Analyst })));
+const About = lazy(() => import("./pages/About").then((m) => ({ default: m.About })));
 
 export default function App() {
   const [route, go] = useHashRoute();
@@ -67,6 +68,7 @@ export default function App() {
                   {route === "anomalies" && <Anomalies />}
                   {route === "scenarios" && <Scenarios zones={z} />}
                   {route === "analyst" && <Analyst />}
+                  {route === "about" && <About meta={m} />}
                   </Suspense>
                 </ErrorBoundary>
               )}

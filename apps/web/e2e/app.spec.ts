@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-const SECTIONS = ["overview", "demand", "forecast", "anomalies", "scenarios", "analyst"] as const;
+const SECTIONS = ["overview", "demand", "forecast", "anomalies", "scenarios", "analyst", "about"] as const;
 const SHOTS = process.env.E2E_SCREENSHOTS ? path.resolve("../../docs/images") : null;
 
 /** Collect anything that would embarrass a user: script errors, console errors, failed requests. */

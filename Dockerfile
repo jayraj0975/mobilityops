@@ -20,6 +20,12 @@ COPY pyproject.toml README.md LICENSE requirements.lock ./
 COPY src ./src
 RUN pip install --no-cache-dir -c requirements.lock .
 COPY --from=web /web/dist ./apps/web/dist
+COPY scripts/fetch_demo.py ./scripts/fetch_demo.py
+# Optional: bake in the aggregate-only demo bundle (see docs/DEPLOYMENT.md). Without these
+# build arguments the image contains no data, as above.
+ARG DEMO_URL=""
+ARG DEMO_SHA256=""
+RUN if [ -n "$DEMO_URL" ]; then python scripts/fetch_demo.py "$DEMO_URL" "$DEMO_SHA256" /app; fi
 RUN mkdir -p /app/data /app/artifacts /app/reports && chown -R app:app /app
 USER app
 ENV MOBILITYOPS_DATA_DIR=/app/data \
