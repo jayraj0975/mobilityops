@@ -101,6 +101,32 @@ def cmd_pune_build(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pune_worker(settings: Settings, args: argparse.Namespace) -> int:
+    """Run the Pune ingestion worker (weather, air quality, rain, simulated demand, forecast)."""
+    import httpx
+
+    from mobilityops.pune.store import StateStore
+    from mobilityops.pune.worker import Worker
+
+    if settings.mode != "pune":
+        print("pune-worker needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+        return 2
+    if not settings.db_path.exists():
+        print("no Pune database yet; run `pune-build` first", file=sys.stderr)
+        return 1
+    settings.ensure_dirs()
+    with httpx.Client(follow_redirects=False) as client:
+        worker = Worker(settings, StateStore(settings.state_path), client)
+        if args.once:
+            worker.tick()
+            for run in worker.store.runs(len(worker.jobs) + 2):
+                state = "ok" if run["ok"] else f"FAILED: {run['error']}"
+                print(f"  {run['source']:<26} {state} ({run['records_ok']} records)")
+            return 0
+        worker.run_forever()
+    return 0
+
+
 def cmd_status(settings: Settings, args: argparse.Namespace) -> int:
     """Print the latest quality reports."""
     found = False
@@ -451,6 +477,9 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--end", help="end day, exclusive, YYYY-MM-DD")
     pb.add_argument("--refresh-weather", action="store_true", help="fetch the rain history again")
     pb.set_defaults(func=cmd_pune_build)
+    pw = sub.add_parser("pune-worker", help="run the Pune ingestion worker")
+    pw.add_argument("--once", action="store_true", help="run every job once and exit")
+    pw.set_defaults(func=cmd_pune_worker)
     sub.add_parser("status", help="show the latest quality reports").set_defaults(func=cmd_status)
     fe = sub.add_parser("forecast-eval", help="walk-forward evaluation vs baselines")
     fe.add_argument("--folds", type=int, default=0)

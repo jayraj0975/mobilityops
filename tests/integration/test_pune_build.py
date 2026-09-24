@@ -53,7 +53,7 @@ def test_build_produces_a_labelled_gated_database(settings: Settings) -> None:
         assert rows == (91 * 42 * 24,)
         holidays = con.execute("SELECT date FROM dim_date WHERE is_holiday").fetchall()
         assert holidays
-        assert con.execute("SELECT count(*) FROM sim_events").fetchone() == (8,)
+        assert con.execute("SELECT count(*) FROM sim_events").fetchone() == (len(res.events),)
         checks = {
             r[0]: r[1] for r in con.execute('SELECT "check", status FROM quality_result').fetchall()
         }
@@ -132,9 +132,9 @@ def test_daily_weather_needs_a_complete_day() -> None:
     assert d["snow_mm"].eq(0.0).all()
 
 
-def test_default_window_leaves_the_incomplete_archive_tail() -> None:
+def test_default_window_runs_through_yesterday() -> None:
     start, end = pb.default_window(date(2026, 9, 24))
-    assert end == date(2026, 9, 17) and (end - start).days == 365
+    assert end == date(2026, 9, 24) and (end - start).days == 365
 
 
 def test_cached_weather_is_reused_and_records_provenance(
@@ -147,10 +147,32 @@ def test_cached_weather_is_reused_and_records_provenance(
         return _weather((start, end + pd.Timedelta(days=1).to_pytimedelta()))
 
     monkeypatch.setattr(pb.openmeteo, "fetch_archive", fake_fetch)
-    first = pb.load_or_fetch_weather(settings, WINDOW)
-    again = pb.load_or_fetch_weather(settings, WINDOW)
+    first = pb.load_or_fetch_weather(settings, WINDOW, today=date(2026, 12, 1))
+    again = pb.load_or_fetch_weather(settings, WINDOW, today=date(2026, 12, 1))
     assert calls == [1] and len(first) == len(again)
     prov = (settings.raw_dir / pb.PROVENANCE_FILE).read_text()
     assert "ERA5" in prov and "HISTORICAL" in prov
-    pb.load_or_fetch_weather(settings, WINDOW, refresh=True)
+    pb.load_or_fetch_weather(settings, WINDOW, refresh=True, today=date(2026, 12, 1))
     assert len(calls) == 2
+
+
+def test_recent_tail_comes_from_the_model_analysis_and_is_tagged(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    today = date(2026, 9, 24)
+    window = (date(2026, 8, 1), date(2026, 9, 24))
+
+    def fake_archive(client, lat, lon, start, end):  # type: ignore[no-untyped-def]
+        assert end == date(2026, 9, 16)  # ERA5 stops a week before today
+        return _weather((start, end + pd.Timedelta(days=1).to_pytimedelta()))
+
+    def fake_recent(client, lat, lon, past_days, forecast_days):  # type: ignore[no-untyped-def]
+        return _weather((date(2026, 9, 14), date(2026, 9, 26)))
+
+    monkeypatch.setattr(pb.openmeteo, "fetch_archive", fake_archive)
+    monkeypatch.setattr(pb.openmeteo, "fetch_recent_hourly", fake_recent)
+    out = pb.load_or_fetch_weather(settings, window, today=today)
+    assert out["hour_ts"].is_unique and out["hour_ts"].max() == pd.Timestamp("2026-09-23 23:00")
+    src = out.set_index("hour_ts")["rain_source"]
+    assert src[pd.Timestamp("2026-09-10")] == "era5"
+    assert src[pd.Timestamp("2026-09-20")] == "model-analysis"

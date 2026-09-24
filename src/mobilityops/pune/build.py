@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import duckdb
 import httpx
@@ -39,7 +40,8 @@ from mobilityops.transform.gold import RAIN_THRESHOLD_MM, building_path, promote
 log = get_logger("pune.build")
 
 SEED = 20260924
-ARCHIVE_LAG_DAYS = 7  # ERA5 reaches within days of today; stay clear of the incomplete tail
+ARCHIVE_LAG_DAYS = 7  # ERA5 is complete up to about this many days ago; newer hours come from
+# Open-Meteo's recent-hours model output (tagged 'model-analysis' in the cache)
 DEFAULT_DAYS = 365
 WEATHER_FILE = "weather_hourly.parquet"
 PROVENANCE_FILE = "weather_provenance.json"
@@ -60,8 +62,8 @@ class PuneBuild:
 
 
 def default_window(today: date | None = None) -> tuple[date, date]:
-    """The last ``DEFAULT_DAYS`` days that ERA5 covers: [start, end)."""
-    end = (today or datetime.now(UTC).date()) - timedelta(days=ARCHIVE_LAG_DAYS)
+    """The last ``DEFAULT_DAYS`` complete days, through yesterday: [start, end)."""
+    end = today or datetime.now(UTC).astimezone(ZoneInfo("Asia/Kolkata")).date()
     return end - timedelta(days=DEFAULT_DAYS), end
 
 
@@ -92,8 +94,12 @@ def load_or_fetch_weather(
     window: tuple[date, date],
     client: httpx.Client | None = None,
     refresh: bool = False,
+    today: date | None = None,
 ) -> pd.DataFrame:
     """Hourly rain history for the window, cached with its provenance.
+
+    Days up to ``ARCHIVE_LAG_DAYS`` ago come from the ERA5 archive (HISTORICAL); the newer tail
+    comes from Open-Meteo's recent-hours model output (RECENT). ``rain_source`` says which.
 
     Raises :class:`~mobilityops.pune.sources.base.SourceError` if the archive cannot be reached and
     no cached copy covers the window: there is no substitute, because the rain is what makes the
@@ -115,21 +121,42 @@ def load_or_fetch_weather(
             settings.city.bbox[0] / 2 + settings.city.bbox[2] / 2,
             settings.city.bbox[1] / 2 + settings.city.bbox[3] / 2,
         )
-        frame = openmeteo.fetch_archive(http, lat, lon, window[0], window[1] - timedelta(days=1))
+        cutoff = (
+            today or datetime.now(UTC).astimezone(ZoneInfo("Asia/Kolkata")).date()
+        ) - timedelta(days=ARCHIVE_LAG_DAYS)
+        era_end = min(window[1], cutoff)
+        parts = []
+        if era_end > window[0]:
+            era = openmeteo.fetch_archive(http, lat, lon, window[0], era_end - timedelta(days=1))
+            parts.append(era.assign(rain_source="era5"))
+        if window[1] > era_end:
+            tail_start = max(window[0], era_end)
+            now_day = today or datetime.now(UTC).astimezone(ZoneInfo("Asia/Kolkata")).date()
+            recent = openmeteo.fetch_recent_hourly(
+                http, lat, lon, past_days=min(30, (now_day - tail_start).days + 1), forecast_days=1
+            )
+            recent = recent[
+                (recent["hour_ts"] >= pd.Timestamp(tail_start))
+                & (recent["hour_ts"] < pd.Timestamp(window[1]))
+            ]
+            parts.append(recent.assign(rain_source="model-analysis"))
+        frame = pd.concat(parts, ignore_index=True).drop_duplicates("hour_ts", keep="first")
     finally:
         if own:
             http.close()
     frame.to_parquet(cache, index=False)
     prov = {
-        "source": "Open-Meteo archive (ERA5 reanalysis)",
+        "source": "Open-Meteo archive (ERA5 reanalysis) plus recent-hours model output",
         "url": openmeteo.ARCHIVE_URL,
+        "recent_url": openmeteo.FORECAST_URL,
+        "era5_until_exclusive": era_end.isoformat(),
         "attribution": openmeteo.ATTRIBUTION,
         "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "window_start": window[0].isoformat(),
         "window_end_exclusive": window[1].isoformat(),
         "rows": len(frame),
         "sha256": hashlib.sha256(cache.read_bytes()).hexdigest(),
-        "data_class": "HISTORICAL",
+        "data_class": "HISTORICAL (ERA5) then RECENT (model analysis)",
     }
     (settings.raw_dir / PROVENANCE_FILE).write_text(json.dumps(prov, indent=2))
     return frame

@@ -131,6 +131,11 @@ class Settings:
         return self.processed_dir / "mobilityops.duckdb"
 
     @property
+    def state_path(self) -> Path:
+        """The live operational store (SQLite); written by the worker, read by the API."""
+        return self.data_dir / "live" / self.mode / "state.sqlite"
+
+    @property
     def artifacts_dir(self) -> Path:
         return self.data_dir.parent / "artifacts" / self.mode
 

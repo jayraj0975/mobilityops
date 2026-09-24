@@ -17,8 +17,8 @@ Model, per zone z, day d, hour h:
 * ``shape``   hour-of-day profile mixed from residential, business and leisure profiles by zone type
 * ``day_factor``  weekday/weekend and holiday effects, plus day-level and zone-day noise
 * ``rain``    +6% per mm of that hour's rain, capped at +30% (people take cars when it pours)
-* ``events``  a few planted surges and drops (added or thinned exactly, see ``simulate_day``),
-  recorded so a detector can be scored against them
+* ``events``  a few planted surges and drops (a rate multiplier on a zone's hours), recorded so a
+  detector can be scored against them
 
 Each day is a pure function of (seed, date, weather), so the batch build and the live worker
 produce the same numbers for the same day.
@@ -33,6 +33,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy.stats import poisson
 
 from mobilityops.city import PUNE, City
 from mobilityops.pune.zones import EARTH_RADIUS_M
@@ -188,33 +189,36 @@ def build_model(zones: pd.DataFrame) -> ZoneModel:
     return ZoneModel(ids, weight, mix, shape, dow, holiday, drop, 90.0 + 11.0 * trip_km)
 
 
-def plan_events(model: ZoneModel, days: list[date], seed: int, n_events: int = 8) -> list[Event]:
-    """Deterministic planted events, in the last third of the window so a model trained earlier
-    has never seen them. Surges sit at zones with strong business or leisure mass."""
-    if len(days) < 30:
+EVENT_DAY_PROBABILITY = 0.05  # about eighteen planted events a year
+
+
+def events_for_day(model: ZoneModel, day: date, seed: int) -> list[Event]:
+    """The planted events of one day: a pure function of (seed, date), so the batch build and the
+    live worker agree. Surges sit in evening hours at busy zones; drops in the morning."""
+    rng = np.random.default_rng([seed, day.toordinal(), 991])
+    if rng.random() >= EVENT_DAY_PROBABILITY:
         return []
-    rng = np.random.default_rng([seed, 991])
-    top = np.argsort(-model.weight)[: max(8, n_events)]
-    lo = len(days) * 2 // 3
-    picks = rng.choice(np.arange(lo, len(days)), size=min(n_events, len(days) - lo), replace=False)
-    events = []
-    for i, di in enumerate(sorted(int(p) for p in picks)):
-        z = int(model.zone_ids[int(rng.choice(top))])
-        drop = i % 4 == 3
-        events.append(
-            Event(
-                zone=z,
-                date=days[di].isoformat(),
-                start_hour=int(rng.integers(17, 21)) if not drop else int(rng.integers(8, 12)),
-                hours=int(rng.integers(3, 6)),
-                factor=round(
-                    float(rng.uniform(0.25, 0.4)) if drop else float(rng.uniform(1.8, 2.6)), 2
-                ),
-                kind="drop" if drop else "surge",
-                label="simulated service disruption" if drop else "simulated crowd event",
-            )
+    top = np.argsort(-model.weight)[:12]
+    zone = int(model.zone_ids[int(rng.choice(top))])
+    drop = bool(rng.random() < 0.25)
+    return [
+        Event(
+            zone=zone,
+            date=day.isoformat(),
+            start_hour=int(rng.integers(8, 12)) if drop else int(rng.integers(17, 21)),
+            hours=int(rng.integers(3, 6)),
+            factor=round(
+                float(rng.uniform(0.25, 0.4)) if drop else float(rng.uniform(1.8, 2.6)), 2
+            ),
+            kind="drop" if drop else "surge",
+            label="simulated service disruption" if drop else "simulated crowd event",
         )
-    return events
+    ]
+
+
+def plan_events(model: ZoneModel, days: list[date], seed: int) -> list[Event]:
+    """Planted events for a run of days, recorded so a detector can be scored against them."""
+    return [e for d in days for e in events_for_day(model, d, seed)]
 
 
 def rain_multiplier(precip_mm: np.ndarray) -> np.ndarray:
@@ -245,21 +249,18 @@ def simulate_day(
         * (dow * hol * zone_noise * day_noise)[:, None]
         * rain_multiplier(precip_mm)[None, :]
     )
-    pickups = rng.poisson(lam).astype(np.int64)
-    # Events are applied afterwards on their own random stream, so planting one never changes the
-    # noise drawn for any other cell. A surge (factor f > 1) adds Poisson((f - 1) * lambda) trips;
-    # a drop (f < 1) keeps each trip with probability f. Both are exact for Poisson counts.
-    ev_rng = np.random.default_rng([seed, day.toordinal(), 7])
     for ev in events or ():
         if ev.date != day.isoformat():
             continue
         zi = int(np.where(model.zone_ids == ev.zone)[0][0])
-        hrs = slice(ev.start_hour, min(HOURS, ev.start_hour + ev.hours))
-        if ev.factor >= 1.0:
-            pickups[zi, hrs] += ev_rng.poisson((ev.factor - 1.0) * lam[zi, hrs])
-        else:
-            pickups[zi, hrs] = ev_rng.binomial(pickups[zi, hrs], ev.factor)
-    return pickups
+        lam[zi, ev.start_hour : min(HOURS, ev.start_hour + ev.hours)] *= ev.factor
+    # One fixed uniform per cell, turned into a count by the Poisson quantile function. This is
+    # exactly Poisson(lambda), and it makes every cell independent of every other cell's rate:
+    # new rain data for one hour, or a planted event, changes only the cells whose rate changed
+    # (and monotonically), never the noise of anything else. A sampler that draws counts directly
+    # consumes a lambda-dependent amount of randomness and would reshuffle the rest of the day.
+    u = rng.random(lam.shape) * (1.0 - 2e-12) + 1e-12
+    return np.asarray(poisson.ppf(u, lam), dtype=np.int64)
 
 
 def allocate_dropoffs(pickups: np.ndarray, model: ZoneModel) -> np.ndarray:

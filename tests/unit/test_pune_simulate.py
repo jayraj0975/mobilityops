@@ -92,14 +92,17 @@ def test_a_holiday_cuts_business_demand(model: sim.ZoneModel) -> None:
     assert by_day[ganesh] < 0.7 * by_day[date(2026, 9, 7)]
 
 
-def test_planted_events_are_deterministic_late_and_recorded(model: sim.ZoneModel) -> None:
-    days = sim.date_range(date(2026, 1, 1), date(2026, 4, 11))
+def test_planted_events_depend_only_on_the_date(model: sim.ZoneModel) -> None:
+    days = sim.date_range(date(2026, 1, 1), date(2027, 1, 1))
     a = sim.plan_events(model, days, seed=1)
     assert a == sim.plan_events(model, days, seed=1)
-    assert len(a) == 8 and {e.kind for e in a} == {"surge", "drop"}
-    first_late = days[len(days) * 2 // 3].isoformat()
-    assert all(e.date >= first_late for e in a)
-    assert sim.plan_events(model, days[:10], seed=1) == []
+    assert {e.kind for e in a} == {"surge", "drop"}
+    assert 10 <= len(a) <= 45  # 5% of days on average; single years vary (12-33 over ten years)
+    # the same date gives the same event whatever window it is planned in
+    assert sim.plan_events(model, days[100:200], seed=1) == [
+        e for e in a if e.date in {d.isoformat() for d in days[100:200]}
+    ]
+    assert sim.plan_events(model, days, seed=2) != a
 
 
 def test_an_event_changes_only_its_zone_and_hours(model: sim.ZoneModel) -> None:
@@ -118,3 +121,34 @@ def test_model_card_states_the_caveat() -> None:
     card = sim.model_card()
     assert card["label"] == "SIMULATED DEMAND" and "assumptions" in card["caveat"]
     assert sim.sector(18.5204, 73.8567) == "Central"
+
+
+def test_more_rain_never_lowers_a_cell_and_never_touches_other_hours(model: sim.ZoneModel) -> None:
+    """Counts come from a fixed uniform per cell, so a rate change is monotone and local."""
+    day = DAYS[:1]
+    dry = _dry(day)
+    wet = dry.copy()
+    wet.loc[wet["hour_ts"].dt.hour.isin([17, 18]), "precipitation"] = 4.0
+    a = sim.simulate_range(model, day, dry, seed=12)
+    b = sim.simulate_range(model, day, wet, seed=12)
+    assert (b["pickups"] >= a["pickups"]).all()
+    other = ~a["hour_ts"].dt.hour.isin([17, 18])
+    assert a.loc[other, "pickups"].equals(b.loc[other, "pickups"])
+    assert (b.loc[~other, "pickups"] > a.loc[~other, "pickups"]).any()
+
+
+def test_counts_are_poisson_distributed(model: sim.ZoneModel) -> None:
+    """Mean and variance of a busy zone-hour over many days both match the rate (Poisson)."""
+    days = sim.date_range(date(2026, 1, 5), date(2026, 3, 30))  # Mondays only, below
+    days = [d for d in days if d.weekday() == 2]  # Wednesdays: same weekday factor
+    rain = pd.DataFrame(
+        {"hour_ts": pd.date_range("2026-01-05", periods=90 * 24, freq="h"), "precipitation": 0.0}
+    )
+    df = sim.simulate_range(model, days, rain, seed=99)
+    z = int(model.zone_ids[int(np.argmax(model.weight))])
+    x = df[(df["location_id"] == z) & (df["hour_ts"].dt.hour == 18)]["pickups"].to_numpy(
+        dtype=float
+    )
+    assert len(x) >= 10 and x.mean() > 10
+    # day-level noise (6%) inflates variance slightly beyond Poisson; it must still be close
+    assert 0.5 < x.var(ddof=1) / x.mean() < 2.5

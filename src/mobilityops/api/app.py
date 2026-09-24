@@ -45,6 +45,7 @@ from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
+from mobilityops.api import state_routes
 from mobilityops.api.limits import BodyLimitMiddleware, RateLimiter, client_ip
 from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
@@ -718,6 +719,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    state_provider, state_hub = state_routes.register(api, settings)
+    app.state.state_provider = state_provider
+    app.state.state_hub = state_hub
     app.include_router(ops)
     app.include_router(api)
     _mount_web(app)

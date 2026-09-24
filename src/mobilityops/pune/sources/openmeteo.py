@@ -135,7 +135,9 @@ def parse_current(
 
 
 def fetch_current_weather(
-    client: httpx.Client, points: Sequence[tuple[float, float]]
+    client: httpx.Client,
+    points: Sequence[tuple[float, float]],
+    received_at: datetime | None = None,
 ) -> list[Observation]:
     payload = _get(
         client,
@@ -147,13 +149,15 @@ def fetch_current_weather(
         points,
         WEATHER_VARS,
         source="open-meteo-forecast",
-        received_at=datetime.now(UTC),
+        received_at=received_at or datetime.now(UTC),
         modelled=True,  # a model blend at the coordinate, not an instrument
     )
 
 
 def fetch_current_air(
-    client: httpx.Client, points: Sequence[tuple[float, float]]
+    client: httpx.Client,
+    points: Sequence[tuple[float, float]],
+    received_at: datetime | None = None,
 ) -> list[Observation]:
     payload = _get(
         client,
@@ -165,7 +169,7 @@ def fetch_current_air(
         points,
         AIR_VARS,
         source="open-meteo-air-quality",
-        received_at=datetime.now(UTC),
+        received_at=received_at or datetime.now(UTC),
         modelled=True,
     )
 
@@ -188,6 +192,34 @@ def parse_archive(payload: Any) -> pd.DataFrame:
     if frame["hour_ts"].duplicated().any():
         raise SourceError("archive response has duplicate hours")
     return frame
+
+
+def fetch_recent_hourly(
+    client: httpx.Client,
+    lat: float,
+    lon: float,
+    past_days: int = 8,
+    forecast_days: int = 2,
+) -> pd.DataFrame:
+    """Hourly model output for the last ``past_days`` and the next ``forecast_days`` (RECENT).
+
+    This is Open-Meteo's forecast endpoint reading its own analysis for past hours: it covers the
+    days the ERA5 archive has not reached yet. It is a model, not an instrument, and is labelled so.
+    """
+    if not 0 <= past_days <= 30 or not 1 <= forecast_days <= 7:
+        raise ValueError("past_days must be 0-30 and forecast_days 1-7")
+    payload = _get(
+        client,
+        FORECAST_URL,
+        {
+            **_coord_params([(lat, lon)]),
+            "hourly": "temperature_2m,precipitation,relative_humidity_2m",
+            "past_days": str(past_days),
+            "forecast_days": str(forecast_days),
+            "timezone": TZ,
+        },
+    )
+    return parse_archive(payload)
 
 
 def fetch_archive(
