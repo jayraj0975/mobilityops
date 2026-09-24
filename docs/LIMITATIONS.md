@@ -116,5 +116,5 @@ What these results cannot tell you. Each item is also stated where the result ap
 * The concurrency numbers come from one 12-thread machine on the earlier data and are a sanity check, not a
   benchmark.
 * The public demo runs on a free plan: it sleeps when idle (the first request afterwards takes tens of
-  seconds), has one small instance, and serves the earlier five-month snapshot until it is redeployed with the
-  new data. Details in [DEPLOYMENT](DEPLOYMENT.md).
+  seconds), has one small instance, caps the Live tab at 8 concurrent viewers, and serves the aggregate
+  data bundle (no trip-level rows). Details in [DEPLOYMENT](DEPLOYMENT.md).

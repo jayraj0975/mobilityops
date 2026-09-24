@@ -9,9 +9,9 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: DEMO_URL
-        value: https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v1/mobilityops-demo-real.tar.gz
+        value: https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v2/mobilityops-demo-real.tar.gz
       - key: DEMO_SHA256
-        value: bdaa3dead2b4450678918d25523f3cac0da204866e0a1a1a389a3dc26be46a9d
+        value: edb68cde2dd894023270d230f06cc42a2ab843fe465214f50861822cac058f42
       - key: MOBILITYOPS_MODE
         value: real
       - key: MOBILITYOPS_RATE_LIMIT
@@ -22,6 +22,8 @@ services:
         value: "3" # measured: forged prefix, client, Cloudflare edge, Render load balancer
       - key: MOBILITYOPS_THREADS
         value: "1"
+      - key: MOBILITYOPS_LIVE_MAX_STREAMS
+        value: "8" # the Live tab is capped at 8 concurrent viewers on the small instance
       - key: MALLOC_ARENA_MAX
         value: "2"
       - key: PORT

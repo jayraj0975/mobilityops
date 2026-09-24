@@ -18,6 +18,8 @@
 - Ingestion saves its manifest after every file, so an interrupted download resumes instead of starting again.
 
 ### Real time, Android and self-hosting
+- The public demo was redeployed with the full-year bundle (`demo-data-v2`) and the Live tab; measured under the
+  free plan's 512 MB cap before deploying (peak 370 MB with scenario solves, analyst questions and six streams).
 - A Live view: a labelled replay of the held-out days plus live Citi Bike and Central Park weather feeds over a
   server-sent-events stream (`/api/v1/live/*`), in the dashboard and the app.
 - A native Android app built with Gradle (`apps/android`): five screens, a reconnecting stream client, 27 unit

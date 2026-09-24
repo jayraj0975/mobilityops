@@ -299,6 +299,6 @@ multiplatform or a cross-platform framework (rejected: large dependency surface 
 
 **Consequences.** Anyone can run the whole stack on their own machine. The app was verified on an emulator, not
 a phone; the Compose file was validated as YAML and its container run with the same options, but `compose up`
-itself was not run (the plugin is not installed here). The existing hosted demo was left in place and now serves
-older data.
+itself was not run (the plugin is not installed here). The existing hosted demo was left in place and, at the owner's request,
+later redeployed with the full-year bundle.
 

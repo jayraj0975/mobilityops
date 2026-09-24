@@ -117,7 +117,7 @@ connection that goes silent. The server address and key are set in the app.
 * Local process (`make serve`): the supported, tested path.
 * Self-hosted with Docker Compose or systemd, with an API key (and optionally HTTPS): [SELF_HOSTING](SELF_HOSTING.md).
   The image was built and run with the Compose file's security options; the Compose file itself was not run.
-* A public free-tier demo exists (see [DEPLOYMENT](DEPLOYMENT.md)); it serves an older data snapshot and is not
-  part of the supported path.
+* A public free-tier demo exists (see [DEPLOYMENT](DEPLOYMENT.md)); it serves the aggregate data bundle and is not part
+  of the supported path.
 * Anything internet-facing beyond that is **not** covered: it would need real authentication, per-user
   accounts, distributed-abuse protection and monitoring (see SECURITY).

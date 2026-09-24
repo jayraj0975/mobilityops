@@ -10,9 +10,8 @@ controlled AI analyst.
 **Built to be self-hosted:** run it on your own machine or server with Docker Compose or systemd, and
 point the web dashboard or the Android app at it ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)). A public
 demo is also up at <https://mobilityops.onrender.com> (free hosting: the first request after idle takes
-tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)). **The public demo still serves the earlier
-January to May snapshot**; the results and screenshots below are from the full-year data, which you get by
-self-hosting.
+tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); it serves the same full-year data as the
+results below, including the Live tab.
 
 ![Overview screen on real data](docs/images/overview.png)
 

@@ -37,10 +37,18 @@ python -m mobilityops.cli optimize-backtest  # about an hour; skip it and the Sc
 Leave out `--services green,fhvhv` to fetch yellow taxis only (about 0.6 GB). Interrupted downloads
 resume: the manifest is saved after every file.
 
-**B. Use an aggregate bundle (fast start).** A bundle holds only the derived, aggregate-only files (no
-trip-level rows), with a SHA-256 to check. The bundle published on the repository's Releases page
-(`demo-data-v1`) is the **earlier January to May snapshot**, which the public demo serves; it works, but it is
-not the full-year data described in the README. To make a current one from your own run of option A:
+**B. Use the aggregate bundle (fast start).** A bundle holds only the derived, aggregate-only files (no
+trip-level rows), with a SHA-256 to check. The one on the repository's Releases page (`demo-data-v2`) covers all
+of 2024 and all three services. From a checkout, this downloads, verifies and unpacks it (about 21 MB):
+
+```bash
+python scripts/fetch_demo.py \
+  https://github.com/jayraj0975/mobilityops/releases/download/demo-data-v2/mobilityops-demo-real.tar.gz \
+  edb68cde2dd894023270d230f06cc42a2ab843fe465214f50861822cac058f42 .
+```
+
+(`demo-data-v1` is the earlier January to May snapshot, yellow taxis only.) To make your own from a run of
+option A:
 
 ```bash
 python scripts/pack_demo.py --out dist/mobilityops-demo-real.tar.gz   # about 21 MB; writes a .sha256 beside it
@@ -48,9 +56,8 @@ python scripts/pack_demo.py --out dist/mobilityops-demo-real.tar.gz   # about 21
 sha256sum -c mobilityops-demo-real.tar.gz.sha256 && tar -xzf mobilityops-demo-real.tar.gz
 ```
 
-To publish a bundle for others, `scripts/fetch_demo.py <https-url> <sha256> <dest>` downloads, verifies and
-unpacks it. The bundle contains everything the dashboard needs, including
-`artifacts/real/forecast/predictions.parquet`, which the Live tab's replay is built from.
+The bundle contains everything the dashboard needs, including `artifacts/real/forecast/predictions.parquet`,
+which the Live tab's replay is built from.
 
 ## Option 1: Docker Compose
 
