@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">MobilityOps</string>
+    <string name="nav_live">Live</string>
+    <string name="nav_overview">Overview</string>
+    <string name="nav_forecast">Forecast</string>
+    <string name="nav_anomalies">Anomalies</string>
+    <string name="nav_settings">Settings</string>
+</resources>

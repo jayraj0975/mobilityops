@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MobilityOps is self-hosted: the server is whatever address the owner types into Settings, often a
+  machine on the home network that has no certificate. Plain HTTP is therefore allowed. Use https://
+  (a reverse proxy with a certificate) for anything that leaves the local network; docs/SELF_HOSTING.md.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
