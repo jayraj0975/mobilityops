@@ -304,9 +304,12 @@ def unknown_place(question: str, ctx: PlanningContext) -> str | None:
         if place.lower() not in _NOT_PLACES and find_zone(place, ctx.zones) == (None, []):
             return place
     for m in re.finditer(
-        r"\b(?:in|at|near|around|for|of)\s+((?:[A-Z][\w'.&/-]*\s?){1,4})", question
+        r"\b(?:in|at|near|around|for|of)\s+((?:[A-Z][\w'.&/-]*\s?){1,4})"
+        r"|\b(?:did|does|do|was|were|is|are|has|have)\s+((?:[A-Z][\w'.&/-]*\s?){1,4})"
+        r"\s+(?:have|get|got|see|saw|record|had|recorded|look|looking)\b",
+        question,
     ):
-        place = m.group(1).strip()
+        place = (m.group(1) or m.group(2)).strip()
         low = place.lower()
         first = low.split()[0]
         if low in _NOT_PLACES or first in MONTHS or first in holiday_words or first in _NOT_PLACES:
@@ -395,7 +398,17 @@ class RulePlanner:
         zone_named = zone_id is not None or bool(candidates)
         low_q = question.lower()
         if _has(
-            low_q, r"\brain", r"\bsnow", r"\bfreez", r"\bweather\b", r"\bstorm", r"\bprecip"
+            low_q,
+            r"\brain",
+            r"\bsnow",
+            r"\bfreez",
+            r"\bweather\b",
+            r"\bstorm",
+            r"\bprecip",
+            r"\bwet\b",
+            r"\bdrizzl",
+            r"\bdownpour",
+            r"\bblizzard",
         ) and not _has(low_q, *_DEMAND_WORDS):
             return Plan(
                 "clarify",
@@ -441,11 +454,14 @@ class RulePlanner:
             r"\bhow much data\b",
             r"\bdate range\b",
             r"\bwhat period\b",
-            r"\bhow many (zones|trips)\b",
             r"\bis (this|the data) (real|synthetic|fake)\b",
             r"\b(real|synthetic|sample) data\b.*\?",
             r"\bwhich (data|dataset)\b",
             r"\bwhat (dates|days) (does|do|is|are)\b",
+        ) or (
+            _has(low, r"\bhow many (zones|trips)\b")
+            and not zone_named
+            and parse_period(question, ctx) is None
         ):
             return Plan("overview", [PlannedCall("get_data_overview", {})])
         if _has(
@@ -461,6 +477,17 @@ class RulePlanner:
             r"\bmodel (performance|quality)\b",
             r"\bhow reliable\b",
             r"\bbeat(s)? (the )?(baseline|naive)",
+            r"\berror rate\b",
+            r"\b(forecasts?|predictions?|model)\b.*\b(better|worse|beat|outperform)\w*\b.*\b(than|the)\b.*"
+            r"\b(copy|copying|last week|yesterday|naive|baseline|seasonal|simple|average)",
+            r"\b(better|worse) than (just )?(copy|copying|guessing|last week|yesterday|the average)",
+        ) or (
+            _has(
+                low,
+                r"\bhow (wrong|far off|often wrong|close)\b.*\b(forecasts?|predictions?|model)\b",
+            )
+            and not zone_named
+            and not find_dates(question, ctx)
         ):
             return Plan("model_performance", [PlannedCall("get_model_performance", {})])
         if (
@@ -473,7 +500,14 @@ class RulePlanner:
         ):
             return Plan("optimization_findings", [PlannedCall("get_optimization_findings", {})])
         # ---- scenario -------------------------------------------------------------
-        if _has(low, r"\b(simulate|simulation|what if|scenario|reposition|rebalanc)\w*"):
+        if _has(
+            low,
+            r"\b(simulate|simulation|what if|scenario|reposition|rebalanc)\w*",
+            r"\b(move|moving|moved|shift|shifting|relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b"
+            r".*\b(vehicles?|cars?|taxis?|cabs?|fleet)\b",
+            r"\b(vehicles?|cars?|taxis?|cabs?|fleet)\b.*\b(move|moving|moved|shift|shifting|"
+            r"relocat\w*|redistribut\w*|reallocat\w*|redeploy\w*)\b",
+        ):
             dates = find_dates(question, ctx)
             if dates:
                 day = dates[0]
@@ -516,9 +550,17 @@ class RulePlanner:
             r"\bsurges?\b",
             r"\bdrops?\b",
             r"\bcollapse",
+            r"\bodd\b",
+            r"\bweird",
+            r"\birregular",
+            r"\batypical",
+            r"\bout of the ordinary",
+            r"\b(something|anything) (off|wrong)\b",
         )
         if _has(
-            low, r"\b(why|explain|what happened|reason|cause[ds]?|due to|responsible|behind)\b"
+            low,
+            r"\b(why|what happened|reason|cause[ds]?|due to|responsible|behind)\b",
+            r"\bexplain\w*\b",
         ) and (anomaly_words or find_dates(question, ctx)):
             c = clarify_zone()
             if c:
@@ -568,7 +610,14 @@ class RulePlanner:
             next_day = ctx.data_last + timedelta(days=1)
             years = {int(y) for y in re.findall(r"\b(20\d{2})\b", low)}
             beyond_dates = [d for d in dates if d > next_day]
-            if beyond_dates or (years and years != {ctx.data_last.year}):
+            beyond_words = _has(
+                low,
+                r"\bnext (week|weekend|month|year|season|summer|winter|spring|fall|autumn)\b",
+                r"\bnext (christmas|thanksgiving|halloween|easter|new year)\b",
+                r"\bin (a|an|\d+|several|few) (days?|weeks?|months?|years?)\b",
+                r"\b(this|next) (christmas|thanksgiving|summer|winter)\b",
+            )
+            if beyond_dates or beyond_words or (years and years != {ctx.data_last.year}):
                 return Plan(
                     "clarify",
                     clarification=(
@@ -597,7 +646,19 @@ class RulePlanner:
                 args["mode"] = "next_day"
             return Plan("forecast", [PlannedCall("get_forecast", args)], assumptions)
         # ---- weather --------------------------------------------------------------
-        if _has(low, r"\brain", r"\bsnow", r"\bfreez", r"\bweather\b", r"\bstorm", r"\bprecip"):
+        if _has(
+            low,
+            r"\brain",
+            r"\bsnow",
+            r"\bfreez",
+            r"\bweather\b",
+            r"\bstorm",
+            r"\bprecip",
+            r"\bwet\b",
+            r"\bdrizzl",
+            r"\bdownpour",
+            r"\bblizzard",
+        ):
             if not _has(low, *_DEMAND_WORDS):
                 return Plan(
                     "clarify",

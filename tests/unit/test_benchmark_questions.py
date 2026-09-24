@@ -6,7 +6,12 @@ import re
 
 import pytest
 
-from mobilityops.analyst.benchmark import HOLDOUT_PATH, QUESTIONS_PATH, load_questions
+from mobilityops.analyst.benchmark import (
+    HOLDOUT2_PATH,
+    HOLDOUT_PATH,
+    QUESTIONS_PATH,
+    load_questions,
+)
 from mobilityops.analyst.benchmark_report import failure_kind, render
 from mobilityops.analyst.tools import TOOLS
 
@@ -21,7 +26,9 @@ def norm(text: str) -> str:
     return re.sub(r"\W+", " ", text.lower()).strip()
 
 
-@pytest.mark.parametrize("path", [QUESTIONS_PATH, HOLDOUT_PATH], ids=["dev", "holdout"])
+@pytest.mark.parametrize(
+    "path", [QUESTIONS_PATH, HOLDOUT_PATH, HOLDOUT2_PATH], ids=["dev", "holdout", "holdout2"]
+)
 def test_question_files_are_well_formed(path) -> None:  # type: ignore[no-untyped-def]
     items = load_questions(path)
     ids = [q["id"] for q in items]
@@ -58,6 +65,14 @@ def test_holdout_shares_no_question_with_the_development_set() -> None:
     dev = {norm(q["question"]) for q in load_questions(QUESTIONS_PATH)}
     hold = {norm(q["question"]) for q in load_questions(HOLDOUT_PATH)}
     assert not dev & hold
+
+
+def test_second_holdout_shares_no_question_with_the_other_sets() -> None:
+    others = {
+        norm(q["question"]) for path in (QUESTIONS_PATH, HOLDOUT_PATH) for q in load_questions(path)
+    }
+    second = {norm(q["question"]) for q in load_questions(HOLDOUT2_PATH)}
+    assert len(second) == 40 and not others & second
 
 
 def test_failure_kinds_separate_misleading_from_unhelpful() -> None:
