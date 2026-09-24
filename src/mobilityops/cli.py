@@ -153,6 +153,29 @@ def cmd_forecast_report(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_forecast_holiday_experiment(settings: Settings, args: argparse.Namespace) -> int:
+    """Run the pre-registered holiday-feature experiment and write its report."""
+    from pathlib import Path
+
+    from mobilityops.forecasting.holiday_experiment import render, run_experiment
+
+    if not settings.db_path.exists():
+        print("no database yet; run `ingest` and `build` first", file=sys.stderr)
+        return 1
+    try:
+        report = run_experiment(settings)
+    except ValueError as exc:
+        print(f"cannot run the experiment: {exc}", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render(report))
+    out.with_suffix(".json").write_text(json.dumps(report, indent=2, default=str))
+    verdict = report["primary"]["decision"]["adopted"]
+    print(f"wrote {out}; holiday features {'ADOPTED' if verdict else 'NOT ADOPTED'} (primary test)")
+    return 0
+
+
 def cmd_anomalies(settings: Settings, args: argparse.Namespace) -> int:
     """Detect anomalies in the out-of-sample forecasts from `forecast-eval`."""
     from mobilityops.anomaly.run import run_anomaly_detection
@@ -402,6 +425,11 @@ def build_parser() -> argparse.ArgumentParser:
     fr = sub.add_parser("forecast-report", help="render the latest evaluation as Markdown")
     fr.add_argument("--out", default="reports/forecasting.md")
     fr.set_defaults(func=cmd_forecast_report)
+    he = sub.add_parser(
+        "forecast-holiday-experiment", help="pre-registered holiday-feature comparison"
+    )
+    he.add_argument("--out", default="reports/holiday_experiment.md")
+    he.set_defaults(func=cmd_forecast_holiday_experiment)
     sub.add_parser("anomalies", help="detect anomalies in out-of-sample forecasts").set_defaults(
         func=cmd_anomalies
     )

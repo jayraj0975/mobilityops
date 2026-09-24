@@ -69,6 +69,7 @@ class EvalConfig:
     calib_days: int = 14
     coverage: float = DEFAULT_COVERAGE
     oracle_weather: bool = False
+    holiday_features: bool = False  # pre-registered experiment; the shipped model leaves it off
     params: dict[str, Any] = field(default_factory=dict)
     seed: int = 7
 
@@ -201,8 +202,10 @@ class WalkForward:
 
 
 def walk_forward(t: DemandTensor, cfg: EvalConfig) -> WalkForward:
-    frame = build_features(t, oracle_weather=cfg.oracle_weather)
-    features = feature_columns(cfg.oracle_weather)
+    frame = build_features(
+        t, oracle_weather=cfg.oracle_weather, holiday_features=cfg.holiday_features
+    )
+    features = feature_columns(cfg.oracle_weather, cfg.holiday_features)
     base, fallbacks = baseline_forecasts(frame)
     day = frame["day_index"].to_numpy()
     observed = frame["target"].notna().to_numpy()

@@ -61,6 +61,10 @@ CALENDAR_FEATURES: tuple[str, ...] = (
     "is_day_after_holiday",
     "is_day_before_holiday",
 )
+# Experimental calendar features, pre-registered in docs/PREREGISTRATION_HOLIDAY.md. Off by default:
+# they are part of the model only if ``holiday_features`` is requested.
+HOLIDAY_FEATURES: tuple[str, ...] = ("is_long_weekend", "days_to_holiday")
+HOLIDAY_WINDOW_DAYS = 3  # days_to_holiday is clipped to this window; outside it the value is +4
 ZONE_FEATURES: tuple[str, ...] = ("location_id", "borough_code", "centroid_lon", "centroid_lat")
 BASE_FEATURES: tuple[str, ...] = HISTORY_FEATURES + CALENDAR_FEATURES + ZONE_FEATURES
 CATEGORICAL_FEATURES: tuple[str, ...] = ("location_id", "borough_code")
@@ -101,6 +105,19 @@ class DemandTensor:
             self.weather.iloc[-k:],
         )
 
+    def head(self, n_days: int) -> DemandTensor:
+        """The first ``n_days`` days (used to evaluate on an earlier test window)."""
+        if n_days < 1:
+            raise ValueError("n_days must be >= 1")
+        k = min(n_days, self.n_days)
+        return DemandTensor(
+            self.y[:, :k, :],
+            self.zones,
+            self.days[:k],
+            self.calendar.iloc[:k],
+            self.weather.iloc[:k],
+        )
+
     def extended(self, extra_days: int = 1) -> DemandTensor:
         """Append future days with unknown demand (NaN) so an unobserved day can be forecast."""
         if extra_days < 1:
@@ -111,10 +128,34 @@ class DemandTensor:
         return DemandTensor(y, self.zones, days, cal, self.weather.reindex(days))
 
 
+def _long_weekend(full: pd.DataFrame) -> np.ndarray:
+    """1 on a Fri/Sat/Sun/Mon that belongs to a run of >= 3 consecutive non-working days."""
+    off = pd.Series(full["is_weekend"].to_numpy() | full["is_holiday"].to_numpy(), index=full.index)
+    run_length = off.groupby((~off).cumsum()).transform("sum")
+    dow = np.asarray(full["day_of_week"])
+    return (off.to_numpy() & (run_length.to_numpy() >= 3) & np.isin(dow, (4, 5, 6, 0))).astype(int)
+
+
+def _days_to_holiday(full: pd.DataFrame) -> np.ndarray:
+    """``day - nearest federal holiday`` in days (-1 = the day before a holiday, +1 = the day
+    after), 0 on the holiday, and ``HOLIDAY_WINDOW_DAYS + 1`` when none is within the window.
+    (The sign convention is irrelevant to a tree model; a flip only mirrors the splits.)"""
+    dates = full.index.to_numpy(dtype="datetime64[D]")
+    holidays = dates[full["is_holiday"].to_numpy()]
+    out = np.full(len(dates), HOLIDAY_WINDOW_DAYS + 1, dtype=int)
+    if len(holidays) == 0:
+        return out
+    delta = (dates[:, None] - holidays[None, :]).astype(int)
+    nearest = delta[np.arange(len(dates)), np.abs(delta).argmin(axis=1)]
+    within = np.abs(nearest) <= HOLIDAY_WINDOW_DAYS
+    out[within] = nearest[within]
+    return out
+
+
 def _calendar_frame(days: pd.DatetimeIndex) -> pd.DataFrame:
     """Calendar attributes for ``days``, including the neighbours of each holiday."""
-    start = days[0].date() - timedelta(days=1)
-    end = days[-1].date() + timedelta(days=2)
+    start = days[0].date() - timedelta(days=HOLIDAY_WINDOW_DAYS + 1)
+    end = days[-1].date() + timedelta(days=HOLIDAY_WINDOW_DAYS + 2)
     full = build_dim_date(start, end).set_index("date")
     hol = full["is_holiday"]
     out = pd.DataFrame(index=days)
@@ -123,6 +164,10 @@ def _calendar_frame(days: pd.DatetimeIndex) -> pd.DataFrame:
     out["is_holiday"] = hol.loc[days].to_numpy()
     out["is_day_after_holiday"] = hol.shift(1).fillna(False).loc[days].to_numpy()
     out["is_day_before_holiday"] = hol.shift(-1).fillna(False).loc[days].to_numpy()
+    out["is_long_weekend"] = pd.Series(_long_weekend(full), index=full.index).loc[days].to_numpy()
+    out["days_to_holiday"] = (
+        pd.Series(_days_to_holiday(full), index=full.index).loc[days].to_numpy()
+    )
     return out
 
 
@@ -213,6 +258,7 @@ def build_features(
     days: range | None = None,
     *,
     oracle_weather: bool = False,
+    holiday_features: bool = False,
 ) -> pd.DataFrame:
     """One row per (zone, target day in ``days``, hour). ``target`` is NaN where unobserved.
 
@@ -233,6 +279,10 @@ def build_features(
     for col in CALENDAR_FEATURES[1:]:  # everything except "hour"
         per_day = t.calendar[col].to_numpy()[day_idx].astype(np.int8)
         data[col] = np.broadcast_to(per_day[None, :, None], shape).reshape(-1)
+    if holiday_features:
+        for col in HOLIDAY_FEATURES:
+            per_day = t.calendar[col].to_numpy()[day_idx].astype(np.int8)
+            data[col] = np.broadcast_to(per_day[None, :, None], shape).reshape(-1)
     zones = t.zones
     borough = zones["borough"].astype("category")
     for col, values in (
@@ -254,8 +304,12 @@ def build_features(
     return frame
 
 
-def feature_columns(oracle_weather: bool = False) -> list[str]:
-    return list(BASE_FEATURES) + (list(ORACLE_WEATHER_FEATURES) if oracle_weather else [])
+def feature_columns(oracle_weather: bool = False, holiday_features: bool = False) -> list[str]:
+    return (
+        list(BASE_FEATURES)
+        + (list(HOLIDAY_FEATURES) if holiday_features else [])
+        + (list(ORACLE_WEATHER_FEATURES) if oracle_weather else [])
+    )
 
 
 def hour_timestamps(t: DemandTensor, frame: pd.DataFrame) -> pd.DatetimeIndex:
