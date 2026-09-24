@@ -1,5 +1,7 @@
 # MobilityOps
 
+[![CI](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml/badge.svg)](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml)
+
 Urban mobility intelligence and operations on public NYC yellow-taxi data: demand analytics,
 day-ahead forecasts with honest uncertainty, anomaly detection, **simulated** fleet-repositioning
 scenarios, a REST API, a React interface and a tightly controlled AI analyst.
