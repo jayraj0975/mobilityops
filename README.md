@@ -2,11 +2,17 @@
 
 [![CI](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml/badge.svg)](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml)
 
-Urban mobility intelligence and operations on public NYC yellow-taxi data: demand analytics,
+Urban mobility intelligence and operations on public NYC taxi and for-hire data: demand analytics,
 day-ahead forecasts with honest uncertainty, anomaly detection, **simulated** fleet-repositioning
-scenarios, a REST API, a React interface and a tightly controlled AI analyst.
+scenarios, a real-time view, a REST API, a React dashboard, a native Android app and a tightly
+controlled AI analyst.
 
-**Live demo: <https://mobilityops.onrender.com>** (free hosting: the first request after idle takes tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)). The site can be installed as an app from the browser menu.
+**Built to be self-hosted:** run it on your own machine or server with Docker Compose or systemd, and
+point the web dashboard or the Android app at it ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)). A public
+demo is also up at <https://mobilityops.onrender.com> (free hosting: the first request after idle takes
+tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)). **The public demo still serves the earlier
+January to May snapshot**; the results and screenshots below are from the full-year data, which you get by
+self-hosting.
 
 ![Overview screen on real data](docs/images/overview.png)
 
@@ -18,30 +24,55 @@ scenarios, a REST API, a React interface and a tightly controlled AI analyst.
 
 ## Results at a glance
 
-Real data: NYC TLC yellow-taxi trips, January to May 2024 (16,465,849 valid trips after cleaning,
-263 zones) and NOAA daily weather. Every figure links to a report generated from the run that
-produced it (nothing here is typed in by hand; regenerate with the commands in
-[docs/EVALUATION.md](docs/EVALUATION.md)).
+Real data: NYC TLC trips for all of 2024 (40,268,069 valid yellow-taxi trips after cleaning, 263 zones), plus
+green taxis and high-volume for-hire vehicles for the service view, and NOAA daily weather. Every figure links
+to a report generated from the run that produced it (nothing here is typed in by hand; regenerate with the
+commands in [docs/EVALUATION.md](docs/EVALUATION.md)). The earlier January to May results are kept in
+[reports/jan_may_2024](reports/jan_may_2024/README.md) for comparison; the two are not directly comparable
+because the test window moved from April and May to November and December.
 
 | Area | Result | Status |
 |---|---|---|
-| Data platform | 16,792,900 raw rows → 16,465,849 valid; 327,051 quarantined with a reason each (1.95%); 18 of 18 quality checks PASS; fact table reconciles to the trip file exactly | VERIFIED |
-| Day-ahead forecast (per zone, hourly) | LightGBM WAPE **17.8%** vs 19.1% for the best baseline (4-week seasonal mean), 22.4% (last week) and 30.4% (yesterday); 56 held-out days, walk-forward. The gain over the best baseline is small: 1.3 percentage points (95% interval 0.7 to 2.1). 80% intervals covered 79.6% of held-out values. [Report](reports/forecasting_real.md) | VERIFIED |
-| Anomaly detection | 277 events in the 56 scored days (73 medium or high). No real labels exist, so precision is **UNVERIFIED**; on synthetic data with planted anomalies 3 of 3 were found with 0 extras, and sensitivity on real noise is measured by injection. [Report](reports/anomalies_real.md) | mechanism VERIFIED, real precision UNVERIFIED |
-| Repositioning simulation | Planning with the forecast adds 0.53 points of served share (95% interval 0.38 to 0.70); the unattainable oracle adds 2.57. Planning with the simple seasonal-mean forecast did slightly *better* than LightGBM. [Report](reports/optimization_real.md) | engine VERIFIED; outcomes are SIMULATED |
-| AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). Three held-out sets of 40 questions, each run once before any fix: **77.5%**, **60.0%** and **80.0%** (72.5% pooled, 87 of 120); every failure was then fixed and the sets are development data from that point (no unseen set is left). Grounding and non-causal wording held at 100%; 2 of 6 unsafe requests in the second set were not refused on the first run (they ran no tool). Expect roughly 60 to 80% on new phrasing. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
+| Data platform | 41,169,720 raw yellow rows → 40,268,069 valid; 901,651 quarantined with a reason each (2.19%, which trips the 2% warning threshold: refunds and adjustments grew from 1.3% of rows in January to 2.2% in December); 27 of 28 quality checks PASS and that one WARN; every fact table reconciles to its trip files exactly | VERIFIED |
+| Services | Green taxis (653,351 pickups) and high-volume for-hire vehicles (239,431,692) are aggregated to zone-hour counts with the same cleaning rules and reconciled to the trip. Of the pickups counted in the three TLC files, for-hire vehicles are 85.4%, yellow taxis 14.4% and green 0.2% (not a share of all mobility). Forecasts, anomalies and scenarios cover yellow taxis only | VERIFIED |
+| Day-ahead forecast (per zone, hourly) | LightGBM WAPE **19.5%** vs 26.3% for the best baseline (4-week seasonal mean), 31.6% (last week) and 30.0% (yesterday); 56 held-out days (6 Nov to 31 Dec), walk-forward. The model is ahead of the best baseline by 6.8 percentage points (95% interval 4.2 to 10.2), but almost all of that comes from the holiday weeks: on the first fold (mostly ordinary days) it is 16.0% against 16.4%, on the New Year fold 26.1% against 43.2%. 80% intervals covered 79.6% of held-out values. [Report](reports/forecasting_real.md) | VERIFIED |
+| Holiday features | Two calendar features (long weekend, distance to the nearest holiday) were pre-registered before any June to December forecast was looked at and adopted by the rule fixed in advance: overall WAPE 20.2% → 19.5% (interval +0.38 to +1.15 points), holiday hours 40.7% → 38.1%. A secondary check on August to September, with one holiday, went the other way (-0.53 points), and the gain is not confined to holidays, so the features may partly act as a season signal. [Report](reports/holiday_experiment_real.md), [pre-registration](docs/PREREGISTRATION_HOLIDAY.md) | VERIFIED; the mechanism is not |
+| Anomaly detection | 307 events in the 56 scored days (63 medium or high), 17% of them on 31 December and 14% on Thanksgiving. No real labels exist, so precision is **UNVERIFIED**; on synthetic data with planted anomalies 3 of 3 were found with 0 extras, and sensitivity on real noise is measured by injection (a 2x surge lasting 3 hours is found 18% of the time in quiet zones and 80% in the busiest). [Report](reports/anomalies_real.md) | mechanism VERIFIED, real precision UNVERIFIED |
+| Repositioning simulation | Planning with the forecast adds 0.50 points of served share (95% interval 0.36 to 0.65); the unattainable oracle adds 2.56. Planning with the simple seasonal-mean forecast is indistinguishable from planning with LightGBM (-0.03 points, interval -0.14 to +0.07). [Report](reports/optimization_real.md) | engine VERIFIED; outcomes are SIMULATED |
+| AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). Three held-out sets of 40, each run once before any fix: **77.5%**, **60.0%** and **80.0%** (72.5% pooled, 87 of 120); all are development data from then on. Re-run on the full-year data, the four sets score 187 of 200: 11 failures are questions naming May days that are no longer held-out (the analyst correctly says there is no data), 2 are older known failures, and the re-run exposed two real defects the old data had hidden (an ignored "low severity" filter and a past date silently replaced by tomorrow's forecast), now fixed. Grounding and non-causal wording held at 100%. Expect roughly 60 to 80% on new phrasing. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
 | AI analyst (LLM mode) | Implemented, tested only against a mocked transport; never run with a real key | **UNVERIFIED** |
-| API | 28 contract tests plus a concurrency smoke test on real data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
-| Interface | 32 component tests (run under 4 timezones), 18 real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use and phone width | VERIFIED |
-| Container | Built and run locally: whole pipeline and server inside the image, non-root, healthy | VERIFIED locally |
-| Tests | 416 Python tests at 97% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
-| Hosted deployment, authentication beyond an optional API key, rate limiting, TLS | not built | NOT IMPLEMENTED |
+| Real time | A labelled replay of the held-out days plus live Citi Bike and weather feeds, on a server-sent-events stream; checked end to end against the real feeds and through a hardened container | VERIFIED |
+| Android app | Native, built with Gradle; the minified signed release APK (1.7 MB) was run on an Android 14 emulator against the real-data server; 27 unit tests, lint clean | VERIFIED on an emulator (not a physical phone) |
+| Self-hosting | Docker Compose, systemd, optional HTTPS; the image was built and run with a read-only filesystem, no capabilities and read-only data mounts: 401 without a key, data with it, live stream through it | VERIFIED locally (Compose itself was not run: the plugin is not installed here) |
+| API | Contract tests including the service and live endpoints, plus a concurrency smoke test on the earlier data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
+| Interface | Component tests (run under 4 timezones) and real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use, phone width, and a dropped live stream recovering | VERIFIED |
+| Tests | 486 Python tests at 95% line coverage (CI runs the suite on Python 3.12, 3.13 and 3.14); 57 web unit tests (also run under four timezones); 24 real-browser tests; 27 Android unit tests plus lint; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Authentication beyond one shared API key, per-user accounts, distributed-abuse protection | not built | NOT IMPLEMENTED |
 
 ## Screens
 
 | Forecast vs baselines | Anomalies | Simulated scenarios | Analyst |
 |---|---|---|---|
 | ![](docs/images/forecast.png) | ![](docs/images/anomalies.png) | ![](docs/images/scenario-infeasible.png) | ![](docs/images/analyst-answer.png) |
+
+## Real time, and the Android app
+
+The **Live** tab streams two clearly different things over server-sent events, each labelled on screen:
+
+* **REPLAY, not live.** NYC publishes taxi trips monthly, so no live taxi feed exists. The tab replays
+  held-out days one hour every few seconds on a clock shared by every viewer: the forecasts the model
+  made *before* those days, against what happened, with running error and anomaly events.
+* **LIVE.** Real public data fetched while someone is watching: Citi Bike station availability and the
+  current Central Park weather, each with the publisher's own timestamp. If a source stops answering, the
+  last good reading stays on screen and says it is not current.
+
+The same stream feeds the **native Android app** ([apps/android](apps/android/README.md)), built with
+Gradle: Live, Overview, Forecast, Anomalies and Settings tabs, verified on an Android 14 emulator against the
+real-data server.
+
+| Live (replay) | Live (feeds) | Overview | Forecast | Anomalies |
+|---|---|---|---|---|
+| ![](docs/images/android-live.png) | ![](docs/images/android-live-feeds.png) | ![](docs/images/android-overview.png) | ![](docs/images/android-forecast.png) | ![](docs/images/android-anomalies.png) |
 
 ## Quick start
 
@@ -64,32 +95,36 @@ cached and hash-checked):
 
 ```bash
 export MOBILITYOPS_MODE=real
-python -m mobilityops.cli ingest --start 2024-01 --end 2024-05
+python -m mobilityops.cli ingest --start 2024-01 --end 2024-12 --services green,fhvhv   # several GB; resumes if interrupted
 python -m mobilityops.cli build           # stops at a failed quality gate; keeps the last good database
-python -m mobilityops.cli forecast-eval   # ~1 minute on 12 cores
+python -m mobilityops.cli forecast-eval   # a few minutes on 12 cores
 python -m mobilityops.cli forecast-train && python -m mobilityops.cli anomalies
-python -m mobilityops.cli optimize-backtest   # ~25 minutes including the sensitivity runs
+python -m mobilityops.cli optimize-backtest   # long: it includes the sensitivity runs
 make serve
 ```
 
-Docker (localhost only; the image contains no data or secrets):
+Leave out `--services green,fhvhv` for yellow taxis only (about 0.6 GB for the year).
+
+Self-hosted with Docker (a hardened container that requires an API key; the image contains no data):
 
 ```bash
-docker build -t mobilityops .
-docker run --rm -v "$PWD/data:/app/data" -v "$PWD/artifacts:/app/artifacts" mobilityops sample
-docker run -p 127.0.0.1:8000:8000 -v "$PWD/data:/app/data" -v "$PWD/artifacts:/app/artifacts" mobilityops
+cp deploy/mobilityops.env.example .env    # set MOBILITYOPS_API_KEY
+docker compose up -d --build              # then open http://127.0.0.1:8000
 ```
+
+The Compose file, a systemd unit and an optional HTTPS proxy are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ## Commands
 
 | Command | Does |
 |---|---|
-| `sample`, `ingest`, `build`, `status` | data platform: bronze → silver (quarantine) → gold, with quality gates |
+| `sample`, `ingest`, `build`, `status` | data platform: bronze → silver (quarantine) → gold, with quality gates; `ingest --services green,fhvhv` adds green taxis and high-volume for-hire vehicles |
 | `forecast-eval`, `forecast-report`, `forecast-train` | walk-forward evaluation, generated report, final model |
+| `forecast-holiday-experiment` | the pre-registered holiday-feature comparison ([PREREGISTRATION_HOLIDAY](docs/PREREGISTRATION_HOLIDAY.md)) |
 | `anomalies`, `anomaly-report` | residual-based events, sensitivity analysis, generated report |
 | `optimize`, `optimize-backtest`, `optimize-report` | one what-if, the backtest, generated report (all SIMULATED) |
 | `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` or `--holdout2` for the held-out sets) |
-| `serve`, `openapi` | HTTP API and UI; OpenAPI contract for the frontend types |
+| `serve`, `openapi` | HTTP API, UI and live stream; OpenAPI contract for the frontend types |
 
 Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),
 `make e2e-browser` (Playwright with accessibility scans; CI runs it on every push against the synthetic sample).
@@ -105,8 +140,10 @@ Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make
 | [AI_EVALUATION](docs/AI_EVALUATION.md) | the analyst's design, benchmark and where it fails |
 | [SECURITY](docs/SECURITY.md) | threat model, controls, what is and is not covered |
 | [LIMITATIONS](docs/LIMITATIONS.md) | what these results cannot tell you |
-| [DECISIONS](docs/DECISIONS.md) | 12 architecture decision records, including changes made after seeing results |
+| [DECISIONS](docs/DECISIONS.md) | 16 architecture decision records, including changes made after seeing results |
+| [SELF_HOSTING](docs/SELF_HOSTING.md) | running it on your own machine: Docker Compose, systemd, HTTPS, the Android app, the live feeds |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | how the public demo is built, hosted and rebuilt, and the free-plan limits |
+| [PREREGISTRATION_HOLIDAY](docs/PREREGISTRATION_HOLIDAY.md) | the holiday-feature hypothesis and decision rule, committed before the test was run |
 | [DATA_SOURCES](docs/DATA_SOURCES.md) | where the data comes from, attribution, what is and is not published |
 | [CONTRIBUTING](docs/CONTRIBUTING.md) | development workflow and rules |
 
@@ -117,7 +154,10 @@ src/mobilityops/   ingestion/ transform/ quality/   data platform
                    analytics/ forecasting/ anomaly/ optimization/
                    analyst/                           tools, planner, guard, benchmark
                    api/                               FastAPI app, services, metrics
+                   live/                              replay clock, live feeds, event-stream hub
 apps/web/          React + TypeScript UI, generated API types, unit and browser tests
+apps/android/      native Android app (Gradle): live stream client, five screens, unit tests
+deploy/            systemd unit, Caddy config, environment example (docker-compose.yml is at the root)
 benchmarks/        the analyst question sets (development and held-out)
 reports/           generated result reports (committed so the numbers are inspectable)
 tests/             unit and integration tests (synthetic data only; CI downloads nothing)

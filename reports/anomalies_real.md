@@ -1,6 +1,6 @@
 # Anomaly detection (real data)
 
-_Generated 2026-09-23T19:05:13.150083+00:00 from data run `20260923T183707Z-52b5c540`; scored days 2024-04-06 to 2024-05-31. Produced by `python -m mobilityops.cli anomaly-report`; do not edit._
+_Generated 2026-09-24T13:26:24.110264+00:00 from data run `20260924T132214Z-17545894`; scored days 2024-11-06 to 2024-12-31. Produced by `python -m mobilityops.cli anomaly-report`; do not edit._
 
 **Accuracy status: UNVERIFIED: real data has no anomaly labels; only injection-based sensitivity and manual plausibility review are available.**
 
@@ -8,41 +8,41 @@ _Generated 2026-09-23T19:05:13.150083+00:00 from data run `20260923T183707Z-52b5
 
 ## Summary
 
-* Events: **277** (18.8 per 1,000 zone-days)
-* Severity (heuristic on |score|; low < 8 <= medium < 15 <= high): {'low': 204, 'medium': 68, 'high': 5}
-* Direction: {'surge': 264, 'drop': 13}
-* Scope (share of *other* zones deviating in the same hours): {'localised': 154, 'partly shared': 123}
+* Events: **307** (20.8 per 1,000 zone-days)
+* Severity (heuristic on |score|; low < 8 <= medium < 15 <= high): {'low': 244, 'medium': 54, 'high': 9}
+* Direction: {'surge': 299, 'drop': 8}
+* Scope (share of *other* zones deviating in the same hours): {'partly shared': 185, 'localised': 109, 'city-wide': 13}
 
 ### Days with the most events
 
 | Date | Events | Share of all events |
 |---|---:|---:|
-| 2024-05-26 | 26 | 9% |
-| 2024-05-27 | 25 | 9% |
-| 2024-05-29 | 24 | 9% |
-| 2024-04-10 | 20 | 7% |
-| 2024-05-05 | 13 | 5% |
-| 2024-04-06 | 10 | 4% |
-| 2024-04-09 | 10 | 4% |
-| 2024-04-22 | 10 | 4% |
+| 2024-12-31 | 52 | 17% |
+| 2024-11-28 | 44 | 14% |
+| 2024-12-24 | 24 | 8% |
+| 2024-12-11 | 19 | 6% |
+| 2024-12-25 | 16 | 5% |
+| 2024-11-21 | 12 | 4% |
+| 2024-12-05 | 12 | 4% |
+| 2024-12-12 | 9 | 3% |
 
 ## Top 15 events by size (coincidence, not cause)
 
-1. Upper East Side North (Manhattan) had 2301 pickups between Sat 25 May 07:00 and Sun 26 May 01:00 2024, 0.5x the forecast of 4287 (drop; standardised score -6.2 over 18 h, largest single hour -3.0). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-2. East Village (Manhattan) had 1708 pickups between Sat 25 May 16:00 and Sun 26 May 03:00 2024, 0.5x the forecast of 3661 (drop; standardised score -6.8 over 11 h, largest single hour -3.8). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-3. Upper East Side South (Manhattan) had 2768 pickups between Sat 25 May 08:00 and Sun 26 May 01:00 2024, 0.6x the forecast of 4599 (drop; standardised score -5.3 over 17 h, largest single hour -2.9). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-4. East Village (Manhattan) had 1292 pickups between Fri 24 May 21:00 and Sat 25 May 03:00 2024, 0.5x the forecast of 2616 (drop; standardised score -6.0 over 6 h, largest single hour -4.0). This coincided with: no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
-5. Penn Station/Madison Sq West (Manhattan) had 2982 pickups between 14:00 and 00:00 on Mon 27 May 2024, 1.8x the forecast of 1691 (surge; standardised score +8.8 over 10 h, largest single hour +6.2). This coincided with: a US federal holiday; rain (24.4 mm recorded that day); events in 8 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-6. Gramercy (Manhattan) had 1366 pickups between Sat 25 May 10:00 and Sun 26 May 02:00 2024, 0.5x the forecast of 2539 (drop; standardised score -6.0 over 16 h, largest single hour -3.3). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-7. Greenwich Village South (Manhattan) had 1249 pickups between Sat 25 May 16:00 and Sun 26 May 03:00 2024, 0.5x the forecast of 2323 (drop; standardised score -5.3 over 11 h, largest single hour -3.3). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-8. LaGuardia Airport (Queens) had 451 pickups between 07:00 and 13:00 on Thu 23 May 2024, 0.4x the forecast of 1284 (drop; standardised score -6.5 over 6 h, largest single hour -4.8). This coincided with: rain (19.8 mm recorded that day); no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
-9. Lenox Hill West (Manhattan) had 846 pickups between Sat 25 May 15:00 and Sun 26 May 02:00 2024, 0.5x the forecast of 1631 (drop; standardised score -5.4 over 11 h, largest single hour -2.9). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-10. Yorkville West (Manhattan) had 741 pickups between Sat 25 May 15:00 and Sun 26 May 01:00 2024, 0.5x the forecast of 1380 (drop; standardised score -5.1 over 10 h, largest single hour -3.0). This coincided with: a weekend adjoining a US federal holiday; events in 6 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-11. West Chelsea/Hudson Yards (Manhattan) had 449 pickups between Mon 27 May 15:00 and Tue 28 May 01:00 2024, 0.4x the forecast of 1084 (drop; standardised score -6.0 over 10 h, largest single hour -3.5). This coincided with: a US federal holiday; rain (24.4 mm recorded that day); events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-12. West Chelsea/Hudson Yards (Manhattan) had 1734 pickups between 13:00 and 20:00 on Sat 04 May 2024, 1.5x the forecast of 1124 (surge; standardised score +5.7 over 7 h, largest single hour +4.1). This coincided with: events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-13. LaGuardia Airport (Queens) had 1085 pickups between Mon 27 May 23:00 and Tue 28 May 04:00 2024, 2.3x the forecast of 478 (surge; standardised score +8.4 over 5 h, largest single hour +15.8). This coincided with: a US federal holiday; rain (24.4 mm recorded that day); events in 3 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-14. Union Sq (Manhattan) had 566 pickups between Mon 27 May 16:00 and Tue 28 May 01:00 2024, 0.5x the forecast of 1153 (drop; standardised score -5.3 over 9 h, largest single hour -3.2). This coincided with: a US federal holiday; rain (24.4 mm recorded that day); events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
-15. Morningside Heights (Manhattan) had 1198 pickups between Sat 20 Apr 07:00 and Sun 21 Apr 03:00 2024, 1.9x the forecast of 626 (surge; standardised score +7.8 over 20 h, largest single hour +5.0). This coincided with: rain (1.3 mm recorded that day); events in 9 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+1. Times Sq/Theatre District (Manhattan) had 355 pickups between 10:00 and 00:00 on Tue 31 Dec 2024, 0.1x the forecast of 2707 (drop; standardised score -8.9 over 14 h, largest single hour -4.8). This coincided with: the day before a US federal holiday; rain (10.2 mm recorded that day); events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+2. LaGuardia Airport (Queens) had 5923 pickups between Sun 01 Dec 07:00 and Mon 02 Dec 02:00 2024, 1.6x the forecast of 3811 (surge; standardised score +5.7 over 19 h, largest single hour +6.4). This coincided with: events in 3 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+3. LaGuardia Airport (Queens) had 1091 pickups between Tue 24 Dec 07:00 and Wed 25 Dec 01:00 2024, 0.3x the forecast of 3157 (drop; standardised score -6.8 over 18 h, largest single hour -3.8). This coincided with: the day before a US federal holiday; rain (2.5 mm recorded that day); snowfall; events in 2 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+4. Midtown East (Manhattan) had 1099 pickups between 15:00 and 23:00 on Tue 24 Dec 2024, 0.4x the forecast of 2703 (drop; standardised score -5.6 over 8 h, largest single hour -3.4). This coincided with: the day before a US federal holiday; rain (2.5 mm recorded that day); snowfall; events in 2 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+5. Upper West Side South (Manhattan) had 3025 pickups between Wed 27 Nov 15:00 and Thu 28 Nov 03:00 2024, 1.9x the forecast of 1559 (surge; standardised score +7.8 over 12 h, largest single hour +5.9). This coincided with: the day before a US federal holiday; events in 14 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+6. Midtown Center (Manhattan) had 933 pickups between 19:00 and 00:00 on Tue 24 Dec 2024, 0.4x the forecast of 2157 (drop; standardised score -5.0 over 5 h, largest single hour -3.3). This coincided with: the day before a US federal holiday; rain (2.5 mm recorded that day); snowfall; events in 2 other zones in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+7. LaGuardia Airport (Queens) had 1981 pickups between Sat 30 Nov 17:00 and Sun 01 Dec 02:00 2024, 2.2x the forecast of 888 (surge; standardised score +9.4 over 9 h, largest single hour +13.3). This coincided with: events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+8. LaGuardia Airport (Queens) had 601 pickups between Thu 28 Nov 14:00 and Fri 29 Nov 01:00 2024, 0.4x the forecast of 1671 (drop; standardised score -5.7 over 11 h, largest single hour -3.5). This coincided with: a US federal holiday; rain (21.8 mm recorded that day); events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+9. JFK Airport (Queens) had 2145 pickups between Sat 30 Nov 21:00 and Sun 01 Dec 06:00 2024, 1.7x the forecast of 1239 (surge; standardised score +5.1 over 9 h, largest single hour +5.1). This coincided with: events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+10. Penn Station/Madison Sq West (Manhattan) had 1892 pickups between 18:00 and 22:00 on Sun 01 Dec 2024, 1.8x the forecast of 1040 (surge; standardised score +6.3 over 4 h, largest single hour +7.4). This coincided with: events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+11. LaGuardia Airport (Queens) had 1577 pickups between Mon 02 Dec 21:00 and Tue 03 Dec 01:00 2024, 1.9x the forecast of 843 (surge; standardised score +6.1 over 4 h, largest single hour +10.6). This coincided with: no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
+12. Times Sq/Theatre District (Manhattan) had 244 pickups between 07:00 and 14:00 on Thu 28 Nov 2024, 0.3x the forecast of 912 (drop; standardised score -5.7 over 7 h, largest single hour -3.5). This coincided with: a US federal holiday; rain (21.8 mm recorded that day); no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
+13. Garment District (Manhattan) had 209 pickups between 15:00 and 00:00 on Tue 31 Dec 2024, 0.2x the forecast of 846 (drop; standardised score -6.0 over 9 h, largest single hour -3.6). This coincided with: the day before a US federal holiday; rain (10.2 mm recorded that day); events in 1 other zone in overlapping hours, same direction. This describes co-occurrence in the data, not a cause.
+14. West Chelsea/Hudson Yards (Manhattan) had 1347 pickups between 13:00 and 20:00 on Mon 11 Nov 2024, 1.7x the forecast of 811 (surge; standardised score +5.2 over 7 h, largest single hour +3.6). This coincided with: a US federal holiday; rain (2.5 mm recorded that day); no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
+15. Upper East Side North (Manhattan) had 999 pickups between 19:00 and 23:00 on Sun 08 Dec 2024, 2.1x the forecast of 474 (surge; standardised score +7.3 over 4 h, largest single hour +6.5). This coincided with: no similar event in any other zone in overlapping hours. This describes co-occurrence in the data, not a cause.
 
 ## Sensitivity: what size of deviation would be noticed?
 
@@ -54,28 +54,28 @@ Share of injected events detected (`event_threshold` 5.0), by demand level, dura
 
 | Forecast demand | x0.2 | x0.5 | x1.5 | x2 | x3 |
 |---|---:|---:|---:|---:|---:|
-| 1-5/h | 0% | 0% | 2% | 2% | 12% |
-| 5-20/h | 0% | 0% | 0% | 2% | 32% |
-| 20-100/h | 0% | 0% | 5% | 20% | 78% |
-| >=100/h | 0% | 0% | 0% | 35% | 90% |
+| 1-5/h | 0% | 0% | 0% | 0% | 10% |
+| 5-20/h | 0% | 0% | 5% | 10% | 30% |
+| 20-100/h | 0% | 0% | 2% | 20% | 75% |
+| >=100/h | 0% | 0% | 0% | 42% | 92% |
 
 **3-hour event**
 
 | Forecast demand | x0.2 | x0.5 | x1.5 | x2 | x3 |
 |---|---:|---:|---:|---:|---:|
-| 1-5/h | 0% | 0% | 5% | 10% | 38% |
-| 5-20/h | 0% | 0% | 2% | 15% | 65% |
-| 20-100/h | 55% | 0% | 15% | 60% | 100% |
-| >=100/h | 100% | 8% | 45% | 95% | 100% |
+| 1-5/h | 0% | 0% | 10% | 18% | 32% |
+| 5-20/h | 0% | 0% | 2% | 18% | 50% |
+| 20-100/h | 5% | 2% | 15% | 52% | 85% |
+| >=100/h | 82% | 0% | 12% | 80% | 98% |
 
 **6-hour event**
 
 | Forecast demand | x0.2 | x0.5 | x1.5 | x2 | x3 |
 |---|---:|---:|---:|---:|---:|
-| 1-5/h | 0% | 0% | 12% | 25% | 57% |
-| 5-20/h | 0% | 0% | 15% | 35% | 82% |
-| 20-100/h | 80% | 2% | 28% | 80% | 98% |
-| >=100/h | 100% | 52% | 55% | 95% | 100% |
+| 1-5/h | 0% | 0% | 18% | 32% | 65% |
+| 5-20/h | 0% | 0% | 8% | 38% | 88% |
+| 20-100/h | 30% | 0% | 12% | 78% | 100% |
+| >=100/h | 100% | 5% | 35% | 98% | 100% |
 
 ## Threshold trade-off
 
@@ -83,9 +83,9 @@ Lowering `event_threshold` finds more real deviations and more marginal ones. Re
 
 | event_threshold | events | per 1,000 zone-days | surge x2, 3 h | surge x2, 6 h | drop x0.5, 3 h | drop x0.5, 6 h |
 |---:|---:|---:|---:|---:|---:|---:|
-| 4 | 524 | 35.6 | 82% | 92% | 45% | 65% |
-| 5 | 277 | 18.8 | 68% | 85% | 8% | 30% |
-| 6 | 172 | 11.7 | 57% | 81% | 1% | 4% |
+| 4 | 581 | 39.4 | 75% | 92% | 6% | 22% |
+| 5 | 307 | 20.8 | 57% | 85% | 1% | 2% |
+| 6 | 179 | 12.2 | 44% | 69% | 1% | 0% |
 
 ## Error model
 
@@ -93,18 +93,18 @@ Residual spread by forecast level (95th-percentile based; the floor is 1 pickup)
 
 | Forecast (mean) | rows | sigma |
 |---:|---:|---:|
-| 0.2 | 182,755 | 0.46 |
-| 1.0 | 71,386 | 1.26 |
-| 3.2 | 24,053 | 2.26 |
-| 7.0 | 12,836 | 3.77 |
-| 14.6 | 9,802 | 5.83 |
-| 32.9 | 15,064 | 9.94 |
-| 73.4 | 13,455 | 16.40 |
-| 144.6 | 15,358 | 28.48 |
-| 268.5 | 7,835 | 47.21 |
-| 465.0 | 928 | 82.90 |
+| 0.2 | 170,292 | 0.47 |
+| 1.0 | 76,509 | 1.32 |
+| 3.2 | 30,372 | 2.30 |
+| 7.0 | 14,238 | 3.91 |
+| 14.5 | 10,322 | 6.26 |
+| 32.6 | 15,009 | 11.48 |
+| 72.7 | 13,637 | 19.37 |
+| 143.8 | 14,177 | 32.73 |
+| 265.2 | 7,750 | 56.11 |
+| 465.9 | 1,166 | 90.71 |
 
-Spread of the pooled score by run length (empirical null; 1 = independent errors): {'1': 1.0, '2': 1.0, '3': 1.08, '6': 1.254, '12': 1.482, '24': 1.76, '48': 2.128}.
+Spread of the pooled score by run length (empirical null; 1 = independent errors): {'1': 1.0, '2': 1.027, '3': 1.141, '6': 1.356, '12': 1.592, '24': 1.896, '48': 2.291}.
 
 ## Limitations
 

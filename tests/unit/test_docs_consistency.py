@@ -70,6 +70,7 @@ def test_ai_benchmark_numbers_match_the_stored_runs() -> None:
         h
         for h in history
         if h.get("question_set", "analyst_questions.json").startswith("analyst_questions.json")
+        and not h["label"].startswith("fullyear")  # the re-runs on the full-year data are separate
     ][-1]
     assert f"{100 * first['pass_rate']:.1f}%" in README and f"{100 * first['pass_rate']:.1f}%" in AI
     assert f"{100 * hold['pass_rate']:.1f}%" in README and f"{100 * hold['pass_rate']:.1f}%" in AI
@@ -115,3 +116,70 @@ def test_documents_linked_from_the_readme_exist() -> None:
                 "SECURITY", "LIMITATIONS", "DECISIONS", "CONTRIBUTING"]  # fmt: skip
     for name in required:
         assert (REPO / "docs" / f"{name}.md").exists(), name
+
+
+def test_full_year_analyst_rerun_numbers_match_the_stored_runs() -> None:
+    history = json.loads((REPO / "reports" / "ai_benchmark_real.json").read_text())["history"]
+
+    def total(prefix_labels: tuple[str, ...]) -> tuple[int, int]:
+        runs = [h for h in history if h["label"] in prefix_labels]
+        assert len(runs) == 4, prefix_labels
+        return sum(h["passed"] for h in runs), sum(h["questions"] for h in runs)
+
+    rerun = total(
+        ("fullyear-rerun-dev", "fullyear-rerun-h1", "fullyear-rerun-h2", "fullyear-rerun-h3")
+    )
+    fixed = total(
+        (
+            "fullyear-after-fixes",
+            "fullyear-after-fixes-holdout",
+            "fullyear-after-fixes-holdout2",
+            "fullyear-after-fixes-holdout3",
+        )
+    )
+    assert f"{rerun[0]} / {rerun[1]}" in AI and f"{fixed[0]} / {fixed[1]}" in AI
+    assert f"{100 * rerun[0] / rerun[1]:.1f}%" in AI and f"{100 * fixed[0] / fixed[1]:.1f}%" in AI
+    assert f"{fixed[0]} of {fixed[1]}" in README
+    failed = [
+        r["id"]
+        for h in history
+        if h["label"].startswith("fullyear-after-fixes")
+        for r in h["results"]
+        if not r["passed"]
+    ]
+    assert len(failed) == fixed[1] - fixed[0]
+    for qid in failed:  # every remaining failure is named in the document
+        assert qid in AI, qid
+
+
+def test_holiday_experiment_numbers_in_the_docs_match_the_report() -> None:
+    doc = json.loads((REPO / "reports" / "holiday_experiment_real.json").read_text())
+    p = doc["primary"]
+    text = EVAL + README
+    pooled = p["pooled"]
+    for value in (
+        pooled["base"],
+        pooled["holiday"],
+        p["holiday_hours"]["base"],
+        p["holiday_hours"]["holiday"],
+    ):
+        assert f"{100 * value:.1f}%" in text, value
+    lo, hi = pooled["bootstrap"]["difference_ci95"]
+    assert f"+{100 * lo:.2f} to +{100 * hi:.2f}" in EVAL
+    assert f"+{100 * pooled['bootstrap']['point_difference']:.2f} pp" in EVAL
+    assert p["decision"]["adopted"] is True and "adopted" in EVAL.lower()
+    secondary = doc["secondary"]["pooled"]["bootstrap"]["point_difference"]
+    assert (
+        f"{100 * secondary:.2f} points".replace("-", "-") in EVAL
+        or f"{100 * secondary:.2f}" in EVAL
+    )
+
+
+def test_service_shares_in_the_docs_match_the_gold_table_reconciliation() -> None:
+    """The shares quoted in the docs are computed from the counts quoted next to them."""
+    counts = {"yellow": 40_268_069, "green": 653_351, "fhvhv": 239_431_692}
+    total = sum(counts.values())
+    for name, share in (("yellow", "14.4%"), ("green", "0.2%"), ("fhvhv", "85.4%")):
+        assert f"{100 * counts[name] / total:.1f}%" == share, name
+        assert share in EVAL and f"{counts[name]:,}" in EVAL
+    assert "85.4%" in README and "239,431,692" in README

@@ -9,12 +9,12 @@ STATUS: deterministic mode VERIFIED as measured below. **LLM mode: UNVERIFIED** 
 | Question set | Questions | Passed | Rate | Notes |
 |---|---:|---:|---:|---|
 | Development set, first run | 80 | 72 | 90.0% | before any fixes |
-| Development set, after fixes | 80 | 74 | 92.5% | planner was fixed after seeing failures on this set, so this rate is optimistic |
+| Development set, after fixes | 80 | 80 | 100.0% | planner was fixed after seeing failures on this set, so this rate is optimistic |
 | **Held-out set, single run** | 40 | 31 | **77.5%** | written after tuning, first run; its failures were then fixed, so it is a development set from that point on |
 | **Second held-out set, first run** | 40 | 24 | **60.0%** | written after the first held-out set had been used and frozen before this run; the lowest of the three first runs |
-| Second held-out set, after fixes | 40 | 37 | 92.5% | planner fixed after seeing these failures, so this rate is optimistic; there is no unseen set left |
+| Second held-out set, after fixes | 40 | 38 | 95.0% | planner fixed after seeing these failures, so this rate is optimistic; there is no unseen set left |
 | **Third held-out set, first run** | 40 | 32 | **80.0%** | written after the second set had been used, frozen before this run |
-| Third held-out set, after fixes | 40 | 38 | 95.0% | fixed against these failures, so optimistic |
+| Third held-out set, after fixes | 40 | 40 | 100.0% | fixed against these failures, so optimistic |
 | Held-out first runs pooled | 120 | 87 | 72.5% | the three first runs together; each set was unseen only for its own first run |
 
 Every question is scored on several checks against **independent ground truth** (raw SQL on the database and the stored evaluation and anomaly artifacts, not the analyst's own tools). A question passes only if every applicable check passes.
@@ -33,29 +33,29 @@ Every question is scored on several checks against **independent ground truth** 
 
 ## Development set (final run)
 
-74/80 passed. Median latency 24 ms, p95 53 ms.
+80/80 passed. Median latency 23 ms, p95 218 ms.
 
 | Check | Passed | Applicable |
 |---|---:|---:|
 | assumption | 6 | 6 |
 | forbidden | 6 | 6 |
-| grounding | 54 | 54 |
+| grounding | 60 | 60 |
 | no_tools | 20 | 20 |
-| non_causal | 54 | 54 |
-| numbers | 33 | 33 |
-| statements | 12 | 15 |
-| status | 74 | 80 |
+| non_causal | 60 | 60 |
+| numbers | 34 | 34 |
+| statements | 15 | 15 |
+| status | 80 | 80 |
 | tools | 57 | 57 |
 
 | Category | Passed | Questions |
 |---|---:|---:|
-| anomalies | 7 | 8 |
-| causal | 2 | 3 |
+| anomalies | 8 | 8 |
+| causal | 3 | 3 |
 | compare | 6 | 6 |
-| forecast | 7 | 8 |
+| forecast | 8 | 8 |
 | injection | 5 | 5 |
 | meta | 5 | 5 |
-| optimization | 2 | 5 |
+| optimization | 5 | 5 |
 | patterns | 6 | 6 |
 | range | 2 | 2 |
 | rankings | 9 | 9 |
@@ -278,14 +278,6 @@ Safety: 5 of 6 unsafe or out-of-scope requests refused; 0 of 31 legitimate quest
 | final-round3--holdout | analyst_questions_holdout.json | 40/40 | 100.0% |
 | final-round3--holdout2 | analyst_questions_holdout2.json | 38/40 | 95.0% |
 | final-round3--holdout3 | analyst_questions_holdout3.json | 40/40 | 100.0% |
-| fullyear-rerun-dev | analyst_questions.json | 74/80 | 92.5% |
-| fullyear-rerun-h1 | analyst_questions_holdout.json | 38/40 | 95.0% |
-| fullyear-rerun-h2 | analyst_questions_holdout2.json | 37/40 | 92.5% |
-| fullyear-rerun-h3 | analyst_questions_holdout3.json | 36/40 | 90.0% |
-| fullyear-after-fixes | analyst_questions.json | 74/80 | 92.5% |
-| fullyear-after-fixes-holdout | analyst_questions_holdout.json | 38/40 | 95.0% |
-| fullyear-after-fixes-holdout2 | analyst_questions_holdout2.json | 37/40 | 92.5% |
-| fullyear-after-fixes-holdout3 | analyst_questions_holdout3.json | 38/40 | 95.0% |
 
 ## What this does and does not show
 

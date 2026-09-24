@@ -1,8 +1,10 @@
 # Modeling
 
-STATUS: VERIFIED for the forecasting model on real Jan-May 2024 data (numbers in
+STATUS: VERIFIED for the forecasting model on real 2024 data, January to December (numbers in
 [`reports/forecasting_real.md`](../reports/forecasting_real.md), generated from
-`artifacts/real/forecast/evaluation.json`, never typed by hand).
+`artifacts/real/forecast/evaluation.json`, never typed by hand). The earlier five-month results are archived
+in [`reports/jan_may_2024`](../reports/jan_may_2024/README.md); they are not directly comparable, because the
+test window moved from April and May to November and December.
 
 ## Problem
 
@@ -20,15 +22,18 @@ for each of the 24 hours of D. Zones are the 263 real TLC zones; the unit is *pi
   byte-identical.
 * No random split anywhere. Folds are chronological and validated by test
   (`test_fold_windows_are_strictly_chronological_and_never_overlap`).
-* Calendar features (hour, weekday, federal holiday, day before/after a holiday) describe the target
-  time and are known in advance. Same-period weather is *not* a feature (ADR-007).
+* Calendar features (hour, weekday, federal holiday, day before/after a holiday, and the two holiday
+  features adopted under a pre-registered rule) describe the target time and are known in advance. Same-period weather is *not* a feature (ADR-007).
 
 ## Features
 
 History (all from earlier days): the same local hour 1, 2, 7 and 14 days back; mean of the same hour
 over the previous 7 days; mean of the same weekday+hour over the previous 4 weeks; previous day's
 mean, 7- and 28-day means, and previous evening's mean. Calendar: hour, weekday, weekend, holiday,
-day after / before a holiday. Zone: id (categorical), borough (categorical), centroid lon/lat.
+day after / before a holiday, `is_long_weekend` (a Friday to Monday inside a run of three or more days off) and
+`days_to_holiday` (signed distance to the nearest federal holiday, clipped to three days). The last two were
+pre-registered and adopted by a rule fixed in advance ([PREREGISTRATION_HOLIDAY](PREREGISTRATION_HOLIDAY.md),
+[result](../reports/holiday_experiment_real.md)); models registered before that keep working. Zone: id (categorical), borough (categorical), centroid lon/lat.
 
 ## Models
 
@@ -57,33 +62,38 @@ Reported: empirical coverage overall, by fold, volume band and hour, and mean wi
 
 ## Findings (real data; see the generated report for every number)
 
-* LightGBM has the lowest WAPE (17.8%), ahead of the strongest baseline, the 4-week seasonal mean
-  (19.1%). The 1.3-point gap is statistically distinguishable from zero in the day-level bootstrap
-  (95% interval 0.7 to 2.1 points) but modest; much of the achievable accuracy comes from the
-  weekly profile itself, which the top feature (same weekday+hour mean) confirms.
-* The advantage over yesterday-persistence (12.6 points) and last-week copying (4.6 points) is large.
-* Errors are largest at holidays and quiet zones. Federal-holiday WAPE is far higher than on
-  ordinary days, and the biggest single zone-day misses *coincided with* Memorial Day weekend
-  (Sat 25 and Mon 27 May). A "long weekend" feature is a natural improvement, deliberately **not**
-  added: it was suggested by the test folds, so adding it now would be tuning on the test set.
+* LightGBM has the lowest WAPE (19.5%), ahead of the strongest baseline, the 4-week seasonal mean
+  (26.3%). The 6.8-point gap is statistically distinguishable from zero in the day-level bootstrap
+  (95% interval 4.2 to 10.2 points), but **almost all of it comes from the holiday weeks**: on the first fold
+  (mostly ordinary days) the two are 16.0% and 16.4%, on the Christmas and New Year fold 26.1% and 43.2%. On
+  ordinary days the weekly profile carries most of the signal, as it did on the earlier data (a 1.3-point gap).
+* The advantage over yesterday-persistence (10.5 points) and last-week copying (12.0 points) is large.
+* Errors are largest at holidays and quiet zones: federal-holiday WAPE is 38.1% against 18.9% on ordinary days
+  (only three holidays are in the window). The two calendar features added in response were tested under a
+  pre-registered rule and adopted: 20.2% to 19.5% overall, 40.7% to 38.1% on holiday hours. The gain also
+  appears on ordinary days, so they may partly act as a season signal, and a secondary check on August to
+  September, with one holiday, went the other way (-0.53 points).
 * The 80% interval covers 79.6% overall. It was 41% for busy zones before ADR-009 (see there).
-* Actual same-day weather ("oracle") did not improve accuracy on this five-month history.
+* Actual same-day weather ("oracle") made accuracy worse on this year (19.5% to 21.1%); it is an experiment,
+  not a deployable feature.
 
 ## Reproduce
 
 ```bash
-MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-eval      # ~1 minute on 12 cores
+MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-eval      # a few minutes on 12 cores
 MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-report --out reports/forecasting_real.md
 MOBILITYOPS_MODE=real python -m mobilityops.cli forecast-train
 ```
 
 ## Not done / caveats
 
-* Five months cannot support annual seasonality; the model has never seen a full year or a
-  December holiday season.
+* One year supports no annual-cycle feature: a yearly pattern cannot be separated from 2024's own events,
+  and the model has seen each season once.
 * Hyper-parameters are untuned.
 * The final model has no held-out test of its own; the walk-forward numbers estimate the procedure.
-* One month set, one city, yellow taxis only (no green cabs, FHV, or ride-hail).
+* One year, one city, yellow taxis only. Green taxis and high-volume for-hire vehicles are in the data
+  platform and the service view, but not in these models; yellow taxis are 14% of the pickups counted in the
+  three TLC files.
 * Results are for pickups, not for unmet demand.
 
 ---
@@ -119,16 +129,18 @@ Tests forbid causal wording ("because", "due to", "caused", ...).
   three anomalies exist, so this demonstrates the mechanism, not an error rate.
 * **Injection experiment (real residuals):** artificial surges and drops are injected into real
   out-of-sample actuals to measure sensitivity by demand level, duration and size. Reported per cell.
-* **Real events:** manually reviewed for plausibility only. The largest coincided with Memorial Day
-  weekend (residential Manhattan zones near half the forecast on Sat 25 May, Penn Station above
-  forecast on Mon 27 May). That is a consistency check, not verification.
+* **Real events:** not verified. The largest fall in the holiday period (LaGuardia surges around 1 December,
+  the Thanksgiving weekend, 31 December), which is consistent with the method working but is not a check
+  of precision; holiday forecast error may also inflate the count. On the earlier data the largest events
+  coincided with Memorial Day weekend.
 
 ## Known weaknesses
 
 * Only 56 out-of-sample days can be scored.
-* Drops are hard to detect: a 0.5x drop over 3 hours in busy zones is found about 8% of the time at
-  the default threshold (45% at threshold 4, at roughly double the event count).
-* Events cluster on a few city-wide days (three days hold about a quarter of all events); a person
+* Drops are hard to detect: a 0.5x drop over 3 hours is found 0 to 2.5% of the time at the default threshold
+  in every band on the full-year data (8% in busy zones on the earlier data). Surges of 2x over 3 hours are
+  found 17.5% (1 to 20 pickups an hour), 52.5% (20 to 100) and 80% (100 or more) of the time.
+* Events cluster on a few days (31 December and Thanksgiving hold 31% of all events); a person
   should read those as one disruption, not dozens of independent alarms. The `overlapping_events`
   field counts neighbours.
 * Thresholds are conventions. Severity is a heuristic on score, not a probability.
@@ -171,17 +183,18 @@ assumption is echoed in each result, and the report varies them.
 ## Findings (real data, 112 day-windows over 56 out-of-sample days; see the report for all numbers)
 
 * Repositioning adds a small amount. Planning with the LightGBM forecast raises the served share by
-  0.53 percentage points (95% bootstrap interval 0.38 to 0.70). Even planning with the actual
-  demand (an unattainable oracle) adds only 2.57 points, so under these assumptions there is little
-  headroom, and the LightGBM plan captures about 20% of it.
-* **The better forecast did not produce the better plan.** Planning with the simple seasonal-mean
-  forecast served 0.18 points *more* than planning with LightGBM (interval excludes zero), although
-  LightGBM has lower forecast error. This was not investigated further; one untested possibility is
-  that window-level forecast bias matters more to this decision than average error.
-* The value of repositioning depends strongly on fleet tightness: +1.65 points when the fleet
-  matches demand, +0.14 when it is 30% short (sensitivity table, every 4th day).
-* The move budget never binds (plans move roughly 100-150 vehicles per window out of 4,000+); the
-  per-km cost is what limits moves, so 10% and 50% budgets give identical results.
+  0.50 percentage points (95% bootstrap interval 0.36 to 0.65). Even planning with the actual
+  demand (an unattainable oracle) adds only 2.56 points, so under these assumptions there is little
+  headroom, and the LightGBM plan captures about 19% of it. (Earlier data: 0.53 and 2.57.)
+* **The better forecast still did not produce a better plan.** Planning with the simple seasonal-mean
+  forecast is now indistinguishable from planning with LightGBM (-0.03 points, interval -0.14 to +0.07);
+  on the earlier data it was slightly better (0.18 points). LightGBM has much lower forecast error on this
+  window, so the lower error does not carry over to this decision. This was not investigated further; one
+  untested possibility is that window-level forecast bias matters more to this decision than average error.
+* The value of repositioning depends strongly on fleet tightness: +1.30 points when the fleet
+  matches demand, +0.16 when it is 30% short (sensitivity table, every 4th day).
+* The move budget never binds (plans move roughly 100-150 vehicles per window); the per-km cost is what
+  limits moves, so 10% and 50% budgets give identical results for the forecast-based plans.
 
 ## Limitations
 

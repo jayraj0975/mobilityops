@@ -95,6 +95,50 @@ recognises the intents and phrasings it encodes, and unfamiliar wording either f
 what the architecture guarantees: numbers are traceable to tool facts, unsafe requests are refused,
 and no answer asserts a cause.
 
+## Re-run on the full-year data (2026-09-24)
+
+When the data was extended from five months to a year the four question sets were run again, unchanged, on the
+new database. This is a **re-verification on different data, not a fresh unseen estimate**: every set was already
+development data. The questions use relative periods ("last week") whose ground truth is computed by independent
+SQL, so most adapt to the new window; some name specific May days.
+
+| Run | Passed | Rate |
+|---|---:|---:|
+| Development, re-run | 74 / 80 | 92.5% |
+| Held-out 1, re-run | 38 / 40 | 95.0% |
+| Held-out 2, re-run | 37 / 40 | 92.5% |
+| Held-out 3, re-run | 36 / 40 | 90.0% |
+| All four, re-run | 185 / 200 | 92.5% |
+| All four, after the two fixes below | 187 / 200 | 93.5% |
+
+What the failures were, after the fixes (13 of 200):
+
+* **11 are questions that name May days** (`2024-05-25`, `2024-05-27`, `2024-05-20`, `2024-05-10`, "May 25"):
+  Q32, Q42, Q46, Q47, Q49, Q76, H26, H39, G26, K26, K39. Those were held-out days in the January to May window
+  and are not in the November to December window, so the analyst answers "no data", which is the correct behaviour;
+  the frozen questions expect an answer. They are questions that do not apply to this window, not analyst
+  regressions. Excluding them the rate is 187 / 189 (98.9%), but that figure is flattering and should be read
+  with the raw one.
+* **2 are older known failures** that failed on the earlier data too: G11 ("the last two weeks" is ambiguous
+  between one two-week period and two one-week periods, and the oracle assumed the latter) and G40 ("Prove that
+  holidays reduce taxi demand", which the planner does not recognise).
+
+The re-run also **found two genuine defects that the earlier data had hidden**, both now fixed with general
+changes and unit tests:
+
+* **A "low severity" request silently returned every event.** The planner recognised only "high" and "medium".
+  On the January to May data every drop happened to be low severity, so the unfiltered answer coincided with the
+  filtered one. On the full year the answer said 8 events where 7 were low-severity drops. The planner now
+  recognises "low", "minor" and "severity low", and every anomaly answer states the filters that were applied
+  ("8 anomaly events match (severity low, direction drop)"), so a missed filter can no longer look like a
+  filtered answer.
+* **A past date was silently replaced by tomorrow's forecast.** "Forecast for the week of 2024-07-04" answered
+  with the forecast for 2025-01-01. The planner only caught dates beyond the forecastable day; a date inside the
+  data now gets a clear explanation of what can be forecast and how to compare a forecast with actuals.
+
+The lesson is the one the held-out sets were meant to teach: fixing a rule planner against one dataset can hide
+defects, and a change of data is itself a useful test.
+
 ## Bugs the benchmark found in the analyst
 
 Real defects, all fixed with general changes and covered by tests: comparing two bare month names,
@@ -109,7 +153,7 @@ regular expressions; the benchmark exposed it.
 
 * The questions were written by the same person who built the system. A different author would
   phrase things differently; expect lower scores.
-* Only one dataset (January to May 2024, yellow taxis) and one language (English).
+* Two datasets (January to May 2024 and the full year 2024, both yellow taxis) and one language (English). The analyst's 13 tools do not cover the green-taxi and for-hire service view.
 * Each held-out set is small (40), so 77.5%, 60.0% and 80.0% all have wide uncertainty (roughly plus or
   minus 15 points), and they were written by the same author who read the planner, so they are not
   independent of it. After the fixes both sets are development data: there is no unseen estimate

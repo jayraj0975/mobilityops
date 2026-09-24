@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Full-year data, services and a holiday test
+- Real data extended from January to May to all of 2024. Results regenerated; the earlier ones are archived in
+  `reports/jan_may_2024`. The test window is now 6 November to 31 December, so results are not directly
+  comparable. Headline: LightGBM WAPE 19.5% against 26.3% for the best baseline, almost all of the gap in the
+  holiday weeks (16.0% against 16.4% on the first fold).
+- The silver quality gate now **WARNs** (2.19% rejected against a 2% threshold set beforehand): refunds and
+  adjustments grew from 1.3% to 2.2% of rows over the year. The threshold was not moved.
+- Green taxis and high-volume for-hire vehicles (`ingest --services green,fhvhv`), aggregated to zone-hour counts
+  with the same cleaning rules, reconciled on every build, and shown in the API (`/demand/services`), the
+  dashboard and the app. Forecasts, anomalies and scenarios stay yellow-only.
+- Two holiday features, pre-registered (`docs/PREREGISTRATION_HOLIDAY.md`) before the test and adopted by the rule
+  fixed in advance (20.2% to 19.5%); a secondary check went the other way and is reported. New command
+  `forecast-holiday-experiment`.
+- Ingestion saves its manifest after every file, so an interrupted download resumes instead of starting again.
+
+### Real time, Android and self-hosting
+- A Live view: a labelled replay of the held-out days plus live Citi Bike and Central Park weather feeds over a
+  server-sent-events stream (`/api/v1/live/*`), in the dashboard and the app.
+- A native Android app built with Gradle (`apps/android`): five screens, a reconnecting stream client, 27 unit
+  tests, a CI job, a signed and minified release build. Found by running it on an emulator: a reversed
+  week-over-week comparison and a chart axis below zero, both fixed.
+- Self-hosting: `docker-compose.yml` (hardened, key required), a systemd unit, an HTTPS proxy config that does
+  not buffer the stream, `docs/SELF_HOSTING.md`. The dashboard can hold and send the API key.
+
+### Analyst
+- Re-running the four question sets on the full-year data (185 of 200) exposed two defects the earlier data had
+  hidden, both fixed: a "low severity" filter that was ignored, and a past date silently replaced by tomorrow's
+  forecast. Anomaly answers now state the filters applied. After the fixes 187 of 200 pass.
+
 ### Public demo
 - Public repository and a hosted demo (free Render plan) serving the real-data snapshot from an
   aggregate-only release bundle; About page; installable web app manifest and icons;

@@ -211,3 +211,94 @@ or state causes the data cannot support. No LLM key exists, and the analyst must
 **Consequences.** Answers are less fluent than free text but traceable. LLM mode exists but is
 `UNVERIFIED`: it has only been tested against a mocked transport. The rule planner is limited to
 the intents it encodes; the benchmark (Phase 10) measures where it fails.
+
+---
+
+## ADR-013: Test the holiday features under a pre-registered rule, on months the model had not seen
+
+**Context.** On the first five months the model was far worse on federal holidays (WAPE 43.7% against
+17.5%), and a long-weekend feature was obvious. It had been deliberately withheld because the test folds
+suggested it, so adding it and reporting the improvement would have been tuning on the test set. Extending the
+data to a full year created months that had not been looked at.
+
+**Decision.** Write down, and commit, the hypothesis, the exact definitions of two features (`is_long_weekend`,
+`days_to_holiday`), the evaluation (identical folds and settings, a paired day-level bootstrap), a three-part
+decision rule and a secondary check (`docs/PREREGISTRATION_HOLIDAY.md`, commit `ee6d727`) **before any forecast on
+June to December was evaluated**. The experiment code computes the verdict; it is not judged afterwards. The
+features stay opt-in (`holiday_features`, off by default) until the rule says otherwise.
+
+**Alternatives.** Adding the features and reporting the gain (rejected: unfalsifiable after the fact); tuning
+them (rejected: no search over definitions); using January to May as the test (rejected: already seen).
+
+**Consequences.** The rule was met (overall WAPE 20.2% to 19.5%, interval +0.38 to +1.15 points), so the features
+were adopted and became the default. The result is reported with its weaknesses: three holidays in the window, a
+secondary check (August to September, one holiday) that went the other way, and a gain that also appears on
+ordinary days. Regenerating the experiment on a rebuilt database reproduced every number.
+
+---
+
+## ADR-014: Green taxis and for-hire vehicles are aggregated to counts, not kept trip by trip
+
+**Context.** The high-volume for-hire files are about 470 MB and 20 million trips a month (240 million a year),
+six times the yellow volume. The yellow pipeline keeps every cleaned trip in Parquet and every rejected trip in a
+quarantine file. Doing the same for the other services would add gigabytes and hours for no analytical gain, since
+a demand model needs pickups per zone and hour.
+
+**Decision.** Each service is cleaned with the same ordered rules and aggregated straight to pickups per zone-hour
+(`transform/services.py`), one file at a time through DuckDB. Rejected rows are counted by reason and file, not
+stored. Exact-duplicate removal is skipped for these services (it needs the whole table; yellow has 4 in 41
+million). The gold layer gets one zero-filled `fact_service_zone_hourly` table, and every service is reconciled
+to its cleaned trips on every build. Yellow's tables and results are untouched; a build without other services has
+no service table.
+
+**Alternatives.** A common trip schema for all services (rejected: forces the largest file through the slowest
+path); adding services to the yellow silver layer (rejected: changes every yellow result).
+
+**Consequences.** The service view is cheap and exactly reconciled. Forecasts, anomalies and scenarios remain
+yellow-only, and yellow is now 14% of the counted pickups; that limitation is stated wherever the results are.
+
+---
+
+## ADR-015: "Real time" means a labelled replay plus genuinely live public feeds
+
+**Context.** The requested real-time dashboard cannot be built on the taxi data honestly: the TLC publishes
+trips monthly, so there is no live taxi feed. Presenting historical data as live would mislead.
+
+**Decision.** The Live view streams two clearly separate things over server-sent events, each labelled on screen.
+(1) A **replay** of the held-out days: the forecasts the model made before those days against what happened, on
+a clock shared by every viewer, labelled REPLAY, not live. (2) **Live feeds** that are real: Citi Bike station
+availability and Central Park weather, each with the publisher's own timestamp, the last good reading kept and
+marked not current when a source fails. Both feeds are polled only while someone watches. Feed URLs are constants;
+the User-Agent names the project and repository, never a person.
+
+**Alternatives.** Simulated random "live" numbers (rejected: fabricated); polling from each browser (rejected:
+many viewers would multiply calls to third-party services); WebSockets (rejected: the traffic is one-way and
+server-sent events reconnect and pass through proxies simply).
+
+**Consequences.** The real-time claim is true and checkable. The running error shown for the replay is a
+city-total figure, much easier than the per-zone figure, and the screens say so. The stream is capped (32 viewers)
+and needs the API key like any route; behind a proxy, response buffering must be off (documented).
+
+---
+
+## ADR-016: Self-hosted deployment and a native Android app, without a hosting platform
+
+**Context.** The public demo runs on a free hosting tier that sleeps when idle and is outside the owner's control.
+The owner asked for a properly deployable product (a real website with a full dashboard and an APK built with
+Gradle) without depending on such platforms.
+
+**Decision.** The project is built to be self-hosted: a Docker Compose file that runs a hardened container
+(read-only filesystem, no capabilities, read-only data mounts) and refuses to start without an API key, a
+systemd unit for a plain Linux server, and an optional HTTPS proxy with buffering off. The dashboard gained API-key
+support (kept in the browser, sent as a header). The Android app is native (Java, Gradle, platform networking and
+AndroidX only) with the same screens over the same API and a stream client that reconnects. Release builds are
+signed from environment variables, never from files in the repository.
+
+**Alternatives.** A wrapper around the website (rejected: not a real app, no streaming control); Kotlin
+multiplatform or a cross-platform framework (rejected: large dependency surface for five screens).
+
+**Consequences.** Anyone can run the whole stack on their own machine. The app was verified on an emulator, not
+a phone; the Compose file was validated as YAML and its container run with the same options, but `compose up`
+itself was not run (the plugin is not installed here). The existing hosted demo was left in place and now serves
+older data.
+

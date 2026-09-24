@@ -1,11 +1,12 @@
 # Architecture
 
-MobilityOps is one Python package (`mobilityops`, see ADR-002) plus a React app. It is
-local-first: DuckDB and Parquet files, no server processes beyond the API itself (ADR-001).
+MobilityOps is one Python package (`mobilityops`, see ADR-002) plus a React app and a native Android
+app. It is local-first: DuckDB and Parquet files, no server processes beyond the API itself (ADR-001), and it
+is built to be self-hosted (ADR-016).
 
 ```
- NYC TLC trips (Parquet)   TLC zone lookup + geometry   NOAA daily weather
-          \                        |                         /
+ NYC TLC yellow trips   TLC zone lookup + geometry   NOAA daily weather   (optional: green + for-hire
+          \                        |                         /             trips, aggregated to counts, ADR-014)
            v                       v                        v
    ┌──────────────── ingestion: download (retry, atomic, hash-checked) + manifest ───────────────┐
    │  bronze  raw files, untouched, with SHA-256 / row count / columns / window                   │
@@ -14,6 +15,7 @@ local-first: DuckDB and Parquet files, no server processes beyond the API itself
    ├────────────────────────────────────────────────────────────────────────────────────────────┤
    │  gold    DuckDB star schema: dim_zone / dim_date / dim_hour (DST flags) /                    │
    │          fact_zone_hourly_demand (zero-filled zone x valid-hour grid) / fact_weather_daily   │
+   │          (+ fact_service_zone_hourly when green / for-hire files were ingested)              │
    │          + pipeline_run + quality_result. Built to a side file, promoted only if gates pass. │
    └───────┬────────────────────────────────────────────────────────────────────────────────────┘
            │ read-only
@@ -27,10 +29,12 @@ local-first: DuckDB and Parquet files, no server processes beyond the API itself
         │                                                                     │
         v                                                                     v
    API (FastAPI): typed, bounded, read-only, unified errors, request ids, metrics
-        │                       │
-        v                       v
-   React UI (generated types)   AI analyst: rules or LLM chooses among 13 read-only tools;
-                                 answers built from tool facts; grounding check; refusals
+        │                       │                        │
+        v                       v                        v
+   React UI (generated types)   AI analyst: rules or LLM   live hub (SSE): replay clock over the
+   Android app (Gradle)         chooses among 13 read-only  held-out days + polled Citi Bike / NWS
+                                tools; facts; grounding;    feeds, only while someone watches
+                                refusals                    (ADR-015)
 ```
 
 ## Layers and their contracts
@@ -44,7 +48,9 @@ local-first: DuckDB and Parquet files, no server processes beyond the API itself
 | Forecasting | `forecasting/` | Features use only days strictly before the forecast origin (proved by test); validation is chronological. |
 | Anomaly | `anomaly/` | Scores only out-of-sample residuals; language is "coincided with". |
 | Optimization | `optimization/` | Every result carries the SIMULATED label and its assumptions; infeasibility is a result. |
+| Services | `transform/services.py` | Green and for-hire files are cleaned with the yellow rules and aggregated to zone-hour counts (rejected rows are counted, not kept); every service is reconciled to its cleaned trips on every build. Absent unless ingested. |
 | API | `api/` | See below. |
+| Live | `live/` | One shared replay clock and one poller per server, started by the first viewer and stopped by the last; feeds report the publisher's timestamp and keep the last good reading; each viewer has a bounded queue; the stream is capped. |
 | Analyst | `analyst/` | Planner selects tools; tools return facts; sentences are built from facts and checked. |
 
 ## Modes and directories
@@ -79,11 +85,19 @@ weather-comparison), `forecast/*` (performance, model, backtest, next-day), `ano
 
 ## Frontend
 
-`apps/web`: Vite, React 19, TypeScript (strict), Recharts. Six sections (overview, demand,
-forecast, anomalies, scenarios, analyst). Nothing on screen is hard-coded: each view renders loading,
+`apps/web`: Vite, React 19, TypeScript (strict), Recharts. Seven sections (overview, live, demand,
+forecast, anomalies, scenarios, analyst) and an About page. Nothing on screen is hard-coded: each view renders loading,
 error and empty states, and a persistent banner states whether the data is real or synthetic. In
 production the API serves the built UI at `/` with a strict Content-Security-Policy; in development
-Vite proxies `/api` (and injects an API key server-side if one is configured).
+Vite proxies `/api` (and injects an API key server-side if one is configured). Against a server that needs a key,
+the dashboard asks for it once and keeps it in that browser's local storage. The Live page reads the event stream
+with `fetch` (not `EventSource`) so the key can travel in a header, and reconnects with backoff.
+
+## Android app
+
+`apps/android`: native Java, Gradle, platform networking and AndroidX only. Five tabs (Live, Overview,
+Forecast, Anomalies, Settings) over the same API; the stream client reconnects with backoff and restarts a
+connection that goes silent. The server address and key are set in the app.
 
 ## Trust boundaries
 
@@ -92,11 +106,18 @@ Vite proxies `/api` (and injects an API key server-side if one is configured).
 2. **API → data**: read-only DuckDB connections; user input never reaches SQL as text.
 3. **Question → analyst**: screened, then only able to select fixed tools; the planner never sees
    tool outputs; every number in an answer is checked against tool facts.
-4. **Container**: non-root user, no data or secrets in the image.
+4. **Container**: non-root user, no data or secrets in the image; the Compose file adds a read-only filesystem,
+   no capabilities and read-only data mounts.
+5. **Server → public feeds**: two fixed URLs, short timeouts, failures contained; nothing from a request is
+   forwarded and the User-Agent names the project only.
+6. **App → server**: plain HTTP is allowed for a home network (documented); use HTTPS beyond it.
 
 ## Deployment shapes
 
 * Local process (`make serve`): the supported, tested path.
-* Docker on localhost: built and run end to end; publish the port to `127.0.0.1` only.
-* Anything internet-facing is **not** covered: it would need real authentication, TLS termination,
-  rate limiting and monitoring (see SECURITY).
+* Self-hosted with Docker Compose or systemd, with an API key (and optionally HTTPS): [SELF_HOSTING](SELF_HOSTING.md).
+  The image was built and run with the Compose file's security options; the Compose file itself was not run.
+* A public free-tier demo exists (see [DEPLOYMENT](DEPLOYMENT.md)); it serves an older data snapshot and is not
+  part of the supported path.
+* Anything internet-facing beyond that is **not** covered: it would need real authentication, per-user
+  accounts, distributed-abuse protection and monitoring (see SECURITY).
