@@ -363,3 +363,89 @@ def test_hub_without_a_worker_says_so_instead_of_inventing_data() -> None:
 
     ((kind, payload, _),) = _events(asyncio.run(scenario()))
     assert kind == "hello" and payload["available"] is False and payload["snapshot"] is None
+
+
+def test_readiness_reports_the_worker_and_ignores_what_pune_does_not_run(
+    settings: Settings,
+) -> None:
+    from datetime import UTC, datetime
+
+    from mobilityops.pune.store import worker_alive
+
+    c = TestClient(create_app(settings))
+    body = c.get("/ready").json()
+    assert set(body["components"]) >= {"database", "forecast_model", "live_worker"}
+    assert body["components"]["optimization_backtest"] is False  # never run for Pune
+    # the fixture's worker ticked at a fixed 2026 time, so against the real clock it is not alive
+    assert body["components"]["live_worker"] is False and body["status"] == "degraded"
+    assert worker_alive(settings.state_path, NOW) is True
+    assert worker_alive(settings.state_path, NOW + timedelta(seconds=89)) is True
+    assert worker_alive(settings.state_path, NOW + timedelta(seconds=91)) is False
+    assert worker_alive(settings.state_path.with_name("missing.sqlite")) is False
+    assert datetime.now(UTC).year >= 2026
+
+
+def test_ready_is_ready_when_the_worker_is_alive(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("mobilityops.pune.store.worker_alive", lambda path, now=None: True)
+    body = TestClient(create_app(settings)).get("/ready").json()
+    assert body["status"] == "ready"
+
+
+def test_state_endpoints_are_rate_limited(settings: Settings) -> None:
+    limited = Settings.from_env(
+        {
+            "MOBILITYOPS_DATA_DIR": str(settings.data_dir),
+            "MOBILITYOPS_MODE": "pune",
+            "MOBILITYOPS_RATE_LIMIT": "5",
+        }
+    )
+    app = create_app(limited)
+    app.state.state_provider.clock = lambda: NOW
+    c = TestClient(app)
+    codes = [c.get("/api/v1/state/sources").status_code for _ in range(8)]
+    assert codes[:5] == [200] * 5 and set(codes[5:]) == {429}
+    r = c.get("/api/v1/state/snapshot")
+    assert r.status_code == 429 and r.headers["retry-after"]
+    assert c.get("/health").status_code == 200  # probes are never limited
+
+
+def test_state_responses_carry_the_security_headers_and_no_cors_wildcard(
+    client: TestClient,
+) -> None:
+    r = client.get("/api/v1/state/snapshot", headers={"Origin": "https://evil.example"})
+    assert (
+        r.headers["x-content-type-options"] == "nosniff" and r.headers["x-frame-options"] == "DENY"
+    )
+    assert r.headers["cache-control"] == "no-store" and r.headers["x-request-id"]
+    assert "access-control-allow-origin" not in r.headers  # an unlisted origin gets no CORS grant
+    with client.stream(
+        "GET", "/api/v1/state/stream?limit=1", headers={"Origin": "https://evil.example"}
+    ) as s:
+        assert s.headers["x-content-type-options"] == "nosniff"
+        assert "access-control-allow-origin" not in s.headers
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/state/zones/1%20OR%201=1",
+        "/api/v1/state/zones/-1",
+        "/api/v1/state/zones/99999999999999999999",
+        "/api/v1/state/snapshot?at=now;DROP%20TABLE%20kv",
+        "/api/v1/state/runs?source='%20OR%20'1'='1",
+        "/api/v1/state/events?limit=1000000",
+        "/api/v1/state/series?back=-5",
+    ],
+)
+def test_hostile_input_is_rejected_or_harmless(
+    client: TestClient, path: str, settings: Settings
+) -> None:
+    r = client.get(path)
+    assert r.status_code in (200, 404, 422)
+    assert r.status_code != 500 and "Traceback" not in r.text
+    if r.status_code == 200:  # a filter that matches nothing returns nothing, it does not widen
+        assert r.json() == []
+    # and the store is intact
+    assert StateStore(settings.state_path).version() > 0

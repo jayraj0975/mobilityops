@@ -295,3 +295,29 @@ def test_live_days_extend_the_tensor_exactly_like_the_batch_build(env: Settings)
 
 def _unused(_: Any) -> None:  # keeps the typing import honest for future tests
     return None
+
+
+def test_the_loop_stops_at_once_when_asked(env: Settings, tmp_path: Path) -> None:
+    """`docker stop` sends SIGTERM to a PID 1 that must exit on its own within seconds."""
+    import threading
+    import time
+
+    fake, clock = FakeOpenMeteo(), [NOW]
+    w = _worker(env, tmp_path, fake, clock)
+    stop = threading.Event()
+    ticks: list[int] = []
+    real_tick = w.tick
+
+    def counting_tick(mono: float | None = None) -> None:
+        real_tick(mono)
+        ticks.append(1)
+        stop.set()  # a signal arrives during the first cycle
+
+    w.tick = counting_tick  # type: ignore[method-assign]
+    t = threading.Thread(target=w.run_forever, args=(stop,))
+    started = time.monotonic()
+    t.start()
+    t.join(timeout=20)
+    assert not t.is_alive() and ticks == [1]
+    assert time.monotonic() - started < 15  # it did not sit out the 15 s wait
+    assert w.store.get_kv("worker_started_at")

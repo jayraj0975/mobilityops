@@ -125,7 +125,7 @@ test("data quality shows sources, the run log and what is not connected", async 
   await ready(page);
   await expect(page.getByRole("heading", { name: "Recent ingestion runs" })).toBeVisible();
   await expect(page.getByText("NOT CONFIGURED").first()).toBeVisible();
-  await expect(page.getByText(/no TOMTOM_API_KEY configured/)).toBeVisible();
+  await expect(page.getByText(/not implemented: no adapter exists yet/).first()).toBeVisible();
   await expect(page.getByText("Store version")).toBeVisible();
 });
 

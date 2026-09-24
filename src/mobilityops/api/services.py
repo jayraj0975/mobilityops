@@ -149,7 +149,13 @@ class Services:
 
     def available(self) -> dict[str, bool]:
         a = self.artifacts
+        live: dict[str, bool] = {}
+        if self.settings.mode == "pune":
+            from mobilityops.pune.store import worker_alive
+
+            live["live_worker"] = worker_alive(self.settings.state_path)
         return {
+            **live,
             "database": self.has_database(),
             "forecast_evaluation": (a / "forecast" / "evaluation.json").exists(),
             "forecast_model": (models_dir(self.settings) / "latest.json").exists(),

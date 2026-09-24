@@ -81,11 +81,13 @@ def test_registry_is_consistent_and_honest_about_what_is_off(
     assert len({s.key for s in SOURCES}) == len(SOURCES)
     for key in ("tomtom-traffic", "openaq"):
         spec = BY_KEY[key]
-        assert not spec.enabled({}) and "no " in (spec.disabled_reason() or "")
-        assert spec.enabled({spec.requires_key or "": "secret"})
+        assert not spec.enabled({}) and "no adapter" in (spec.disabled_reason() or "")
+        # a key cannot switch on code that does not exist
+        assert not spec.enabled({spec.requires_key or "": "secret"})
     assert not BY_KEY["pmpml-gtfs"].enabled({})
+    assert all(s.implemented for s in SOURCES if s.enabled({}))
     assert BY_KEY["simulated-demand"].data_class == "SIMULATED"
     assert BY_KEY["open-meteo-air-quality"].modelled
     assert all(s.data_class != "LIVE" for s in SOURCES)  # nothing in Pune is claimed LIVE
-    monkeypatch.setenv("OPENAQ_API_KEY", "  ")
-    assert not BY_KEY["openaq"].enabled()  # whitespace is not a key
+    monkeypatch.setenv("OPENAQ_API_KEY", "real-looking-key")
+    assert not BY_KEY["openaq"].enabled()  # still not enabled: there is nothing to enable

@@ -1,8 +1,35 @@
-# HTTPS reverse proxy for MobilityOps. flush_interval -1 matters: without it the proxy buffers
-# the live event stream and the Live tab appears to freeze.
-{$MOBILITYOPS_DOMAIN:localhost} {
+# HTTPS reverse proxy for MobilityOps. flush_interval -1 matters: without it the proxy buffers the
+# live event stream and the console looks frozen.
+#
+# One site, or two for a production domain. Set in .env:
+#   MOBILITYOPS_DOMAIN=localhost                     (default: a locally trusted certificate)
+# or, for a public domain (DNS records must point at this machine first, see docs/PRODUCTION.md):
+#   MOBILITYOPS_WWW_HOST=www.example.org             the web console
+#   MOBILITYOPS_API_HOST=api.example.org             the API for the Android app and scripts
+# Both hosts reach the same process: the console calls /api on its own origin, so it needs no CORS.
+(mobilityops) {
 	encode gzip
+	# The API sends its own security headers; the proxy adds nothing that could disagree with them.
 	reverse_proxy mobilityops:8000 {
 		flush_interval -1
+		# Do not let a slow or hung upstream pin a connection forever, but never cut the stream.
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
 	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$MOBILITYOPS_DOMAIN:localhost} {
+	import mobilityops
+}
+
+# Active only when both names are set (an empty name would be a syntax error, so the second
+# site is written with a placeholder that never resolves when the variables are empty).
+{$MOBILITYOPS_WWW_HOST:unused-www.invalid}, {$MOBILITYOPS_API_HOST:unused-api.invalid} {
+	import mobilityops
 }

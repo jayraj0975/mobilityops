@@ -277,7 +277,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return s.Ready(
                 status="degraded", components=comps, hint="run `ingest` and `build` first"
             )
-        return s.Ready(status="ready" if all(comps.values()) else "degraded", components=comps)
+        # Pune runs no optimisation backtest (it takes an hour), so it is not required there.
+        needed = (
+            {k: v for k, v in comps.items() if k in ("database", "forecast_model", "live_worker")}
+            if settings.mode == "pune"
+            else comps
+        )
+        return s.Ready(status="ready" if all(needed.values()) else "degraded", components=comps)
 
     @api.get("/meta", response_model=s.Meta, tags=["operations"])
     def meta() -> s.Meta:

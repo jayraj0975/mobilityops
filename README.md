@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml/badge.svg)](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml)
 
-Urban mobility intelligence and operations on public NYC taxi and for-hire data: demand analytics,
-day-ahead forecasts with honest uncertainty, anomaly detection, **simulated** fleet-repositioning
-scenarios, a real-time view, a REST API, a React dashboard, a native Android app and a tightly
-controlled AI analyst.
+Urban mobility intelligence and operations. Validated on a full year of public NYC taxi and for-hire data, and
+run as a real-time platform for Pune on **simulated** demand: demand analytics, day-ahead forecasts with honest
+uncertainty, anomaly detection, **simulated** fleet-repositioning scenarios, a real-time view, a REST API, a React
+dashboard, a native Android app and a tightly controlled AI analyst.
 
 **Built to be self-hosted:** run it on your own machine or server with Docker Compose or systemd, and
 point the web dashboard or the Android app at it ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)). A public
@@ -14,6 +14,54 @@ tens of seconds; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); it serves the sa
 results below, including the Live tab.
 
 ![Overview screen on real data](docs/images/overview.png)
+
+## Pune: a real-time platform on simulated demand
+
+The same pipeline also runs as a real-time console for **Pune** (`MOBILITYOPS_MODE=pune`). Read this first:
+
+> **No open source of Pune taxi, ride-hail or bus demand exists** (checked source by source in
+> [PUNE_DATA_SOURCES](docs/PUNE_DATA_SOURCES.md)). Trip counts are therefore **SIMULATED** by a documented model and are
+> labelled so on every screen, API response and document. What is real: hourly rain and current weather (Open-Meteo,
+> model output, not station readings), modelled air quality, the Maharashtra holiday calendar, and 91 zones built from
+> OpenStreetMap suburbs. Nothing in the Pune console describes real Pune traffic, and nothing in it is called LIVE.
+
+What it demonstrates is the platform: a separate ingestion worker polling each source on its own schedule, freshness
+(LIVE, DELAYED, STALE, OFFLINE) computed from each source's own timestamps, failures recorded and never papered over, a
+server-sent event stream, a map-based web console with NOW / -15m / -1h / -6h / TODAY / FORECAST, forecast ranges, events and a
+data-quality centre, and an Android app with Kotlin screens.
+
+```bash
+export MOBILITYOPS_MODE=pune
+python -m mobilityops.cli pune-build            # rain history + zones + simulated demand, quality-gated (seconds)
+python -m mobilityops.cli forecast-eval && python -m mobilityops.cli forecast-train && python -m mobilityops.cli anomalies
+python -m mobilityops.cli pune-worker &         # the ingestion worker: the only writer of the live state
+make web-build && make serve                    # console at http://127.0.0.1:8000
+```
+
+| Area | Status |
+|---|---|
+| Live sources: current weather (15 min), modelled air quality (60 min), recent rain, verified against the real services | VERIFIED |
+| Demand, events, scenarios | SIMULATED (by design) |
+| Forecast on simulated demand: WAPE 19.5% vs 22.8% best baseline, 79.6% interval coverage | VERIFIED as measured; says nothing about real Pune |
+| Traffic (TomTom), station air quality (OpenAQ), PMPML bus timetable | **NOT IMPLEMENTED**: listed as not configured; no adapters |
+| Web console: 22 component tests, 24 real-browser tests including WCAG A/AA scans of every page in both themes, offline recovery, phone width | VERIFIED |
+| Android app (Kotlin screens; debug APK, signed release APK, AAB): 45 unit tests, lint clean, run on an Android 14 emulator against the live server, including the server being killed and restarted | VERIFIED on an emulator; **not** on a physical phone |
+| Hardened containers (API and worker) serving live data; `docker stop` in 5.6 s / 0.3 s; Caddy config validated for the www/api hostnames | VERIFIED locally |
+| A public domain with DNS and a public certificate; `docker compose up` itself; the phone app over HTTPS to a real domain | **NOT VERIFIED** (no domain was deployed; see [PRODUCTION](docs/PRODUCTION.md)) |
+
+| Console (dark) | Console (light) | Map |
+|---|---|---|
+| ![](docs/images/pune-overview-dark.png) | ![](docs/images/pune-overview-light.png) | ![](docs/images/pune-map-dark.png) |
+
+| Android: Home | Android: Map | Android: server unreachable |
+|---|---|---|
+| ![](docs/images/android-pune-home.png) | ![](docs/images/android-pune-map.png) | ![](docs/images/android-pune-not-current.png) |
+
+The screenshots are of the real console and the real app on an emulator, against the live worker. The last one is the
+app after the server was killed: it says the numbers are not current and when they are from, and keeps them.
+
+Start with [LIVE_DATA](docs/LIVE_DATA.md) (classes, freshness, the simulator, the event rule),
+[PRODUCTION](docs/PRODUCTION.md), [OPERATIONS](docs/OPERATIONS.md) and [VIVA](docs/VIVA.md).
 
 > **What this is not.** It is not connected to any transport network and there is no fleet data in
 > the open datasets. Optimisation results are *simulated scenarios under explicit assumptions*.
@@ -41,11 +89,11 @@ because the test window moved from April and May to November and December.
 | AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). Three held-out sets of 40, each run once before any fix: **77.5%**, **60.0%** and **80.0%** (72.5% pooled, 87 of 120); all are development data from then on. Re-run on the full-year data, the four sets score 187 of 200: 11 failures are questions naming May days that are no longer held-out (the analyst correctly says there is no data), 2 are older known failures, and the re-run exposed two real defects the old data had hidden (an ignored "low severity" filter and a past date silently replaced by tomorrow's forecast), now fixed. Grounding and non-causal wording held at 100%. Expect roughly 60 to 80% on new phrasing. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
 | AI analyst (LLM mode) | Implemented, tested only against a mocked transport; never run with a real key | **UNVERIFIED** |
 | Real time | A labelled replay of the held-out days plus live Citi Bike and weather feeds, on a server-sent-events stream; checked end to end against the real feeds and through a hardened container | VERIFIED |
-| Android app | Native, built with Gradle; the minified signed release APK (1.7 MB) was run on an Android 14 emulator against the real-data server; 27 unit tests, lint clean | VERIFIED on an emulator (not a physical phone) |
+| Android app | Native, built with Gradle (Java and Kotlin); the New York tabs (release 1.0.0, signed APK) and the Pune tabs (2.0.0) were run on an Android 14 emulator against real servers; 45 unit tests, lint clean | VERIFIED on an emulator (not a physical phone) |
 | Self-hosting | Docker Compose, systemd, optional HTTPS; the image was built and run with a read-only filesystem, no capabilities and read-only data mounts: 401 without a key, data with it, live stream through it | VERIFIED locally (Compose itself was not run: the plugin is not installed here) |
 | API | Contract tests including the service and live endpoints, plus a concurrency smoke test on the earlier data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | Component tests (run under 4 timezones) and real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use, phone width, and a dropped live stream recovering | VERIFIED |
-| Tests | 486 Python tests at 95% line coverage (CI runs the suite on Python 3.12, 3.13 and 3.14); 57 web unit tests (also run under four timezones); 24 real-browser tests; 27 Android unit tests plus lint; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 650 Python tests at 95% line coverage (CI runs the suite on Python 3.12, 3.13 and 3.14); 79 web unit tests (also run under four timezones); 48 real-browser tests (24 per mode); 45 Android unit tests plus lint; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Authentication beyond one shared API key, per-user accounts, distributed-abuse protection | not built | NOT IMPLEMENTED |
 
 ## Screens
@@ -123,6 +171,7 @@ The Compose file, a systemd unit and an optional HTTPS proxy are in [docs/SELF_H
 | `anomalies`, `anomaly-report` | residual-based events, sensitivity analysis, generated report |
 | `optimize`, `optimize-backtest`, `optimize-report` | one what-if, the backtest, generated report (all SIMULATED) |
 | `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` or `--holdout2` for the held-out sets) |
+| `pune-build`, `pune-worker` | Pune: build the simulated-demand database with a quality gate; run the ingestion worker |
 | `serve`, `openapi` | HTTP API, UI and live stream; OpenAPI contract for the frontend types |
 
 Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),
@@ -139,7 +188,12 @@ Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make
 | [AI_EVALUATION](docs/AI_EVALUATION.md) | the analyst's design, benchmark and where it fails |
 | [SECURITY](docs/SECURITY.md) | threat model, controls, what is and is not covered |
 | [LIMITATIONS](docs/LIMITATIONS.md) | what these results cannot tell you |
-| [DECISIONS](docs/DECISIONS.md) | 17 architecture decision records, including changes made after seeing results |
+| [DECISIONS](docs/DECISIONS.md) | 21 architecture decision records, including changes made after seeing results |
+| [PUNE_DATA_SOURCES](docs/PUNE_DATA_SOURCES.md) | every Pune source investigated: what was called, what was verified, licences, what is used |
+| [LIVE_DATA](docs/LIVE_DATA.md) | data classes, freshness states, the schedules, the demand simulator and the live event rule |
+| [PRODUCTION](docs/PRODUCTION.md) | your own server and domain: worker, www/api hostnames, HTTPS, monitoring, backups, and what was and was not verified |
+| [OPERATIONS](docs/OPERATIONS.md) | commands, what healthy looks like, troubleshooting, observability, measured performance |
+| [VIVA](docs/VIVA.md) | likely questions and honest answers, including what is not verified |
 | [SELF_HOSTING](docs/SELF_HOSTING.md) | running it on your own machine: Docker Compose, systemd, HTTPS, the Android app, the live feeds |
 | [DEPLOYMENT](docs/DEPLOYMENT.md) | how the public demo is built, hosted and rebuilt, and the free-plan limits |
 | [PREREGISTRATION_HOLIDAY](docs/PREREGISTRATION_HOLIDAY.md) | the holiday-feature hypothesis and decision rule, committed before the test was run |
@@ -153,10 +207,12 @@ src/mobilityops/   ingestion/ transform/ quality/   data platform
                    analytics/ forecasting/ anomaly/ optimization/
                    analyst/                           tools, planner, guard, benchmark
                    api/                               FastAPI app, services, metrics
-                   live/                              replay clock, live feeds, event-stream hub
+                   live/                              replay clock, live feeds, event-stream hub (New York)
+                   pune/                              zones, simulator, sources, worker, store, freshness, state hub
+                   city.py                            per-city timezone, holiday calendar, wording
 apps/web/          React + TypeScript UI, generated API types, unit and browser tests
-apps/android/      native Android app (Gradle): live stream client, five screens, unit tests
-deploy/            systemd unit, Caddy config, environment example (docker-compose.yml is at the root)
+apps/android/      native Android app (Gradle, Java and Kotlin): stream client, New York and Pune screens, unit tests
+deploy/            systemd units (API, worker), Caddy config, environment example (docker-compose.yml is at the root)
 benchmarks/        the analyst question sets (development and held-out)
 reports/           generated result reports (committed so the numbers are inspectable)
 tests/             unit and integration tests (synthetic data only; CI downloads nothing)

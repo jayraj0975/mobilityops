@@ -1,0 +1,34 @@
+# systemd unit for the Pune ingestion worker (MOBILITYOPS_MODE=pune). Install: docs/PRODUCTION.md.
+# It is the only writer of the live state; the API unit reads it.
+[Unit]
+Description=MobilityOps Pune ingestion worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=mobilityops
+Group=mobilityops
+WorkingDirectory=/opt/mobilityops
+EnvironmentFile=/etc/mobilityops/mobilityops.env
+Environment=MOBILITYOPS_MODE=pune
+Environment=MOBILITYOPS_DATA_DIR=/opt/mobilityops/data
+ExecStart=/opt/mobilityops/.venv/bin/python -m mobilityops.cli pune-worker
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+ReadOnlyPaths=/opt/mobilityops
+ReadWritePaths=/opt/mobilityops/data/live
+
+[Install]
+WantedBy=multi-user.target

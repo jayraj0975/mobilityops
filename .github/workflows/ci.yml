@@ -124,7 +124,7 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
+      - run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleRelease bundleRelease
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mobilityops-debug-apk
@@ -163,6 +163,20 @@ jobs:
           curl -sSf http://127.0.0.1:8000/health
           test "$(docker exec mo id -u)" != "0" || { echo "container runs as root"; exit 1; }
           docker logs mo | tail -5
+      - name: The container stops promptly even with a viewer on the event stream
+        # uvicorn waits for open streams; without a bound `docker stop` hangs until it is killed.
+        run: |
+          (curl -sN -m 60 http://127.0.0.1:8000/api/v1/live/stream >/dev/null &)
+          sleep 3
+          start=$(date +%s)
+          docker stop -t 30 mo
+          elapsed=$(( $(date +%s) - start ))
+          echo "stopped in ${elapsed}s"
+          test "$elapsed" -lt 12 || { echo "graceful shutdown was not bounded"; exit 1; }
+      - name: The Caddyfile is valid for one name and for the www/api pair
+        run: |
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e MOBILITYOPS_DOMAIN=localhost caddy:2 caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e MOBILITYOPS_WWW_HOST=www.example.org -e MOBILITYOPS_API_HOST=api.example.org caddy:2 caddy validate --config /etc/caddy/Caddyfile
 
   dependency-review:
     # New or changed dependencies in a pull request are checked for known vulnerabilities.

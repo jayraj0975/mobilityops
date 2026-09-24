@@ -24,16 +24,21 @@ class SourceSpec:
     licence: str
     note: str
     modelled: bool = False
-    requires_key: str | None = None  # environment variable that enables it
+    requires_key: str | None = None  # environment variable that would enable it
     always_on: bool = True
+    implemented: bool = True  # False: listed for honesty, but no code fetches from it
 
     def enabled(self, env: Mapping[str, str] | None = None) -> bool:
         e = os.environ if env is None else env
+        if not self.implemented:
+            return False  # a key cannot enable code that does not exist
         if self.requires_key is not None:
             return bool((e.get(self.requires_key) or "").strip())
         return self.always_on
 
     def disabled_reason(self) -> str | None:
+        if not self.implemented:
+            return "not implemented: no adapter exists yet"
         if self.requires_key is not None:
             return f"no {self.requires_key} configured"
         if not self.always_on:
@@ -118,8 +123,10 @@ SOURCES: tuple[SourceSpec, ...] = (
         "NEAR-REAL-TIME",
         300,
         "TomTom terms (not verified here)",
-        "Adapter not enabled: needs an API key and a reading of TomTom's caching terms.",
+        "Not implemented: no adapter exists. It would need an API key and a reading of TomTom's "
+        "caching terms.",
         requires_key="TOMTOM_API_KEY",
+        implemented=False,
     ),
     SourceSpec(
         "openaq",
@@ -128,8 +135,10 @@ SOURCES: tuple[SourceSpec, ...] = (
         "NEAR-REAL-TIME",
         3600,
         "CC BY 4.0 (not verified here)",
-        "Adapter not enabled: needs an API key. Would give real station readings.",
+        "Not implemented: no adapter exists. It would need an API key and would give real station "
+        "readings.",
         requires_key="OPENAQ_API_KEY",
+        implemented=False,
     ),
     SourceSpec(
         "pmpml-gtfs",
@@ -140,6 +149,7 @@ SOURCES: tuple[SourceSpec, ...] = (
         "data terms unknown",
         "Not bundled. No official PMPML feed found; an operator-supplied GTFS zip can be read.",
         always_on=False,
+        implemented=False,
     ),
 )
 BY_KEY: dict[str, SourceSpec] = {s.key: s for s in SOURCES}

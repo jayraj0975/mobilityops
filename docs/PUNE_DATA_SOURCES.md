@@ -19,7 +19,7 @@ So the Pune part of MobilityOps is built as follows, and the interface says the 
 | Zones and map | OpenStreetMap place nodes, real | STATIC |
 | Mobility **demand** | a documented generator conditioned on the real weather and the Indian calendar | **SIMULATED**, never LIVE |
 | Forecasts, anomalies, scenarios | computed from the simulated demand | PREDICTED / SIMULATED |
-| Traffic, transit feeds | adapters exist; **disabled** until an owner supplies a key or feed | not available |
+| Traffic, station air quality, bus timetable | **not implemented**: listed in the source registry as not configured; no fetching code exists | NOT CONFIGURED |
 
 The New York pipeline (real TLC data) stays as the reference city where every model was validated on real
 observations; Pune runs the same pipeline on simulated demand. Results on Pune demand say nothing about real
@@ -34,13 +34,13 @@ Pune traffic, and the documentation and interface never suggest otherwise.
 | 3 | Open-Meteo Archive API (ERA5 reanalysis) | Open-Meteo | no key | as above | historical; hourly | **Verified, used** |
 | 4 | OpenStreetMap place nodes via Overpass | OpenStreetMap contributors | no key | ODbL 1.0, attribution required | continuous; fetched once at build time | **Verified, used** |
 | 5 | OSM administrative boundaries | OpenStreetMap contributors | no key | ODbL | continuous | Verified to exist, only the bounding box used |
-| 6 | PMPML bus GTFS (`croyla/pmpml-gtfs`) | **unofficial**, community | GitHub | tool MIT-0; **data terms unknown** | unspecified | Not bundled; adapter reads a feed the operator supplies |
+| 6 | PMPML bus GTFS (`croyla/pmpml-gtfs`) | **unofficial**, community | GitHub | tool MIT-0; **data terms unknown** | unspecified | Not bundled and not fetched. No reader is implemented; an operator-supplied GTFS zip would need one written. |
 | 7 | PMPML live bus positions | PMPML | none found | none found | n/a | **No official open API found**; not integrated |
 | 8 | Pune Metro (Maha Metro) GTFS | Maha Metro | none found | none found | n/a | **Not found**; not integrated |
 | 9 | Pune Municipal Corporation open data portal | PMC | login link; no API | policy page states none | periodic | Exists; **licence not stated**, not integrated |
 | 10 | OGD India / Smart Cities data portal | Government of India | portal | NDSAP | annual or static | Pune datasets exist (vehicle registrations 2014 to 2020); not verified in detail, not integrated |
-| 11 | TomTom Traffic Flow (Flow Segment Data) | TomTom | **API key** | terms not verified | on request | Free tier of 20,000 requests a month per its pricing page; **adapter built, disabled without a key, never called** |
-| 12 | OpenAQ v3 | OpenAQ | **API key** (HTTP 401 without one, verified) | CC BY 4.0 (not verified here) | station-dependent | Optional adapter, disabled without a key, never called |
+| 11 | TomTom Traffic Flow (Flow Segment Data) | TomTom | **API key** | terms not verified | on request | Free tier of 20,000 requests a month per its pricing page; **not implemented: registry entry only; never called** |
+| 12 | OpenAQ v3 | OpenAQ | **API key** (HTTP 401 without one, verified) | CC BY 4.0 (not verified here) | station-dependent | Not implemented: registry entry only; never called with a key |
 | 13 | IISc PUDX (Pune Urban Data Exchange) | IISc | page returned 404 | unknown | unknown | Status unknown; not used |
 
 ### 1. Open-Meteo forecast (current weather)
@@ -86,8 +86,7 @@ Pune traffic, and the documentation and interface never suggest otherwise.
 
 * `croyla/pmpml-gtfs` says of itself that it "connects to the Apli-PMPML (Chartr) API" to build a static GTFS (no
   real-time), is published by a private user, and states no terms for the underlying data. The generating tool is
-  MIT-0; that does not license the upstream data. It is therefore not bundled or fetched. The GTFS adapter reads a
-  zip the operator provides and reports its provenance.
+  MIT-0; that does not license the upstream data. It is therefore not bundled or fetched. No GTFS reader is implemented.
 * No official PMPML or Pune Metro real-time feed was found. The search that suggested one described community
   projects, not a published API.
 * The PMC portal is a login-based site with no CKAN API (`/api/3/action/package_list` returned 404) and its policy page
@@ -95,8 +94,9 @@ Pune traffic, and the documentation and interface never suggest otherwise.
 
 ### 11 to 12. Sources that need a key
 
-TomTom and OpenAQ adapters are implemented so a real feed can be plugged in, with the key read from the environment.
-They are **off by default, were never called, and are not verified to work**. Enabling TomTom additionally
+TomTom and OpenAQ are **registered as not configured and nothing fetches from them: no adapter code exists yet**.
+The registry shows which environment variable (`TOMTOM_API_KEY`, `OPENAQ_API_KEY`) would enable one once an adapter is written;
+they were never called and are not verified to work. Enabling TomTom additionally
 requires the owner to read its terms on caching and redistribution, which this investigation did not verify.
 
 ## What "live" means in this product

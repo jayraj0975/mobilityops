@@ -3058,7 +3058,7 @@
   "info": {
     "description": "Read-only analytics, forecasts, anomaly events and simulated repositioning scenarios over NYC yellow-taxi demand. Sample mode serves TEST / SYNTHETIC DATA; the `X-Data-Label` response header always says which is being served. Optimization outputs are SIMULATED SCENARIOS under explicit assumptions.",
     "title": "MobilityOps API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {

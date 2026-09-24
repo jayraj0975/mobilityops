@@ -1,8 +1,49 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-09-25)
 
-### Full-year data, services and a holiday test
+### Pune: a real-time platform on simulated demand
+- **What is real and what is not.** No open source of Pune taxi, ride-hail or bus demand exists (checked source by
+  source, `docs/PUNE_DATA_SOURCES.md`), so demand is **SIMULATED** by a documented model and labelled so in the API,
+  the console, the Android app and the docs. Real inputs: hourly rain (Open-Meteo: ERA5 history and recent-hours model
+  output), the Maharashtra holiday calendar, and 91 zones built from OpenStreetMap suburbs (ODbL, attributed).
+  Live sources polled on their own schedules: current weather (15 min), modelled air quality (60 min), recent rain.
+  Traffic, station air quality and the PMPML timetable are listed as not implemented; nothing pretends otherwise.
+- **City profiles** (`city.py`): timezone, holiday calendar and wording per city; `MOBILITYOPS_MODE=pune`. New York
+  behaviour is unchanged (every existing test passes on the defaults). New dependency: `holidays`.
+- **Live layer:** a separate worker process (sole writer) fills a SQLite (WAL) store; freshness (LIVE, DELAYED,
+  STALE, OFFLINE) is derived from each source's own timestamps; `/api/v1/state/*` and a server-sent event stream with
+  heartbeats and a viewer cap; a rule finds events among today's completed hours; `/ready` reports the worker.
+- **Console** (web, when the server is in pune mode): design-system components, an SVG zone map with layers, a NOW /
+  -15m / -1h / -6h / TODAY / FORECAST time control, forecast ranges, events, a data-quality centre, connection and
+  worker notices, light and dark themes. 24 browser tests including axe WCAG A/AA scans of every page in both themes.
+- **Android** (Gradle, now Kotlin as well as Java): the app asks the server for its mode and shows Home, Map, Forecast,
+  Alerts and Status (plus zone details) for Pune. 45 unit tests, lint clean, run on an emulator against the live server
+  including a server that is killed and restarted. Version 2.0.0; debug and release APKs and an AAB build with
+  `./gradlew assembleDebug assembleRelease bundleRelease`. Not tested on a physical phone.
+- **Deployment:** a worker service in Compose and systemd, split www/api hostnames behind Caddy (validated with the
+  Caddy image), and a hardened container run (read-only filesystem, no capabilities, unprivileged user) that served
+  the live data. No public domain was deployed; `docs/PRODUCTION.md` says what that needs.
+
+### Defects found and fixed while building it
+- Counts drawn directly from a Poisson sampler consumed a rate-dependent amount of randomness, so new rain data or a
+  planted event reshuffled every later cell of the day (history would have been rewritten every 15 minutes). Counts now
+  come from a fixed uniform per cell through the Poisson quantile function. Caught by tests, twice.
+- `docker stop` / `systemctl stop` hung: uvicorn waits for open event streams, and a connected viewer never ends one.
+  Graceful shutdown is bounded to 5 s (measured: 5.6 s with a viewer connected). The worker, as PID 1, ignored SIGTERM
+  (10.1 s, then killed); it now stops in 0.3 s.
+- Adapters stamped `received_at` from the wall clock instead of their caller's; hourly rain was flagged DELAYED at 39
+  minutes because its expected interval was 15 minutes; analyst and anomaly text said "US federal holiday" on Pune
+  dates; a hard-coded "about five months of history" note was stale on a year of data.
+- Documentation claimed TomTom, OpenAQ and GTFS "adapters" that did not exist; corrected, and an unimplemented source
+  can no longer be marked enabled by setting a key.
+
+### Known defects fixed earlier in this release
+- Concentration (HHI) is computed over every zone, not the top 100; unbounded and error solver statuses are reported
+  as such; dropoffs are reconciled by accounting (ADR-017); CI is hardened (SHA-pinned actions, pip-audit, CodeQL,
+  Dependabot, Gradle wrapper checksum, Docker build); versions are tested for consistency.
+
+### Real data: full year, services and a holiday test
 - Real data extended from January to May to all of 2024. Results regenerated; the earlier ones are archived in
   `reports/jan_may_2024`. The test window is now 6 November to 31 December, so results are not directly
   comparable. Headline: LightGBM WAPE 19.5% against 26.3% for the best baseline, almost all of the gap in the

@@ -100,6 +100,21 @@ def parse(text: str | None) -> datetime | None:
     return datetime.fromisoformat(text) if text else None
 
 
+WORKER_ALIVE_SECONDS = 90.0  # the worker ticks every 15 s; six missed ticks means it is not running
+
+
+def worker_alive(path: Path, now: datetime | None = None) -> bool:
+    """Has the ingestion worker ticked recently? False if the store or the heartbeat is missing."""
+    if not path.exists():
+        return False
+    info = StateStore(path, read_only=True).get_kv("worker") or {}
+    last = parse(info.get("last_tick_at"))
+    if last is None:
+        return False
+    age = ((now or datetime.now(UTC)) - last).total_seconds()
+    return 0 <= age <= WORKER_ALIVE_SECONDS
+
+
 class StateStore:
     def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self.path = path

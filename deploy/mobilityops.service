@@ -14,6 +14,8 @@ Environment=MOBILITYOPS_WEB_DIST=/opt/mobilityops/apps/web/dist
 ExecStart=/opt/mobilityops/.venv/bin/python -m mobilityops.cli serve --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=3
+# Open event streams are cancelled after 5 s of graceful shutdown; allow a little more than that.
+TimeoutStopSec=15
 
 # The service only reads its data and writes nothing.
 NoNewPrivileges=true
@@ -27,6 +29,9 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictNamespaces=true
 LockPersonality=true
 ReadOnlyPaths=/opt/mobilityops
+# Pune only: the live state (SQLite, WAL). The API opens it query-only but a reader must be able to
+# maintain the shared-memory file next to it.
+ReadWritePaths=/opt/mobilityops/data/live
 
 [Install]
 WantedBy=multi-user.target

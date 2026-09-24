@@ -178,13 +178,13 @@ describe("design-system components", () => {
       <DataSourceStatus
         sources={[
           source({ freshness: "STALE", consecutive_failures: 3, last_error: "HTTP 503", age_s: 4000 }),
-          source({ key: "tomtom", label: "Road traffic flow", enabled: false, freshness: "DISABLED", disabled_reason: "no TOMTOM_API_KEY configured", interval_s: 300, age_s: null }),
+          source({ key: "tomtom", label: "Road traffic flow", enabled: false, freshness: "DISABLED", disabled_reason: "not implemented: no adapter exists yet", interval_s: 300, age_s: null }),
         ]}
       />,
     );
     expect(screen.getByText(/3 failed polls in a row: HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("NOT CONFIGURED")).toBeInTheDocument();
-    expect(screen.getByText(/no TOMTOM_API_KEY configured/)).toBeInTheDocument();
+    expect(screen.getByText(/not implemented: no adapter exists yet/)).toBeInTheDocument();
   });
   it("the strip form hides what is not connected", () => {
     render(<DataSourceStatus variant="strip" sources={[source(), source({ key: "x", label: "Hidden", enabled: false, freshness: "DISABLED" })]} />);

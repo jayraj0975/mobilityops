@@ -17,6 +17,7 @@ Jobs (interval in seconds):
 from __future__ import annotations
 
 import os
+import threading
 import time
 import traceback
 from collections.abc import Callable
@@ -236,12 +237,14 @@ class Worker:
             },
         )
 
-    def run_forever(self) -> None:  # pragma: no cover - the loop itself is exercised via tick()
+    def run_forever(self, stop: threading.Event | None = None) -> None:
+        """Tick until ``stop`` is set. Waiting on the event (not sleeping) stops it at once."""
+        stop = stop or threading.Event()
         self.store.set_kv("worker_started_at", self.clock().isoformat(timespec="seconds"))
         last_prune = self.clock() - timedelta(days=1)
-        while True:
+        while not stop.is_set():
             self.tick()
             if self.clock() - last_prune > timedelta(hours=6):
                 self.store.prune(self.clock())
                 last_prune = self.clock()
-            time.sleep(TICK_SECONDS)
+            stop.wait(TICK_SECONDS)

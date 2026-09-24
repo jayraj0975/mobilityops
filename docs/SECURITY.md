@@ -50,6 +50,25 @@ for common key and token formats and private-key headers (0 matches; no keystore
 tracked, and the Android signing key lives outside the repository), only `.env.example` tracked. The one tracked
 file over 1 MB is `reports/ai_benchmark_real.json` (1.7 MB, the raw analyst benchmark runs).
 
+## The Pune live layer (added in 0.2.0)
+
+| Risk | Control | Tested |
+|---|---|---|
+| The API writing to the live state | The API opens the SQLite file `query_only`; the worker is the only writer | `test_read_only_connections_cannot_write` |
+| Injection through path or query parameters | Zone ids are typed integers; `at` is an enumeration; `limit`, `back`, `ahead` are bounded; the store is only reached through parameterised statements | `test_hostile_input_is_rejected_or_harmless` (SQL-shaped paths, negative and enormous ids, oversized limits) |
+| Flooding the state endpoints or the stream | The `/api/v1/` rate limit covers them; viewers are capped (`MOBILITYOPS_LIVE_MAX_STREAMS`); each viewer has a bounded queue and a slow viewer loses old events instead of growing memory | `test_state_endpoints_are_rate_limited`, `test_hub_caps_viewers...`, `test_a_slow_viewer_loses_old_events...` |
+| Unauthenticated access | The same API key as the rest of `/api/v1/`, including the stream | `test_state_endpoints_require_the_api_key...` |
+| Cross-origin reads | No CORS grant for an unlisted origin; a wildcard is refused at start-up | `test_state_responses_carry_the_security_headers_and_no_cors_wildcard` |
+| SSRF, open redirects through sources | Sources are three fixed Open-Meteo hosts; nothing from a request reaches a fetch; redirects are not followed by the worker; requests time out at 20 s | adapter tests (HTTP errors, invalid JSON, timeouts) |
+| Hostile or corrupt upstream data | Values are range-checked and typed; out-of-range values are dropped and counted as rejected; a payload with nothing usable is an error, not an empty success | `tests/unit/test_openmeteo.py` |
+| Untrusted text rendered in the UI | Zone names (OpenStreetMap) and error strings are rendered as text by React and Android `setText`, never as markup | e2e and unit tests render them; no `dangerouslySetInnerHTML` |
+| Container escape and privilege | The container runs unprivileged with a read-only root filesystem, no capabilities and `no-new-privileges`; the live folder is the one writable mount | run with those options on 2026-09-24 (`docs/PRODUCTION.md`) |
+| A hung shutdown holding the process | Graceful shutdown is bounded (5 s); the worker handles SIGTERM | `test_serve_bounds_graceful_shutdown`, `test_the_loop_stops_at_once_when_asked` |
+| API keys in the repository | None; the signing key lives outside it; `TOMTOM`/`OPENAQ` sources have no adapter and read no key | scan of the tree, 2026-09-24 |
+
+Also scanned on 2026-09-24 for this release: `pip-audit` (no known vulnerabilities, including the new `holidays`
+dependency), `npm audit --omit=dev` (0), and a scan of tracked files for key and token shapes (0 matches).
+
 ## Not covered (do not treat this as a hardened internet service)
 
 * **Authentication and authorisation** beyond one optional shared key; no users, roles or audit trail.

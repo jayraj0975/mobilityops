@@ -61,8 +61,8 @@ export function MethodPage() {
             <li>Code: MIT.</li>
           </ul>
           <p className="small muted">
-            Traffic (TomTom), station air quality (OpenAQ) and the PMPML bus timetable have adapters or notes but are not
-            connected: they need a key or a feed the operator supplies.
+            Traffic (TomTom), station air quality (OpenAQ) and the PMPML bus timetable are listed but not
+            connected: no fetching code exists for them yet, and each would need a key or a feed the operator supplies.
           </p>
         </ChartPanel>
       </div>

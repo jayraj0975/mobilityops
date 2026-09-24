@@ -124,7 +124,15 @@ def cmd_pune_worker(settings: Settings, args: argparse.Namespace) -> int:
                 state = "ok" if run["ok"] else f"FAILED: {run['error']}"
                 print(f"  {run['source']:<26} {state} ({run['records_ok']} records)")
             return 0
-        worker.run_forever()
+        # As PID 1 in a container a Python process ignores SIGTERM unless it installs a handler,
+        # and `docker stop` would wait ten seconds and then kill it. Stop cleanly instead.
+        import signal
+        import threading
+
+        stop = threading.Event()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, lambda *_: stop.set())
+        worker.run_forever(stop)
     return 0
 
 
