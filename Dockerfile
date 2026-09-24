@@ -9,7 +9,7 @@ RUN npm ci
 COPY apps/web/ ./
 RUN npm run build
 
-FROM python:3.12-slim AS app
+FROM python:3.14-slim AS app
 # LightGBM needs the OpenMP runtime.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
