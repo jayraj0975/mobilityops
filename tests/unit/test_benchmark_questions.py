@@ -8,6 +8,7 @@ import pytest
 
 from mobilityops.analyst.benchmark import (
     HOLDOUT2_PATH,
+    HOLDOUT3_PATH,
     HOLDOUT_PATH,
     QUESTIONS_PATH,
     load_questions,
@@ -27,7 +28,9 @@ def norm(text: str) -> str:
 
 
 @pytest.mark.parametrize(
-    "path", [QUESTIONS_PATH, HOLDOUT_PATH, HOLDOUT2_PATH], ids=["dev", "holdout", "holdout2"]
+    "path",
+    [QUESTIONS_PATH, HOLDOUT_PATH, HOLDOUT2_PATH, HOLDOUT3_PATH],
+    ids=["dev", "holdout", "holdout2", "holdout3"],
 )
 def test_question_files_are_well_formed(path) -> None:  # type: ignore[no-untyped-def]
     items = load_questions(path)
@@ -73,6 +76,16 @@ def test_second_holdout_shares_no_question_with_the_other_sets() -> None:
     }
     second = {norm(q["question"]) for q in load_questions(HOLDOUT2_PATH)}
     assert len(second) == 40 and not others & second
+
+
+def test_third_holdout_shares_no_question_with_the_other_sets() -> None:
+    others = {
+        norm(q["question"])
+        for path in (QUESTIONS_PATH, HOLDOUT_PATH, HOLDOUT2_PATH)
+        for q in load_questions(path)
+    }
+    third = {norm(q["question"]) for q in load_questions(HOLDOUT3_PATH)}
+    assert len(third) == 40 and not others & third
 
 
 def test_failure_kinds_separate_misleading_from_unhelpful() -> None:

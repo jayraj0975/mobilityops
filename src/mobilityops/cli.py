@@ -313,10 +313,21 @@ def cmd_analyst_benchmark(settings: Settings, args: argparse.Namespace) -> int:
     from mobilityops.analyst.benchmark import run_benchmark, save
 
     try:
-        from mobilityops.analyst.benchmark import HOLDOUT2_PATH, HOLDOUT_PATH, QUESTIONS_PATH
+        from mobilityops.analyst.benchmark import (
+            HOLDOUT2_PATH,
+            HOLDOUT3_PATH,
+            HOLDOUT_PATH,
+            QUESTIONS_PATH,
+        )
 
         path_in = (
-            HOLDOUT2_PATH if args.holdout2 else HOLDOUT_PATH if args.holdout else QUESTIONS_PATH
+            HOLDOUT3_PATH
+            if args.holdout3
+            else HOLDOUT2_PATH
+            if args.holdout2
+            else HOLDOUT_PATH
+            if args.holdout
+            else QUESTIONS_PATH
         )
         run = run_benchmark(settings, label=args.label, questions=path_in)
     except (FileNotFoundError, ValueError) as exc:
@@ -426,6 +437,7 @@ def build_parser() -> argparse.ArgumentParser:
     ab.add_argument("--label", default="run")
     ab.add_argument("--holdout", action="store_true", help="run the first held-out question set")
     ab.add_argument("--holdout2", action="store_true", help="run the second held-out question set")
+    ab.add_argument("--holdout3", action="store_true", help="run the third held-out question set")
     ab.set_defaults(func=cmd_analyst_benchmark)
     abr = sub.add_parser("analyst-benchmark-report", help="render the benchmark as Markdown")
     abr.add_argument("--out", default="reports/ai_evaluation.md")

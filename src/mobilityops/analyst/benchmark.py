@@ -41,6 +41,8 @@ HOLDOUT_PATH = BENCH_DIR / "analyst_questions_holdout.json"  # written after tun
 # Written after the first held-out set had been used to fix the planner, and frozen (committed)
 # before its first run; see docs/AI_EVALUATION.md.
 HOLDOUT2_PATH = BENCH_DIR / "analyst_questions_holdout2.json"
+# Written after the second set had been used to fix the planner; frozen before its first run.
+HOLDOUT3_PATH = BENCH_DIR / "analyst_questions_holdout3.json"
 _CAUSAL = re.compile(
     r"\b(because of|caused by|was caused|due to|led to|resulted in|triggered by|as a result of|"
     r"proves?|proved)\b",
