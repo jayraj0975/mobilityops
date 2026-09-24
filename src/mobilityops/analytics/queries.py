@@ -411,14 +411,34 @@ class Analytics:
     def concentration(
         self, start: date | datetime, end: date | datetime, top_n: int = 10
     ) -> dict[str, Any]:
-        """How concentrated demand is: the top zones' share, and the Herfindahl index."""
-        ranked = self.top_zones(start, end, limit=MAX_TOP_N)
-        shares = ranked["share"].to_numpy(dtype=float)  # already sorted, largest first
+        """How concentrated demand is: the top zones' share, and the Herfindahl index.
+
+        The index is computed over **every** zone with demand in the period (a top-N list would drop
+        the tail and understate it); ``zones_counted`` says how many that was.
+        """
+        if not 1 <= top_n <= MAX_TOP_N:
+            raise InvalidQuery(f"top_n must be between 1 and {MAX_TOP_N}")
+        s, e = self._check_range(start, end)
+        df = self._df(
+            """
+            WITH t AS (
+              SELECT location_id, sum(pickups) AS value FROM fact_zone_hourly_demand
+              WHERE hour_ts >= ? AND hour_ts < ? GROUP BY 1
+            )
+            SELECT value / nullif(sum(value) OVER (), 0) AS share FROM t WHERE value > 0
+            ORDER BY share DESC
+            """,
+            [s, e],
+        )
+        if df.empty:
+            raise NoData("no demand data for that period")
+        shares = df["share"].to_numpy(dtype=float)  # sorted, largest first, covers all zones
         return {
             "top_n": top_n,
             "top_n_share": float(shares[:top_n].sum()),
             "herfindahl_index": float((shares**2).sum()),
-            "share_covered_by_top_100": float(shares.sum()),
+            "zones_counted": len(shares),
+            "share_covered_by_top_100": float(shares[:MAX_TOP_N].sum()),
         }
 
     # ---------------------------------------------------------------------- weather

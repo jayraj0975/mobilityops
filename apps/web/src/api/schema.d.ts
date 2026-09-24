@@ -799,7 +799,10 @@ export interface components {
         };
         /** Concentration */
         Concentration: {
-            /** Herfindahl Index */
+            /**
+             * Herfindahl Index
+             * @description Computed over every zone with demand in the period.
+             */
             herfindahl_index: number;
             /** Share Covered By Top 100 */
             share_covered_by_top_100?: number | null;
@@ -807,6 +810,11 @@ export interface components {
             top_n: number;
             /** Top N Share */
             top_n_share: number;
+            /**
+             * Zones Counted
+             * @description Number of zones with demand that the index covers.
+             */
+            zones_counted?: number | null;
         };
         /** ForecastPoint */
         ForecastPoint: {
@@ -1086,7 +1094,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "optimal" | "feasible_time_limit" | "infeasible" | "no_solution";
+            status: "optimal" | "feasible_time_limit" | "infeasible" | "no_solution" | "unbounded" | "solver_error";
             /** Vehicles Moved */
             vehicles_moved: number;
         };

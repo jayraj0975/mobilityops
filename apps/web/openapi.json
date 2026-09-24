@@ -524,6 +524,7 @@
         "additionalProperties": false,
         "properties": {
           "herfindahl_index": {
+            "description": "Computed over every zone with demand in the period.",
             "title": "Herfindahl Index",
             "type": "number"
           },
@@ -545,6 +546,18 @@
           "top_n_share": {
             "title": "Top N Share",
             "type": "number"
+          },
+          "zones_counted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Number of zones with demand that the index covers.",
+            "title": "Zones Counted"
           }
         },
         "required": [
@@ -1179,7 +1192,9 @@
               "optimal",
               "feasible_time_limit",
               "infeasible",
-              "no_solution"
+              "no_solution",
+              "unbounded",
+              "solver_error"
             ],
             "title": "Status",
             "type": "string"

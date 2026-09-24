@@ -15,13 +15,14 @@ const NAMES: Record<string, string> = {
 function Result({ r, zones }: { r: Schemas["ScenarioResponse"]; zones: Schemas["Zone"][] }) {
   void zones;
   const ok = r.status === "optimal" || r.status === "feasible_time_limit";
+  const failed = r.status === "solver_error" || r.status === "unbounded"; // not a result: never trusted
   return (
     <div aria-live="polite">
       <p className="banner banner-sim" role="note">
         <strong>{r.label}</strong>
       </p>
       <p>
-        <span className={`badge badge-${ok ? "pass" : "warn"}`}>{r.status}</span> {r.message}
+        <span className={`badge badge-${ok ? "pass" : failed ? "fail" : "warn"}`}>{r.status}</span> {r.message}
       </p>
       <div className="kpis">
         <div className="kpi">
@@ -29,7 +30,7 @@ function Result({ r, zones }: { r: Schemas["ScenarioResponse"]; zones: Schemas["
           <span className="kpi-value">{fmtPct(r.service_share_before, 2)}</span>
         </div>
         <div className="kpi">
-          <span className="kpi-label">{ok ? "Served share with the plan" : "Best attainable"}</span>
+          <span className="kpi-label">{ok ? "Served share with the plan" : failed ? "No plan" : "Best attainable"}</span>
           <span className="kpi-value">{fmtPct(ok ? r.service_share_after : r.best_attainable_service_share, 2)}</span>
         </div>
         <div className="kpi">

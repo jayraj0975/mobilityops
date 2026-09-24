@@ -118,6 +118,7 @@ def test_concentration(an: Analytics) -> None:
         1 / 12 < c["herfindahl_index"] < 1
     )  # more concentrated than uniform, less than a monopoly
     assert c["share_covered_by_top_100"] == pytest.approx(1.0)
+    assert c["zones_counted"] == 12
 
 
 def test_rain_is_associated_with_lower_demand_near_the_planted_effect(an: Analytics) -> None:
@@ -205,3 +206,47 @@ def test_dst_spring_forward_end_to_end(sample_files, tmp_path) -> None:  # type:
     assert gap_check.metrics["dst_gap_hours"] == 1
     # the missing hour is absent, not zero: the grid is complete for the hours that exist
     assert res.gold.fact_rows == 12 * (3 * 24 - 1)
+
+
+# ------------------------------------------------------------------ regression: concentration
+def _many_zone_db(path, n_zones: int) -> None:  # type: ignore[no-untyped-def]
+    """A minimal gold database with ``n_zones`` zones of exactly equal demand."""
+    import duckdb
+
+    con = duckdb.connect(str(path))
+    con.execute(
+        "CREATE TABLE dim_zone AS SELECT i AS location_id, 'Zone ' || i AS zone, 'B' AS borough, "
+        "'x' AS service_zone, 0.0 AS centroid_lon, 0.0 AS centroid_lat, true AS is_real_zone "
+        f"FROM range(1, {n_zones + 1}) t(i)"
+    )
+    con.execute(
+        "CREATE TABLE fact_zone_hourly_demand AS SELECT z.location_id, "
+        "TIMESTAMP '2024-01-01' + INTERVAL (h) HOUR AS hour_ts, 10::INTEGER AS pickups, "
+        "10::INTEGER AS dropoffs, 1.0 AS revenue, 1.0 AS passengers "
+        "FROM dim_zone z CROSS JOIN range(0, 48) t(h)"
+    )
+    con.execute(
+        "CREATE TABLE pipeline_run AS SELECT 'r' AS run_id, 'sample' AS mode, "
+        "'2024-01-01T00:00:00+00:00' AS built_at_utc, 100 AS rows_valid, true AS synthetic"
+    )
+    con.close()
+
+
+def test_concentration_covers_every_zone_not_just_the_top_hundred(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The index used to be computed from the top 100 zones only, so with more zones it was
+    understated: 150 equal zones must give exactly 1/150, not 100 * (1/150)**2."""
+    db = tmp_path / "many.duckdb"
+    _many_zone_db(db, 150)
+    c = Analytics(db).concentration(date(2024, 1, 1), date(2024, 1, 3), top_n=10)
+    assert c["zones_counted"] == 150
+    assert c["herfindahl_index"] == pytest.approx(1 / 150)
+    assert c["top_n_share"] == pytest.approx(10 / 150)
+    assert c["share_covered_by_top_100"] == pytest.approx(100 / 150)  # honest: not the whole city
+
+
+def test_concentration_rejects_an_impossible_top_n(an: Analytics) -> None:
+    from mobilityops.analytics.queries import InvalidQuery
+
+    for bad in (0, 101):
+        with pytest.raises(InvalidQuery):
+            an.concentration(D0, D1, top_n=bad)
