@@ -21,7 +21,7 @@ T = pd.Timestamp
 
 
 def trips_frame() -> pd.DataFrame:
-    """Ten valid trips whose dropoffs are: 6 fine, 2 to unknown zones, 1 to NULL, 1 after the window."""
+    """Ten valid trips: 6 dropoffs fine, 2 to unknown zones, 1 missing, 1 after the window ends."""
     rows = [
         # (pickup, dropoff, pu_zone, do_zone)
         ("2024-01-01 08:10", "2024-01-01 08:30", 3, 4),
@@ -65,7 +65,7 @@ def built(sample_files: SampleFiles, tmp_path: Path) -> tuple[Settings, SilverRe
 
 
 def test_every_dropoff_is_placed_or_accounted_for_by_reason(built) -> None:  # type: ignore[no-untyped-def]
-    s, silver, gold = built
+    _, silver, gold = built
     con = duckdb.connect(str(gold.building_path), read_only=True)
     try:
         placed = con.execute("SELECT sum(dropoffs) FROM fact_zone_hourly_demand").fetchone()[0]
@@ -85,7 +85,7 @@ def test_every_dropoff_is_placed_or_accounted_for_by_reason(built) -> None:  # t
 
 
 def test_the_quality_gate_reconciles_dropoffs_and_reports_the_share(built) -> None:  # type: ignore[no-untyped-def]
-    s, silver, gold = built
+    _, silver, gold = built
     report = check_gold(gold.building_path, gold, silver, WINDOW)
     by_name = {r.name: r for r in report.results}
     rec = by_name["dropoffs_reconcile_with_silver"]
@@ -97,7 +97,7 @@ def test_the_quality_gate_reconciles_dropoffs_and_reports_the_share(built) -> No
 
 def test_the_gate_fails_if_dropoffs_go_missing(built) -> None:  # type: ignore[no-untyped-def]
     """Simulate the original defect: an unallocated row is dropped from the accounting table."""
-    s, silver, gold = built
+    _, silver, gold = built
     con = duckdb.connect(str(gold.building_path))
     con.execute("DELETE FROM dq_unallocated_dropoffs WHERE do_zone = 265")
     con.close()
