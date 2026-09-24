@@ -10,7 +10,7 @@ read-only.
 |---|---|
 | Code | this repository, `main`, built from the `Dockerfile` |
 | Data | the aggregate-only bundle attached to the GitHub release `demo-data-v1`, downloaded at build time and checked against a pinned SHA-256 (`scripts/fetch_demo.py`) |
-| Settings | environment variables in [`render.yaml`](../render.yaml): real mode, per-client rate limits, trusted-proxy client IPs, one model thread, `MALLOC_ARENA_MAX=2` |
+| Settings | environment variables in [`render.yaml`](../render.yaml): real mode, per-client rate limits, trusted-proxy depth 3 (measured, see below), one model thread, `MALLOC_ARENA_MAX=2` |
 
 The bundle holds pickups per zone per hour, the zone dimension, daily weather, quality results and
 the generated model artifacts. It holds no trip-level rows and no secrets. Sources and licences:
@@ -44,3 +44,14 @@ docker run --rm -p 127.0.0.1:8000:8000 -e MOBILITYOPS_MODE=real mobilityops-demo
   scenario solver is capped at 2 concurrent solves and the heavy endpoints have their own, lower
   rate limit. If the process is killed for memory, upgrade the plan; nothing else needs changing.
 * The URL is `https://mobilityops.onrender.com`. Health: `/health`, readiness: `/ready`.
+
+## Client addresses behind Render
+
+Rate limits count by client address, taken from `X-Forwarded-For` counted from the right
+(`MOBILITYOPS_TRUST_PROXY` = number of proxies in front). On Render the chain the app receives is
+`<whatever the client sent>, <client>, <Cloudflare edge>, <Render load balancer>`, so the depth is 3.
+This was measured, not assumed: with depth 1 the logged address was an internal 10.x load balancer,
+with depth 2 a rotating Cloudflare address, and with depth 3 the address of the machine making the
+request, unchanged by forged `X-Forwarded-For` prefixes. A first attempt that trusted the leftmost
+entry let a forged header dodge the limit on the live site; that is fixed and covered by tests
+(`tests/unit/test_limits.py`). If the hosting provider changes its proxy chain, re-measure.
