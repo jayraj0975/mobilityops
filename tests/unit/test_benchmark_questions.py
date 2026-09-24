@@ -105,7 +105,7 @@ def test_failure_kinds_separate_misleading_from_unhelpful() -> None:
     )
 
 
-def test_report_marks_llm_unverified_and_the_second_holdout_as_the_fairest() -> None:
+def test_report_marks_llm_unverified_and_states_the_second_holdout_result() -> None:
     run = {
         "label": "first-run", "question_set": "analyst_questions.json", "mode": "real",
         "data_label": "real data", "questions": 2, "passed": 1, "pass_rate": 0.5,
@@ -120,6 +120,6 @@ def test_report_marks_llm_unverified_and_the_second_holdout_as_the_fairest() -> 
         "question_set": "analyst_questions_holdout2.json",
     }
     text = render([run, hold, hold2])
-    assert "LLM mode: UNVERIFIED" in text and "fairest estimate" in text
+    assert "LLM mode: UNVERIFIED" in text and "lowest of the three first runs" in text
     assert "Second held-out set, first run" in text
     assert "optimistic" not in text or "after fixes" in text

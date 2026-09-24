@@ -18,7 +18,7 @@
   anomaly, repositioning and definition phrasings; "drop-off" no longer read as the anomaly word
   "drop"; a month followed by a full stop no longer read as an unknown place; more refusals for
   shell commands and model replacement).
-- Second held-out set (40 questions) frozen before its first run: **60.0%** (24/40); the first held-out set had scored 77.5%. Both are development data after the fixes; see `docs/AI_EVALUATION.md`.
+- Second and third held-out sets (40 questions each) frozen before their first runs: **60.0%** and **80.0%**; the first set had scored 77.5% (72.5% pooled). All are development data after the fixes; see `docs/AI_EVALUATION.md`. Round-three fixes: `march 2024` and `first week of May` periods, `earners`, `rush hour timing`, `any zone`, refusal to export data.
 
 ## 0.1.0 - 2026-09-24
 

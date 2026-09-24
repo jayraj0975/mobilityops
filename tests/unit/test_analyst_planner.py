@@ -196,6 +196,13 @@ def test_question_text_cannot_add_tools_or_arguments() -> None:
         ("Explain what a walk-forward evaluation is", "glossary"),
         ("How many taxi trips are covered by your data?", "overview"),
         ("How many trips started in JFK Airport in April?", "zone_metrics"),
+        ("biggest earners by fare total in april pls", "top_zones"),
+        ("most drop offs in the first week of may?", "top_zones"),
+        ("pickups for east village, march 2024", "zone_metrics"),
+        ("rush hour timing at penn station?", "profile"),
+        ("were there odd things on 2024-05-27 in any zone?", "anomalies"),
+        ("what did the repositioning experiments conclude?", "optimization_findings"),
+        ("which months does the dataset include?", "overview"),
     ],
 )
 def test_phrasings_that_missed_before_now_reach_the_right_tool(question: str, intent: str) -> None:
@@ -221,3 +228,16 @@ def test_a_sentence_ending_with_a_month_and_a_full_stop_is_not_an_unknown_place(
 
 def test_how_many_pickups_tomorrow_is_a_forecast_not_a_data_overview() -> None:
     assert PLAN("Exactly how many pickups will there be tomorrow?", CTX).intent == "forecast"
+
+
+def test_bare_month_with_year_and_nth_week_of_a_month_are_periods() -> None:
+    m = parse_period("pickups in march 2024", CTX)
+    assert m and (m.start, m.end_exclusive) == (date(2024, 3, 1), date(2024, 4, 1))
+    m2 = parse_period("east village, march 2024", CTX)
+    assert m2 and m2.start == date(2024, 3, 1)
+    w = parse_period("the first week of May", CTX)
+    assert w and (w.start, w.end_exclusive) == (date(2024, 5, 1), date(2024, 5, 8))
+    w3 = parse_period("second week of april", CTX)
+    assert w3 and (w3.start, w3.end_exclusive) == (date(2024, 4, 8), date(2024, 4, 15))
+    last = parse_period("the last week of April", CTX)
+    assert last and (last.start, last.end_exclusive) == (date(2024, 4, 24), date(2024, 5, 1))

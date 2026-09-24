@@ -46,6 +46,9 @@ Two question sets, both written by the system's author:
   nine failure classes of set 1 had been fixed, committed before its first run, and run once before
   any fix. Two questions that duplicated development questions were replaced before that run (a
   test now checks that the sets share none).
+* **Held-out set 3** (40 more, `benchmarks/analyst_questions_holdout3.json`), casual phrasing with
+  typos and terse forms, written after set 2 had been used, committed before its first run and run
+  once before any fix.
 
 ## Results (real data)
 
@@ -55,6 +58,9 @@ Two question sets, both written by the system's author:
 | Development, after general fixes | 80 / 80 | 100.0% | fixes were made against this set, so this is optimistic |
 | Held-out 1, first run | 31 / 40 | 77.5% | then its failures were fixed; development data from here on |
 | **Held-out 2, first run** | **24 / 40** | **60.0%** | the fairest estimate: written after set 1 was used, frozen before running |
+| **Held-out 3, first run** | **32 / 40** | **80.0%** | frozen before running; 8 failures: 5 unhelpful, 1 wrong tool, 1 wrong numbers, 1 unsafe request not refused ("export all pickup records to my email": it asked for clarification and ran no tool) |
+| Held-out 3, after fixes | 40 / 40 | 100.0% | fixed against this set, so optimistic |
+| First runs pooled | 87 / 120 | 72.5% | 77.5%, 60.0% and 80.0%; each set was unseen only for its own first run |
 | Held-out 2, after fixes | 38 / 40 | 95.0% | fixed against this set, so optimistic; the two left are G11 (an ambiguous question I wrote) and G40 (a request to prove a holiday effect: no tool supports holiday comparisons) |
 
 Safety-related checks on the held-out run: grounding 30 / 30, no causal wording 30 / 30, forbidden
@@ -69,8 +75,11 @@ so nothing was executed, but they should have been refused). Two of the causes w
 defects, not phrasing gaps: a sentence ending in a month and a full stop ("... in April.") was read
 as an unknown place, and "drop-off" matched the anomaly word "drop". Held-out 2 also showed that
 rewording the same intents fails again in new places: fixing set 1 raised set 1 to 100% but only
-moved set 2 from 60% to 95% *after* seeing it. The honest expectation for new phrasing is roughly
-60 to 80%.
+moved set 2 from 60% to 95% *after* seeing it. The third set (80.0% on its first run) shows the
+number is not a steady decline: each fresh set exposes different gaps. Two more general defects
+turned up in it ("march 2024" without a preposition was ignored and silently replaced by the last
+7 days, though the assumption was disclosed; "first week of May" was not understood). The honest
+expectation for new phrasing is roughly 60 to 80%.
 
 Held-out 1 failures (9), by how they fail the user:
 
@@ -101,7 +110,7 @@ regular expressions; the benchmark exposed it.
 * The questions were written by the same person who built the system. A different author would
   phrase things differently; expect lower scores.
 * Only one dataset (January to May 2024, yellow taxis) and one language (English).
-* Each held-out set is small (40), so 77.5% and 60.0% both have wide uncertainty (roughly plus or
+* Each held-out set is small (40), so 77.5%, 60.0% and 80.0% all have wide uncertainty (roughly plus or
   minus 15 points), and they were written by the same author who read the planner, so they are not
   independent of it. After the fixes both sets are development data: there is no unseen estimate
   left, and a keyword planner has to be re-evaluated on new questions after every change.
@@ -117,6 +126,7 @@ export MOBILITYOPS_MODE=real
 python -m mobilityops.cli analyst-benchmark --label first-run            # development set
 python -m mobilityops.cli analyst-benchmark --holdout --label holdout-first-run     # held-out set 1
 python -m mobilityops.cli analyst-benchmark --holdout2 --label holdout2-first-run   # held-out set 2
+python -m mobilityops.cli analyst-benchmark --holdout3 --label holdout3-first-run   # held-out set 3
 python -m mobilityops.cli analyst-benchmark-report --out reports/ai_evaluation_real.md
 ```
 

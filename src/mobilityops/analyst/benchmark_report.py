@@ -43,6 +43,11 @@ def render(history: list[dict[str, Any]]) -> str:
         h for h in history if h.get("question_set") == "analyst_questions_holdout2.json"
     ]
     holdout2_last = holdout2_runs[-1] if holdout2_runs else None
+    holdout3 = _find(history, "holdout3-first-run")
+    holdout3_runs = [
+        h for h in history if h.get("question_set") == "analyst_questions_holdout3.json"
+    ]
+    holdout3_last = holdout3_runs[-1] if holdout3_runs else None
     head = history[-1]
     lines = [
         f"# AI analyst evaluation ({head['data_label']})",
@@ -79,13 +84,32 @@ def render(history: list[dict[str, Any]]) -> str:
         lines.append(
             f"| **Second held-out set, first run** | {holdout2['questions']} | {holdout2['passed']} | "
             f"**{_pct(holdout2['pass_rate'])}** | written after the first held-out set had been used "
-            "and frozen before this run; the fairest estimate here |"
+            "and frozen before this run; the lowest of the three first runs |"
         )
     if holdout2 and holdout2_last and holdout2_last is not holdout2:
         lines.append(
             f"| Second held-out set, after fixes | {holdout2_last['questions']} | "
             f"{holdout2_last['passed']} | {_pct(holdout2_last['pass_rate'])} | planner fixed after "
             "seeing these failures, so this rate is optimistic; there is no unseen set left |"
+        )
+    if holdout3:
+        lines.append(
+            f"| **Third held-out set, first run** | {holdout3['questions']} | {holdout3['passed']} | "
+            f"**{_pct(holdout3['pass_rate'])}** | written after the second set had been used, "
+            "frozen before this run |"
+        )
+    if holdout3 and holdout3_last and holdout3_last is not holdout3:
+        lines.append(
+            f"| Third held-out set, after fixes | {holdout3_last['questions']} | "
+            f"{holdout3_last['passed']} | {_pct(holdout3_last['pass_rate'])} | fixed against these "
+            "failures, so optimistic |"
+        )
+    firsts = [r for r in (holdout, holdout2, holdout3) if r]
+    if len(firsts) > 1:
+        n, ok = sum(r["questions"] for r in firsts), sum(r["passed"] for r in firsts)
+        lines.append(
+            f"| Held-out first runs pooled | {n} | {ok} | {_pct(ok / n)} | the three first runs "
+            "together; each set was unseen only for its own first run |"
         )
     lines += [
         "",
@@ -110,6 +134,7 @@ def render(history: list[dict[str, Any]]) -> str:
         ("Development set (final run)", dev_last),
         ("Held-out set 1 (first run)", holdout),
         ("Held-out set 2 (first run)", holdout2),
+        ("Held-out set 3 (first run)", holdout3),
     ):
         if not run:
             continue
@@ -139,6 +164,7 @@ def render(history: list[dict[str, Any]]) -> str:
         ("Failures on the development set's first run", dev_first),
         ("Failures on the first held-out set (first run)", holdout),
         ("Failures on the second held-out set (first run)", holdout2),
+        ("Failures on the third held-out set (first run)", holdout3),
     ):
         if not run:
             continue

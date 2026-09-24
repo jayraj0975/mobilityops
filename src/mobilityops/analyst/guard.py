@@ -35,6 +35,12 @@ _REFUSE: tuple[tuple[re.Pattern[str], str], ...] = tuple(
             "I only read data; I cannot modify or delete it.",
         ),
         (
+            r"\b(export|send|email|e-mail|upload|forward|mail)\b.{0,40}"
+            r"\b(records?|rows|data|database|files?)\b.{0,30}"
+            r"\b(to my|to me|email|e-mail|inbox|server|webhook|drive|dropbox)\b",
+            "I cannot send or export data anywhere; I only read it and answer questions.",
+        ),
+        (
             r"\b(rm\s+-|rm\s+/|rmdir|sudo|chmod|chown|wget|curl|pkill|mkfs)\b|\brm\s+-",
             "I do not execute code or commands.",
         ),

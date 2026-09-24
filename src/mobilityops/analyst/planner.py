@@ -199,9 +199,31 @@ def parse_period(text: str, ctx: PlanningContext, *, bare_month: bool = False) -
     if len(dates) == 1:
         d = dates[0]
         return Period(d, d + one_day, f"{d}")
+    wk = re.search(
+        rf"\b(first|second|third|fourth|last)\s+week\s+(?:of|in)\s+({_MONTH_RE})\b(?:\s+(\d{{4}}))?",
+        low,
+    )
+    if wk:
+        y = int(wk.group(3) or ctx.data_last.year)
+        mo = MONTHS[wk.group(2)]
+        first = date(y, mo, 1)
+        nxt = date(y + (mo == 12), mo % 12 + 1, 1)
+        if wk.group(1) == "last":
+            s, e = nxt - timedelta(days=7), nxt
+        else:
+            k = ("first", "second", "third", "fourth").index(wk.group(1))
+            s = first + timedelta(days=7 * k)
+            e = s + timedelta(days=7)
+        s, e = _clip(s, e, ctx)
+        if s < e:
+            return Period(s, e, f"{s} to {e - one_day}")
     m = re.search(rf"\b(?:in|during|for|of)?\s*\b({_MONTH_RE})\b(?:\s+(\d{{4}}))?", low)
-    if m and re.search(rf"\b(in|during|for|of|month of)\s+({_MONTH_RE})\b", low):
-        mm = re.search(rf"\b(?:in|during|for|of)\s+({_MONTH_RE})\b(?:\s+(\d{{4}}))?", low)
+    if m and re.search(
+        rf"\b(in|during|for|of|month of)\s+({_MONTH_RE})\b|\b({_MONTH_RE})\s+\d{{4}}\b", low
+    ):
+        mm = re.search(
+            rf"\b(?:in|during|for|of)\s+({_MONTH_RE})\b(?:\s+(\d{{4}}))?", low
+        ) or re.search(rf"\b({_MONTH_RE})\s+(\d{{4}})\b", low)
         if mm:
             y = int(mm.group(2) or ctx.data_last.year)
             mo = MONTHS[mm.group(1)]
@@ -284,6 +306,7 @@ _NOT_PLACES = {
     "nyc", "new york", "new york city", "manhattan", "brooklyn", "queens", "bronx", "the bronx",
     "staten island", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
     "wape", "mae", "rmse", "lightgbm", "the", "a", "an", "my", "our", "this", "that", "i", "it",
+    "any", "every", "each", "all", "some", "which", "what", "other", "another", "one",
 }  # fmt: skip
 
 
@@ -487,6 +510,8 @@ class RulePlanner:
             r"\b(real|synthetic|sample) data\b.*\?",
             r"\bwhich (data|dataset)\b",
             r"\bwhat (dates|days) (does|do|is|are)\b",
+            r"\b(which|what) (months|dates|period|time ?frame)\b",
+            r"\b(data|dataset)\b.*\b(cover|span|include)s?\b",
         ) or (
             _has(low, r"\bhow many\b(?:\s+\w+){0,2}\s+(zones|trips|rides|pickups)\b")
             and not _has(
@@ -528,7 +553,8 @@ class RulePlanner:
             _has(low, r"\b(repositioning|rebalancing|reposition|rebalance)\b", *_REPOSITION[1:])
             and _has(
                 low,
-                r"\b(result|finding|backtest|benefit|help|worth|gain|improve|how much|effective|effect)\b",
+                r"\b(result|finding|backtest|benefit|help|worth|gain|improve|how much|effective|effect|"
+                r"conclu\w*|found|find|experiments?|tested|shown?|learn\w*|takeaways?|verdict|outcome)\b",
             )
             and not _has(low, r"\bsimulate\b", r"\bwhat if\b", r"\b(on|for)\s+\d{4}-\d{2}-\d{2}\b")
         ):
@@ -714,6 +740,9 @@ class RulePlanner:
             r"\bby hour\b",
             r"\bhourly\b",
             r"\bwhat time\b",
+            r"\brush hour\b",
+            r"\btiming\b",
+            r"\bpeak (time|period)s?\b",
             r"\bduring the day\b",
             r"\btime of day\b",
             r"\bwhen\b.*\b(highest|peak|maximum|most)\b",
@@ -799,7 +828,8 @@ class RulePlanner:
             r"\bbusiest\b",
             r"\b(biggest|largest|most popular)\b.*\b(zones?|areas?|neighbou?rhoods?|spots?)\b",
             r"\btop\b",
-            r"\bmost (popular|pickups|demand|active|trips)",
+            r"\bmost (popular|pickups|dropoffs|demand|active|trips)",
+            r"\b(biggest|top|best|highest) earners?\b",
             r"\bhighest\b",
             r"\bquietest\b",
             r"\bfewest\b",
