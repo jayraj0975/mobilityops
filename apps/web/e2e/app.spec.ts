@@ -29,7 +29,7 @@ for (const scheme of ["light", "dark"] as const) {
     test.use({ colorScheme: scheme });
 
     for (const section of SECTIONS) {
-      test(`${section}: renders real data, no errors, no WCAG A/AA violations`, async ({ page }) => {
+      test(`${section}: renders data, no errors, no WCAG A/AA violations`, async ({ page }) => {
         const problems = watch(page);
         await page.goto(`/#/${section}`);
         await expect(page.getByRole("region", { name: "Data source" })).toBeVisible();

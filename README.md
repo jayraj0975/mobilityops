@@ -30,7 +30,7 @@ produced it (nothing here is typed in by hand; regenerate with the commands in
 | API | 28 contract tests plus a concurrency smoke test on real data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | 32 component tests (run under 4 timezones), 18 real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use and phone width | VERIFIED |
 | Container | Built and run locally: whole pipeline and server inside the image, non-root, healthy | VERIFIED locally |
-| Tests | 362 Python tests at 95% line coverage; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 362 Python tests at 95% line coverage, passing on Python 3.12, 3.13 and 3.14 with identical sample results; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Hosted deployment, authentication beyond an optional API key, rate limiting, TLS | not built | NOT IMPLEMENTED |
 
 ## Screens
@@ -50,7 +50,7 @@ export MOBILITYOPS_MODE=sample
 python -m mobilityops.cli ingest && python -m mobilityops.cli build
 python -m mobilityops.cli forecast-eval && python -m mobilityops.cli forecast-train
 python -m mobilityops.cli anomalies
-make web-install web-build  # needs Node 20+
+make web-install web-build  # needs Node 20+ (CI and the image use 24, the current LTS)
 make serve                  # API + UI at http://127.0.0.1:8000  (docs at /docs)
 make check                  # lint + types + tests, exactly what CI runs
 ```
@@ -88,7 +88,7 @@ docker run -p 127.0.0.1:8000:8000 -v "$PWD/data:/app/data" -v "$PWD/artifacts:/a
 | `serve`, `openapi` | HTTP API and UI; OpenAPI contract for the frontend types |
 
 Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),
-`make e2e-browser` (Playwright with accessibility scans).
+`make e2e-browser` (Playwright with accessibility scans; CI runs it on every push against the synthetic sample).
 
 ## Documentation
 

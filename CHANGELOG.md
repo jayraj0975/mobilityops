@@ -21,6 +21,7 @@ with a benchmark. See `README.md` for results and `docs/` for methods and limita
   accessibility scans.
 
 ### Dependencies and tooling
+- CI runs the Python job on 3.12, 3.13 and 3.14 (verified to give identical sample results), Node 24, and a real-browser end-to-end job with accessibility scans; Docker image now Python 3.14 / Node 24;
 - CI actions moved to v7; Dependabot configured; `requirements.lock` records the versions the
   results were produced with; ESLint (React hooks and accessibility rules) added; frontend pages
   are code-split; dead code removed.

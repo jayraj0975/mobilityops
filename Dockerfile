@@ -2,14 +2,14 @@
 # MobilityOps: API + built UI in one small image. No data, models or secrets are baked in:
 # mount ./data and ./artifacts, and pass any keys at run time.
 
-FROM node:22-slim AS web
+FROM node:24-slim AS web
 WORKDIR /web
 COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci
 COPY apps/web/ ./
 RUN npm run build
 
-FROM python:3.12-slim AS app
+FROM python:3.14-slim AS app
 # LightGBM needs the OpenMP runtime.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \

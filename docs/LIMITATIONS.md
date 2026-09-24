@@ -68,7 +68,7 @@ What these results cannot tell you. Each item is also stated where the result ap
   metrics reset on restart and are not shared between processes.
 * The container image is large (925 MB) because of the scientific stack. It was built and run
   locally; it is not published anywhere.
-* Browser tests cover Chromium only. Accessibility checks are automated scans, not assistive
+* Browser tests cover Chromium only (they run in CI on the synthetic sample and were also run on the real data). Accessibility checks are automated scans, not assistive
   technology testing. Screenshots are of the real app on real data at one viewport.
 * The concurrency numbers come from one 12-thread machine and are a sanity check, not a benchmark.
 * No hosted demo exists; nothing here has been deployed.

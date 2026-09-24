@@ -13,6 +13,11 @@ updates:
       # openapi-typescript needs TypeScript's JS compiler API, which TypeScript 7 does not have.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+      # eslint-plugin-jsx-a11y and eslint-plugin-react-hooks do not support ESLint 10 yet.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
     groups:
       web-minor-and-patch:
         update-types: [minor, patch]
@@ -22,3 +27,7 @@ updates:
   - package-ecosystem: docker
     directory: "/"
     schedule: { interval: weekly }
+    ignore:
+      # Odd-numbered Node releases are never LTS; move between LTS lines deliberately.
+      - dependency-name: node
+        versions: ["25.x", "27.x"]
