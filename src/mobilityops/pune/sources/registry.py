@@ -70,8 +70,8 @@ SOURCES: tuple[SourceSpec, ...] = (
         "RECENT",
         3600,
         "CC BY 4.0; free tier non-commercial",
-        "Hourly precipitation for the last days (each value is stamped at the start of its hour, so "
-        "it is up to an hour old by design); drives the simulated demand's rain response.",
+        "Hourly precipitation for the last days (each value is stamped at the start of its hour, "
+        "so it is up to an hour old by design); drives the simulated demand's rain response.",
         modelled=True,
     ),
     SourceSpec(

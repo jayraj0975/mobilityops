@@ -7,37 +7,100 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.jayraj.mobilityops.net.ApiClient;
+import com.jayraj.mobilityops.pune.PuneAlertsFragment;
+import com.jayraj.mobilityops.pune.PuneForecastFragment;
+import com.jayraj.mobilityops.pune.PuneHomeFragment;
+import com.jayraj.mobilityops.pune.PuneMapFragment;
+import com.jayraj.mobilityops.pune.PuneStatusFragment;
 import com.jayraj.mobilityops.ui.AnomaliesFragment;
 import com.jayraj.mobilityops.ui.ForecastFragment;
 import com.jayraj.mobilityops.ui.LiveFragment;
 import com.jayraj.mobilityops.ui.OverviewFragment;
 import com.jayraj.mobilityops.ui.SettingsFragment;
+import com.jayraj.mobilityops.util.Async;
 import com.jayraj.mobilityops.util.Settings;
 
-/** One activity, five tabs. A fresh install opens on Settings so the server address is set first. */
+/**
+ * One activity. The tabs depend on what the server serves: New York analytics (Live, Overview,
+ * Forecast, Anomalies, Settings) or the Pune real-time console (Home, Map, Forecast, Alerts, Status).
+ * The mode is asked of the server and remembered, so a start is instant. A fresh install opens on
+ * Settings so the server address is set first.
+ */
 public final class MainActivity extends AppCompatActivity {
     private static final String KEY_TAB = "tab";
+    private BottomNavigationView nav;
+    private boolean pune;
+    private Async.Task detect;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        BottomNavigationView nav = findViewById(R.id.bottom_nav);
+        nav = findViewById(R.id.bottom_nav);
+        Settings settings = new Settings(this);
+        pune = "pune".equals(settings.mode());
+        if (pune) {
+            nav.getMenu().clear();
+            nav.inflateMenu(R.menu.bottom_nav_pune);
+        }
         nav.setOnItemSelectedListener(item -> {
             show(fragmentFor(item.getItemId()));
             return true;
         });
         if (savedInstanceState == null) {
-            nav.setSelectedItemId(new Settings(this).isConfigured() ? R.id.nav_live : R.id.nav_settings);
+            nav.setSelectedItemId(startTab(settings.isConfigured()));
         } else {
-            nav.setSelectedItemId(savedInstanceState.getInt(KEY_TAB, R.id.nav_live));
+            nav.setSelectedItemId(savedInstanceState.getInt(KEY_TAB, startTab(true)));
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Settings settings = new Settings(this);
+        if (!settings.isConfigured()) {
+            return;
+        }
+        // Ask the server which mode it is in; a change (or a new server in Settings) swaps the tabs.
+        detect = Async.run(
+                () -> new ApiClient(settings.serverUrl(), settings.apiKey()).getObject("/api/v1/meta", null).optString("mode", ""),
+                mode -> {
+                    settings.saveMode(mode);
+                    applyMode("pune".equals(mode));
+                },
+                e -> { /* unreachable server: keep the tabs we have; each screen explains the error */ });
+    }
+
+    @Override
+    protected void onPause() {
+        if (detect != null) {
+            detect.cancel();
+        }
+        super.onPause();
+    }
+
+    private int startTab(boolean configured) {
+        if (!configured) {
+            return pune ? R.id.nav_pune_status : R.id.nav_settings;
+        }
+        return pune ? R.id.nav_pune_home : R.id.nav_live;
+    }
+
+    private void applyMode(boolean nowPune) {
+        if (nowPune == pune) {
+            return;
+        }
+        pune = nowPune;
+        nav.getMenu().clear();
+        nav.inflateMenu(pune ? R.menu.bottom_nav_pune : R.menu.bottom_nav);
+        nav.setSelectedItemId(startTab(true));
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle out) {
         super.onSaveInstanceState(out);
-        out.putInt(KEY_TAB, ((BottomNavigationView) findViewById(R.id.bottom_nav)).getSelectedItemId());
+        out.putInt(KEY_TAB, nav.getSelectedItemId());
     }
 
     private static Fragment fragmentFor(int id) {
@@ -49,11 +112,22 @@ public final class MainActivity extends AppCompatActivity {
             return new AnomaliesFragment();
         } else if (id == R.id.nav_settings) {
             return new SettingsFragment();
+        } else if (id == R.id.nav_pune_home) {
+            return new PuneHomeFragment();
+        } else if (id == R.id.nav_pune_map) {
+            return new PuneMapFragment();
+        } else if (id == R.id.nav_pune_forecast) {
+            return new PuneForecastFragment();
+        } else if (id == R.id.nav_pune_alerts) {
+            return new PuneAlertsFragment();
+        } else if (id == R.id.nav_pune_status) {
+            return new PuneStatusFragment();
         }
         return new LiveFragment();
     }
 
     private void show(Fragment f) {
+        getSupportFragmentManager().popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
         getSupportFragmentManager().beginTransaction().replace(R.id.container, f).commit();
     }
 }

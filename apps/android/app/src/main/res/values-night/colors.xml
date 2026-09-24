@@ -17,5 +17,6 @@
     <color name="replay_border">#A5B4FC</color>
     <color name="live_bg">#12283F</color>
     <color name="live_border">#7FB0EC</color>
+    <color name="ok">#34D399</color>
     <color name="icon_bg">#1F4E8C</color>
 </resources>

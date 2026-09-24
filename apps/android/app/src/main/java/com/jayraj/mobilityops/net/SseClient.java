@@ -31,13 +31,20 @@ public final class SseClient {
     static final long MAX_BACKOFF_MS = 30_000;
 
     private final ApiClient api;
+    private final String path;
     private final Listener listener;
     private volatile boolean stopped;
     private volatile HttpURLConnection current;
     private Thread thread;
 
     public SseClient(ApiClient api, Listener listener) {
+        this(api, "/api/v1/live/stream", listener);
+    }
+
+    /** Follow another server-sent event stream (for example the Pune state stream). */
+    public SseClient(ApiClient api, String path, Listener listener) {
         this.api = api;
+        this.path = path;
         this.listener = listener;
     }
 
@@ -101,7 +108,7 @@ public final class SseClient {
 
     /** One connection. Returns whether at least one event arrived. */
     private boolean readOnce() throws IOException {
-        HttpURLConnection conn = api.open("/api/v1/live/stream", null);
+        HttpURLConnection conn = api.open(path, null);
         current = conn;
         boolean gotData = false;
         try {

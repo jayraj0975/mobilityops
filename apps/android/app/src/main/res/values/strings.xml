@@ -5,4 +5,9 @@
     <string name="nav_forecast">Forecast</string>
     <string name="nav_anomalies">Anomalies</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_pune_home">Home</string>
+    <string name="nav_pune_map">Map</string>
+    <string name="nav_pune_forecast">Forecast</string>
+    <string name="nav_pune_alerts">Alerts</string>
+    <string name="nav_pune_status">Status</string>
 </resources>

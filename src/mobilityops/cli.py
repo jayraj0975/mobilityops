@@ -21,6 +21,7 @@ from mobilityops.quality.checks import QualityGateError
 from mobilityops.sample import SYNTHETIC_LABEL, SampleSpec, generate_sample
 
 log = get_logger("cli")
+GRACEFUL_SHUTDOWN_SECONDS = 5
 
 
 def cmd_sample(settings: Settings, args: argparse.Namespace) -> int:
@@ -384,7 +385,16 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_config=None)
+    # Event streams never end on their own, so uvicorn's graceful shutdown would wait for every
+    # connected viewer forever and `docker stop` / `systemctl stop` would hang until killed. Bound
+    # it: in-flight requests get a few seconds, open streams are then cancelled (clients reconnect).
+    uvicorn.run(
+        create_app(settings),
+        host=args.host,
+        port=args.port,
+        log_config=None,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
+    )
     return 0
 
 
