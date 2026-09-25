@@ -103,7 +103,8 @@ class Planner(Protocol):
 # ---------------------------------------------------------------------------- entities
 def find_zone(text: str, zones: pd.DataFrame) -> tuple[int | None, list[str]]:
     """Return (zone id, []) if one zone is meant; (None, candidates) if ambiguous; (None, []) if none."""
-    m = re.search(r"\b(?:zone|location)(?:\s+id)?\s*#?\s*(\d{1,3})\b", text, re.I)
+    # No two adjacent optional whitespace runs (`\s*#?\s*`): they let a long run of spaces be split many ways.
+    m = re.search(r"\b(?:zone|location)(?:\s+id)?\s*(?:#\s*)?(\d{1,3})\b", text, re.I)
     if m:
         zid = int(m.group(1))
         ok = (zones["location_id"] == zid).any()
@@ -269,7 +270,7 @@ def parse_period(text: str, ctx: PlanningContext, *, bare_month: bool = False) -
 def find_window(text: str) -> tuple[int, int] | None:
     low = text.lower()
     m = re.search(
-        r"\b(\d{1,2})(?::00)?\s*(am|pm)?\s*(?:-|to|until|through)\s*(\d{1,2})(?::00)?\s*(am|pm)?\b",
+        r"\b(\d{1,2})(?::00)?\s*(?:(am|pm)\s*)?(?:-|to|until|through)\s*(\d{1,2})(?::00)?(?:\s*(am|pm))?\b",
         low,
     )
     if m and (m.group(2) or m.group(4) or ":" in m.group(0)):

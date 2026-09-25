@@ -101,3 +101,46 @@ def test_sentences_without_numbers_are_trivially_grounded() -> None:
 )
 def test_shell_commands_and_model_replacement_are_refused(request_text: str) -> None:
     assert screen(request_text).refused
+
+
+# ----------------------------------------------- the planner's regexes stay linear on hostile input
+def test_planner_patterns_are_fast_on_adversarial_questions_at_the_length_limit() -> None:
+    """A question is at most 500 characters. Long runs of whitespace after a keyword must not make
+    the entity patterns slow (CodeQL flagged adjacent optional whitespace runs as polynomial)."""
+    import time
+
+    import pandas as pd
+
+    from mobilityops.analyst.planner import find_window, find_zone
+
+    zones = pd.DataFrame({"location_id": [1, 2], "zone": ["A", "B"], "borough": ["X", "Y"]})
+    hostile = [
+        "zone" + " " * 496,
+        "location id" + " " * 489,
+        "zone" + " #" * 248,
+        "1" + " " * 498,
+        "1" + " am" * 166,
+        "9 to " + " " * 493,
+        "12:00" + "\t" * 495,
+    ]
+    for text in hostile:
+        assert len(text) <= 500
+        started = time.perf_counter()
+        find_zone(text, zones)
+        find_window(text)
+        assert time.perf_counter() - started < 0.05, repr(text[:20])
+
+
+def test_planner_patterns_still_read_the_forms_people_write() -> None:
+    import pandas as pd
+
+    from mobilityops.analyst.planner import find_window, find_zone
+
+    zones = pd.DataFrame({"location_id": [132, 7], "zone": ["JFK", "Zzz"], "borough": ["Q", "M"]})
+    forms = ("zone 132", "Zone #132", "zone # 132", "location id 132", "zone id #132", "zone132")
+    for text in forms:
+        assert find_zone(text, zones)[0] == 132, text
+    assert find_zone("zone 999", zones)[0] is None
+    assert find_window("from 9am to 5pm") is not None
+    assert find_window("9-17") is None  # a bare range (no am/pm, no colon) is not read as a window
+    assert find_window("from 9:00 to 17:00") is not None

@@ -36,6 +36,10 @@
 - **Pune console on Render's free plan:** `serve --with-worker` runs the worker on a thread (free web services have no background
   workers); `pack_demo.py --mode pune`; the `mobilityops-pune` service in `render.yaml`.
 - The New York bundle now ships only the latest registered model.
+- **CodeQL added for every repository; the analyst's two entity patterns no longer have adjacent optional whitespace runs**, which CodeQL
+  flagged as polynomial. Questions are capped at 500 characters, so the old patterns cost about a millisecond at worst and this is
+  hygiene, not a hole; 800,000 fuzzed comparisons show the new patterns capture the same groups. Two other findings are in test code
+  (URL substring checks against a fake publisher) and one is intentional (the replay's "unavailable" reason is our own remediation hint).
 
 ## 0.2.0 (2026-09-25)
 
