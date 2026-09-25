@@ -97,7 +97,7 @@ because the test window moved from April and May to November and December.
 | Self-hosting | Docker Compose, systemd, optional HTTPS; the image was built and run with a read-only filesystem, no capabilities and read-only data mounts: 401 without a key, data with it, live stream through it | VERIFIED locally (Compose itself was not run: the plugin is not installed here) |
 | API | Contract tests including the service and live endpoints, plus a concurrency smoke test on the earlier data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | Component tests (run under 4 timezones) and real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use, phone width, and a dropped live stream recovering | VERIFIED |
-| Tests | 650 Python tests at 95% line coverage (CI runs the suite on Python 3.12, 3.13 and 3.14); 79 web unit tests (also run under four timezones); 48 real-browser tests (24 per mode); 45 Android unit tests plus lint; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
+| Tests | 660 Python tests at 95% line coverage (CI runs the suite on Python 3.12, 3.13 and 3.14); 79 web unit tests (also run under four timezones); 48 real-browser tests (24 per mode); 45 Android unit tests plus lint; ruff, ruff-format and mypy clean; `pip-audit` and `npm audit` report no known vulnerabilities; no secrets in the tree or git history | VERIFIED |
 | Authentication beyond one shared API key, per-user accounts, distributed-abuse protection | not built | NOT IMPLEMENTED |
 
 ## Screens
