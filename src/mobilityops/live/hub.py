@@ -68,15 +68,21 @@ class LiveHub:
         self._replay: Replay | None = None
         self._replay_error: str | None = None
         self._replay_tried = -1e9
+        self._replay_future: asyncio.Future[Replay | None] | None = None
         self._origin = time.monotonic()
         self._feeds: LiveFeeds | None = None
         self._client: httpx.AsyncClient | None = None
         self._replay_lock = threading.Lock()
 
     # ------------------------------------------------------------------ replay
-    def replay(self) -> Replay | None:
-        """The replay, built on first use; retried at most every 30 s while unavailable."""
-        with self._replay_lock:  # the start-up warm-up and a first request must not both build it
+    def _build_replay_now(self) -> Replay | None:
+        """Build the replay if it is not built yet.
+
+        This BLOCKS (about 24 s on a shared free-tier CPU), so it must run in a worker thread,
+        never on the event loop. Callers serialise on a lock, so concurrent ones wait for the one
+        build and share its result; a failed build is retried at most every 30 s.
+        """
+        with self._replay_lock:
             now = time.monotonic()
             if self._replay is None and now - self._replay_tried >= RETRY_REPLAY_SECONDS:
                 self._replay_tried = now
@@ -94,6 +100,31 @@ class LiveHub:
                 except (ReplayUnavailable, NotReady) as exc:  # no forecasts, or no database yet
                     self._replay_error = str(exc)
             return self._replay
+
+    def replay(self) -> Replay | None:
+        """Blocking accessor for code already in a worker thread (sync endpoints, tests).
+
+        Anything on the event loop must use :meth:`ensure_replay` instead.
+        """
+        return self._build_replay_now()
+
+    async def ensure_replay(self) -> Replay | None:
+        """The replay, without ever blocking the event loop.
+
+        Start-up warm-up and every viewer await the same single build, which runs in a worker
+        thread. It is shielded, so a viewer that disconnects while waiting cannot cancel it for
+        the others. Returns None when the replay is unavailable (no forecasts yet); that outcome
+        is cached for 30 s before a retry.
+        """
+        if self._replay is not None:
+            return self._replay
+        fut = self._replay_future
+        if fut is None or fut.done():
+            if time.monotonic() - self._replay_tried < RETRY_REPLAY_SECONDS:
+                return None  # built or tried very recently and it is not available
+            build = asyncio.to_thread(self._build_replay_now)
+            fut = self._replay_future = asyncio.ensure_future(build)
+        return await asyncio.shield(fut)
 
     # -------------------------------------------------------------- subscriptions
     @property
@@ -143,7 +174,7 @@ class LiveHub:
     async def _replay_loop(self) -> None:
         last = -1
         while True:
-            r = self.replay()
+            r = await self.ensure_replay()
             if r is None:
                 await asyncio.sleep(1.0)
                 continue
@@ -171,7 +202,14 @@ class LiveHub:
 
     # -------------------------------------------------------------------- output
     def hello(self) -> dict[str, Any]:
-        r = self.replay()
+        """The opening document for a worker-thread caller (it may block on the replay build)."""
+        return self._hello(self.replay())
+
+    async def hello_async(self) -> dict[str, Any]:
+        """The opening document for a viewer on the event loop; waits without blocking it."""
+        return self._hello(await self.ensure_replay())
+
+    def _hello(self, r: Replay | None) -> dict[str, Any]:
         replay: dict[str, Any]
         if r is None:
             replay = {"available": False, "reason": self._replay_error or "not ready"}
@@ -207,7 +245,7 @@ class LiveHub:
         """The event stream for one viewer: ``hello``, then replay ticks and feed updates."""
         sub = self.subscribe()
         try:
-            yield encode("hello", self.hello())
+            yield encode("hello", await self.hello_async())
             sent = 1
             while limit is None or sent < limit:
                 try:

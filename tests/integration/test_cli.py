@@ -118,5 +118,81 @@ def test_safety_refusals_at_the_command_line(tmp_path, monkeypatch, capsys) -> N
     monkeypatch.setenv("MOBILITYOPS_MODE", "sample")
     code, _, err = run(["serve", "--host", "0.0.0.0"], capsys)  # no key, non-local: refused
     assert code == 2 and "MOBILITYOPS_API_KEY" in err and "--allow-unauthenticated" in err
+    assert "MOBILITYOPS_ALLOW_UNAUTHENTICATED" in err
     code, _, _ = run(["optimize", "--date", "2024-01-01"], capsys)
     assert code == 1
+
+
+def _serve_without_binding(monkeypatch, tmp_path):  # type: ignore[no-untyped-def]
+    """Point the CLI at an empty data dir and replace uvicorn so nothing actually listens."""
+    import uvicorn
+
+    started: list[dict] = []
+    monkeypatch.setenv("MOBILITYOPS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("MOBILITYOPS_LOG_LEVEL", "ERROR")
+    monkeypatch.setenv("MOBILITYOPS_MODE", "sample")
+    monkeypatch.delenv("MOBILITYOPS_API_KEY", raising=False)
+    monkeypatch.delenv("MOBILITYOPS_ALLOW_UNAUTHENTICATED", raising=False)
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: started.append(kw))
+    return started
+
+
+def test_serve_default_is_secure_and_each_way_of_opting_out_is_explicit(
+    tmp_path, monkeypatch, capsys
+) -> None:  # type: ignore[no-untyped-def]
+    started = _serve_without_binding(monkeypatch, tmp_path)
+
+    # network bind, no key, no opt-out: refused (this is what the Docker image's default command is)
+    code, _, err = run(["serve", "--host", "0.0.0.0"], capsys)
+    assert code == 2 and started == [] and "MOBILITYOPS_API_KEY" in err
+
+    # network bind with a key: starts, and says nothing about being open
+    monkeypatch.setenv("MOBILITYOPS_API_KEY", "a-long-random-key")
+    code, _, err = run(["serve", "--host", "0.0.0.0"], capsys)
+    assert code == 0 and started[-1]["host"] == "0.0.0.0" and "no API key" not in err
+    monkeypatch.delenv("MOBILITYOPS_API_KEY")
+
+    # network bind, explicit opt-out by flag or by environment: starts, with a visible warning
+    for argv, env in (
+        (["serve", "--host", "0.0.0.0", "--allow-unauthenticated"], None),
+        (["serve", "--host", "0.0.0.0"], "true"),
+    ):
+        if env:
+            monkeypatch.setenv("MOBILITYOPS_ALLOW_UNAUTHENTICATED", env)
+        before = len(started)
+        code, _, err = run(argv, capsys)
+        assert code == 0 and len(started) == before + 1
+        assert "no API key" in err and "0.0.0.0" in err
+    monkeypatch.delenv("MOBILITYOPS_ALLOW_UNAUTHENTICATED")
+
+    # local development needs neither a key nor an opt-out
+    before = len(started)
+    code, _, err = run(["serve"], capsys)
+    assert code == 0 and started[-1]["host"] == "127.0.0.1" and len(started) == before + 1
+    assert "no API key" not in err
+
+    # a value that does not clearly mean yes is not an opt-out
+    monkeypatch.setenv("MOBILITYOPS_ALLOW_UNAUTHENTICATED", "no")
+    code, _, _ = run(["serve", "--host", "0.0.0.0"], capsys)
+    assert code == 2
+
+
+def test_the_dockerfile_default_command_does_not_allow_unauthenticated_access() -> None:
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text()
+    cmd = next(line for line in text.splitlines() if line.startswith("CMD "))
+    assert cmd == 'CMD ["serve", "--host", "0.0.0.0"]', cmd
+
+
+def test_public_demo_services_opt_in_explicitly() -> None:
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "render.yaml").read_text()
+    blocks = re.split(r"(?m)^  - type: web\s*$", text)[1:]
+    assert len(blocks) == 2  # the New York and Pune demo services
+    for block in blocks:
+        assert re.search(r"key: MOBILITYOPS_ALLOW_UNAUTHENTICATED\s+value: \"true\"", block), (
+            block.splitlines()[1]
+        )

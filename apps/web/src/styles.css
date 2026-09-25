@@ -73,6 +73,7 @@ a { color: var(--accent); }
 .banner-synthetic { background: var(--synthetic-bg); border-color: var(--synthetic-border); }
 .banner-real { background: var(--real-bg); border-color: var(--real-border); }
 .banner-sim { background: var(--sim-bg); border-color: var(--sim-border); }
+.banner-notice { background: var(--surface); border-color: var(--border); border-width: 1px; font-size: 0.95rem; }
 
 ul.nav { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 8px 0 0; }
 ul.nav button { padding: 8px 14px; }

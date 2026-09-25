@@ -43,6 +43,7 @@ class Settings:
     live_seconds_per_hour: float = 2.0  # replay speed: seconds of wall clock per hour of data
     live_feeds: bool = True  # poll the public live feeds (Citi Bike, NWS) while someone watches
     live_max_streams: int = 32  # concurrent /live/stream connections
+    demo_notice: str | None = None  # shown on every page of a hosted demo (e.g. "sleeps when idle")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -96,6 +97,9 @@ class Settings:
         if raw_feeds not in ("true", "false", "1", "0", "yes", "no"):
             raise ConfigError("MOBILITYOPS_LIVE_FEEDS must be true or false")
         max_streams = whole("MOBILITYOPS_LIVE_MAX_STREAMS", 1000) or 32
+        notice = (e.get("MOBILITYOPS_DEMO_NOTICE") or "").strip() or None
+        if notice is not None and len(notice) > 500:
+            raise ConfigError("MOBILITYOPS_DEMO_NOTICE must be at most 500 characters")
         return cls(
             data_dir=Path(e.get("MOBILITYOPS_DATA_DIR", "./data")).expanduser().resolve(),
             mode=mode,  # type: ignore[arg-type]
@@ -110,6 +114,7 @@ class Settings:
             live_seconds_per_hour=sph,
             live_feeds=raw_feeds in ("true", "1", "yes"),
             live_max_streams=max_streams,
+            demo_notice=notice,
             **extra,
         )
 

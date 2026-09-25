@@ -30,8 +30,10 @@ same public data with no secrets or accounts. **It is not hardened as a general 
 If `MOBILITYOPS_API_KEY` is set, every `/api/v1/*` route requires it in `X-API-Key` (compared in
 constant time); `/health` and `/ready` stay open for probes. This is a single shared secret, not
 user authentication. `serve` refuses a non-local `--host` unless a key is set or
-`--allow-unauthenticated` is passed (which the Dockerfile's default command does, expecting
-localhost-only publishing; the Compose file does not, so a key is mandatory there). The live stream
+`--allow-unauthenticated` is passed or `MOBILITYOPS_ALLOW_UNAUTHENTICATED=true` is set. The
+Dockerfile's default command does **not** do either, so the image refuses to start on `0.0.0.0` without a key; a
+localhost-only container or a deliberately public demo (the Render services) sets the variable explicitly, and
+the Compose file requires a key. The live stream
 is under `/api/v1/live/`, so it needs the key too.
 
 ## Logging

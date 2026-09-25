@@ -17,7 +17,7 @@ server address and API key. It talks to your own MobilityOps server
 ([self-hosting](../../docs/SELF_HOSTING.md)); nothing is sent anywhere else.
 
 It uses only platform networking (`HttpURLConnection`) and AndroidX/Material, so there is no
-third-party network library to trust. Minimum Android 7.0 (API 24).
+third-party network library to trust. Minimum Android 7.0 (API 24); it targets Android 16 (API 36) and has been run on Android 14 and Android 16 emulators (not on a physical phone).
 
 **Download:** the signed release APK and its checksum are on the
 [Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.1.0) (`android-v2.1.0`; earlier releases remain).

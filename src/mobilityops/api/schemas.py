@@ -45,6 +45,24 @@ class ServiceInfo(Model):
     label: str
 
 
+class BundleInfo(Model):
+    """Provenance of the data bundle being served (see BUNDLE_MANIFEST.json)."""
+
+    kind: str
+    package_version: str | None = None
+    code_commit: str | None = Field(default=None, description="Commit the bundle was packed from.")
+    data_run_id: str | None = None
+    data_built_by_commit: str | None = Field(
+        default=None, description="Commit that built the database (can be earlier)."
+    )
+    data_built_at_utc: str | None = None
+    model_id: str | None = None
+    schema_version: int | None = None
+    consistent: bool = Field(description="Every artifact was made from the database's own run.")
+    inconsistencies: list[str] = []
+    files_sha256: str | None = None
+
+
 class Meta(Model):
     api_version: str
     mode: Literal["sample", "real", "pune"]
@@ -64,6 +82,14 @@ class Meta(Model):
     )
     timezone: str = "America/New_York (timestamps are naive local time)"
     city: str = "New York City"
+    demo_notice: str | None = Field(
+        default=None,
+        description="An operator notice shown on every page (e.g. a free demo that sleeps).",
+    )
+    bundle: BundleInfo | None = Field(
+        default=None,
+        description="Where the served data came from, when it was loaded from a demo bundle.",
+    )
 
 
 class QualityCheck(Model):

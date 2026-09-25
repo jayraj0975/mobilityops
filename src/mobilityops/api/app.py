@@ -42,6 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from mobilityops import __version__
+from mobilityops import bundle as bundle_mod
 from mobilityops.analyst.agent import Analyst, tool_catalog
 from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
@@ -121,7 +122,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # Build the replay once in the background so the first viewer does not wait for it (about
         # 24 s on a shared free-tier CPU). A failure is recorded by the hub and retried on demand.
-        warm = asyncio.create_task(asyncio.to_thread(hub.replay))
+        # A viewer that connects meanwhile awaits this same build (LiveHub.ensure_replay) instead of
+        # starting, or blocking on, its own.
+        warm = asyncio.create_task(hub.ensure_replay())
         try:
             yield
         finally:
@@ -299,6 +302,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return s.Ready(status="ready" if all(needed.values()) else "degraded", components=comps)
 
+    # Read once: a bundle's manifest does not change while the server runs.
+    bundle_summary = bundle_mod.summary(settings.data_dir.parent)
+    bundle_info = s.BundleInfo(**bundle_summary) if bundle_summary else None
+    if bundle_info is not None and not bundle_info.consistent:
+        log.warning("bundle is internally inconsistent: %s", "; ".join(bundle_info.inconsistencies))
+
     @api.get("/meta", response_model=s.Meta, tags=["operations"])
     def meta() -> s.Meta:
         r = services.analytics().data_range()
@@ -318,6 +327,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             services=[s.ServiceInfo(**r) for r in _records(services.analytics().service_list())],
             timezone=settings.city.timezone_note,
             city=settings.city.name,
+            demo_notice=settings.demo_notice,
+            bundle=bundle_info,
         )
 
     @api.get("/ops/metrics", response_model=s.ArtifactDocument, tags=["operations"])

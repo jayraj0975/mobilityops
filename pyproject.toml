@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mobilityops"
-version = "0.2.0"
+version = "0.3.0"
 description = "Urban mobility demand forecasting, anomaly detection and decision support on public NYC TLC data"
 readme = "README.md"
 requires-python = ">=3.12"

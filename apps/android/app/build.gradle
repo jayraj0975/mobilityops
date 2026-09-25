@@ -9,9 +9,9 @@ android {
     defaultConfig {
         applicationId 'com.jayraj.mobilityops'
         minSdk 24
-        targetSdk 34
-        versionCode 3
-        versionName '2.1.0'
+        targetSdk 36
+        versionCode 4
+        versionName '2.2.0'
     }
 
     // Release signing comes from the environment so no key or password is ever in the repository.

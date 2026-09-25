@@ -56,6 +56,16 @@ def test_health_ready_and_meta(client: TestClient) -> None:
     assert meta["llm_configured"] is False
 
 
+def test_meta_carries_the_operators_demo_notice_only_when_one_is_set(  # type: ignore[no-untyped-def]
+    client: TestClient, built_sample
+) -> None:
+    assert client.get(f"{API}/meta").json()["demo_notice"] is None
+    st, _ = built_sample
+    noisy = dataclasses.replace(st, demo_notice="Free hosting: sleeps when idle.")
+    with TestClient(create_app(noisy)) as c:
+        assert c.get(f"{API}/meta").json()["demo_notice"] == "Free hosting: sleeps when idle."
+
+
 def test_every_response_names_its_data_and_carries_security_headers(client: TestClient) -> None:
     for path in ("/health", f"{API}/meta", f"{API}/zones", f"{API}/nope"):
         r = client.get(path)

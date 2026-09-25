@@ -36,5 +36,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
 ENTRYPOINT ["python", "-m", "mobilityops.cli"]
-# Publish the port to localhost only:  docker run -p 127.0.0.1:8000:8000 ...
-CMD ["serve", "--host", "0.0.0.0", "--allow-unauthenticated"]
+# Secure by default: listening on 0.0.0.0 requires MOBILITYOPS_API_KEY, and the server refuses to
+# start without it. To run without a key, say so explicitly and publish to localhost only:
+#   docker run -p 127.0.0.1:8000:8000 -e MOBILITYOPS_ALLOW_UNAUTHENTICATED=true ...
+# (a deliberately public demo sets the same variable; see render.yaml).
+CMD ["serve", "--host", "0.0.0.0"]

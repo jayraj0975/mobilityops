@@ -14,6 +14,8 @@ services:
         value: 63c0578536a1d044aefac51cb79a21a9718fcc5ff24f3531a7d2b69eb2b12c53
       - key: MOBILITYOPS_MODE
         value: real
+      - key: MOBILITYOPS_ALLOW_UNAUTHENTICATED
+        value: "true" # a deliberately public demo of aggregate data; the image refuses to start without a key otherwise
       - key: MOBILITYOPS_RATE_LIMIT
         value: "120"
       - key: MOBILITYOPS_RATE_LIMIT_HEAVY
@@ -45,6 +47,8 @@ services:
         value: bde7068ba5ced366980a5ffc84ced581e6cd24d65dbd3f5cda45c32cfca879ae
       - key: MOBILITYOPS_MODE
         value: pune
+      - key: MOBILITYOPS_ALLOW_UNAUTHENTICATED
+        value: "true" # public demo (simulated demand, real weather); see docs/DEPLOYMENT.md
       - key: MOBILITYOPS_WITH_WORKER
         value: "true"
       - key: MOBILITYOPS_RATE_LIMIT

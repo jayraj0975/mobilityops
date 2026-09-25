@@ -156,23 +156,43 @@ jobs:
           if docker compose config --quiet 2>/dev/null; then
             echo "compose rendered without MOBILITYOPS_API_KEY"; exit 1
           fi
-      - name: Start the image and check it
+      - name: The image is secure by default (no key, no start)
         run: |
-          docker run -d --name mo -p 127.0.0.1:8000:8000 mobilityops:ci
+          set +e
+          out=$(docker run --rm mobilityops:ci 2>&1); code=$?
+          echo "$out" | tail -3
+          test "$code" = 2 || { echo "expected exit 2 without a key, got $code"; exit 1; }
+          echo "$out" | grep -q "refusing to listen on a non-local address" || { echo "no refusal message"; exit 1; }
+      - name: With a key it starts, checks its health, runs unprivileged, and enforces the key
+        run: |
+          docker run -d --name mo -e MOBILITYOPS_API_KEY=ci-key -p 127.0.0.1:8000:8000 mobilityops:ci
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
           curl -sSf http://127.0.0.1:8000/health
           test "$(docker exec mo id -u)" != "0" || { echo "container runs as root"; exit 1; }
+          no_key=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/meta)
+          test "$no_key" = 401 || { echo "expected 401 without the key, got $no_key"; exit 1; }
+          with_key=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-API-Key: ci-key' http://127.0.0.1:8000/api/v1/meta)
+          test "$with_key" != 401 || { echo "the key was not accepted"; exit 1; }
           docker logs mo | tail -5
       - name: The container stops promptly even with a viewer on the event stream
         # uvicorn waits for open streams; without a bound `docker stop` hangs until it is killed.
         run: |
-          (curl -sN -m 60 http://127.0.0.1:8000/api/v1/live/stream >/dev/null &)
+          (curl -sN -m 60 -H 'X-API-Key: ci-key' http://127.0.0.1:8000/api/v1/live/stream >/dev/null &)
           sleep 3
           start=$(date +%s)
           docker stop -t 30 mo
           elapsed=$(( $(date +%s) - start ))
           echo "stopped in ${elapsed}s"
           test "$elapsed" -lt 12 || { echo "graceful shutdown was not bounded"; exit 1; }
+      - name: The explicit local-only opt-out works, and warns
+        run: |
+          docker run -d --name mo-open -e MOBILITYOPS_ALLOW_UNAUTHENTICATED=true -p 127.0.0.1:8001:8000 mobilityops:ci
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8001/health >/dev/null && break; sleep 1; done
+          curl -sSf http://127.0.0.1:8001/health
+          open_code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/v1/meta)
+          test "$open_code" != 401 || { echo "the opt-out did not open the API"; exit 1; }
+          docker logs mo-open 2>&1 | grep -q "with no API key" || { echo "no warning logged"; exit 1; }
+          docker stop -t 15 mo-open
       - name: The Caddyfile is valid for one name and for the www/api pair
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e MOBILITYOPS_DOMAIN=localhost caddy:2 caddy validate --config /etc/caddy/Caddyfile

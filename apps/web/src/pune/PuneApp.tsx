@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { state } from "../api/client";
 import type { Schemas } from "../api/client";
+import { DemoNotice } from "../components/Banner";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { useAsync } from "../lib/useAsync";
 import { FreshnessIndicator, LoadingSkeleton, StatusBadge } from "../ui";
@@ -112,6 +113,7 @@ export default function PuneApp({ meta }: { meta: Schemas["Meta"] }) {
           Nothing here describes real Pune traffic.
         </span>
       </div>
+      <DemoNotice notice={meta.demo_notice} className="ops-notice" />
       {notice && <div className="ops-notice" role="status">{notice}</div>}
       <nav aria-label="Sections" className="ops-nav">
         <ul>

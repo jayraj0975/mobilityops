@@ -23,6 +23,18 @@ beforeEach(() => {
 const goTo = async (name: RegExp | string) => userEvent.click(await screen.findByRole("button", { name }));
 
 describe("shell", () => {
+  it("shows the operator's demo notice next to the data banner, and nothing when there is none", async () => {
+    mockApi(baseRoutes);
+    const { unmount } = render(<App />);
+    await screen.findByRole("region", { name: "Data source" });
+    expect(screen.queryByRole("note", { name: "About this demo" })).toBeNull();
+    unmount();
+
+    mockApi({ ...baseRoutes, "/api/v1/meta": { ...meta, demo_notice: "Free hosting: this demo sleeps when idle." } });
+    render(<App />);
+    expect(await screen.findByRole("note", { name: "About this demo" })).toHaveTextContent("sleeps when idle");
+  });
+
   it("always says whether the data is synthetic, using the label the API returned", async () => {
     mockApi(baseRoutes);
     render(<App />);

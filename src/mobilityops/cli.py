@@ -386,14 +386,26 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     from mobilityops.api.app import create_app
 
     local = args.host in ("127.0.0.1", "localhost", "::1")
-    if not local and settings.api_key is None and not args.allow_unauthenticated:
+    # Listening beyond localhost is opt-in twice over: set a key, or say in so many words that the
+    # server is meant to be open (a container published to localhost only, or a public demo).
+    allow_open = args.allow_unauthenticated or os.environ.get(
+        "MOBILITYOPS_ALLOW_UNAUTHENTICATED", ""
+    ).lower() in ("1", "true", "yes")
+    if not local and settings.api_key is None and not allow_open:
         print(
-            "refusing to listen on a non-local address without MOBILITYOPS_API_KEY set "
-            "(pass --allow-unauthenticated only if the port is published to localhost, for "
-            "example by Docker with -p 127.0.0.1:8000:8000)",
+            "refusing to listen on a non-local address without MOBILITYOPS_API_KEY set. Set a "
+            "key; or, only if the port is published to localhost (for example Docker with "
+            "-p 127.0.0.1:8000:8000) or the server is a deliberately public demo, pass "
+            "--allow-unauthenticated or set MOBILITYOPS_ALLOW_UNAUTHENTICATED=true",
             file=sys.stderr,
         )
         return 2
+    if not local and settings.api_key is None:
+        print(
+            f"warning: serving on {args.host} with no API key (explicitly allowed); every "
+            "/api/v1 route is open to anyone who can reach the port",
+            file=sys.stderr,
+        )
     # Event streams never end on their own, so uvicorn's graceful shutdown would wait for every
     # connected viewer forever and `docker stop` / `systemctl stop` would hang until killed. Bound
     # it: in-flight requests get a few seconds, open streams are then cancelled (clients reconnect).
@@ -476,6 +488,21 @@ def cmd_analyst_benchmark_report(settings: Settings, args: argparse.Namespace) -
     out.write_text(render(json.loads(src.read_text())["history"]))
     print(f"wrote {out}")
     return 0
+
+
+def cmd_bundle_check(settings: Settings, args: argparse.Namespace) -> int:
+    """Check an extracted demo bundle against this code (schema, model features, provenance)."""
+    from pathlib import Path
+
+    from mobilityops.bundle import check_bundle
+
+    report = check_bundle(Path(args.root).resolve(), args.mode, verify_files=not args.skip_hashes)
+    print(json.dumps(report.to_dict(), indent=2, default=str))
+    for msg in report.problems:
+        print(f"PROBLEM: {msg}", file=sys.stderr)
+    for msg in report.warnings:
+        print(f"warning: {msg}", file=sys.stderr)
+    return 1 if report.problems or (args.strict and report.warnings) else 0
 
 
 def cmd_openapi(settings: Settings, args: argparse.Namespace) -> int:
@@ -566,7 +593,8 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument(
         "--allow-unauthenticated",
         action="store_true",
-        help="listen on a non-local address without an API key (container use only)",
+        help="listen on a non-local address without an API key (a localhost-only container or a "
+        "deliberately public demo; also MOBILITYOPS_ALLOW_UNAUTHENTICATED=true)",
     )
     sv.set_defaults(func=cmd_serve)
     ab = sub.add_parser("analyst-benchmark", help="run the AI analyst benchmark")
@@ -578,6 +606,15 @@ def build_parser() -> argparse.ArgumentParser:
     abr = sub.add_parser("analyst-benchmark-report", help="render the benchmark as Markdown")
     abr.add_argument("--out", default="reports/ai_evaluation.md")
     abr.set_defaults(func=cmd_analyst_benchmark_report)
+    bc = sub.add_parser(
+        "bundle-check",
+        help="check an extracted demo bundle against this code (exit 1 on problems)",
+    )
+    bc.add_argument("--root", default=".", help="the directory the bundle was extracted into")
+    bc.add_argument("--mode", choices=("real", "pune", "sample"), required=True)
+    bc.add_argument("--strict", action="store_true", help="treat warnings as failures")
+    bc.add_argument("--skip-hashes", action="store_true", help="do not re-hash every file")
+    bc.set_defaults(func=cmd_bundle_check)
     oa = sub.add_parser("openapi", help="write the OpenAPI document")
     oa.add_argument("--out", default="apps/web/openapi.json")
     oa.set_defaults(func=cmd_openapi)

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { centroidOf, layerPaint, makeProjection, ratioColor, rampColor, ringPath } from "../pune/mapGeometry";
+import { DemoNotice } from "../components/Banner";
 import { connectionNotice } from "../pune/PuneApp";
 import { ageText, clock, instant } from "../pune/time";
 import { streamReducer, type StreamState } from "../pune/usePuneStream";
@@ -21,6 +22,17 @@ const geometry: Geometry = {
 const source = (over: Partial<SourceState> = {}): SourceState => ({
   key: "open-meteo-forecast", label: "Weather now", provider: "Open-Meteo", data_class: "NEAR-REAL-TIME", modelled: true, licence: "CC BY 4.0",
   note: "n", enabled: true, freshness: "LIVE", interval_s: 900, age_s: 120, consecutive_failures: 0, runs: 3, successes: 3, records_total: 100, ...over,
+});
+
+describe("demo notice", () => {
+  it("renders nothing without a notice, and the operator's words in the console's own style with one", () => {
+    const { container, rerender } = render(<DemoNotice notice={null} className="ops-notice" />);
+    expect(container).toBeEmptyDOMElement();
+    rerender(<DemoNotice notice="Free hosting: live processing runs only while this service is awake." className="ops-notice" />);
+    const note = screen.getByRole("note", { name: "About this demo" });
+    expect(note).toHaveTextContent("only while this service is awake");
+    expect(note).toHaveClass("ops-notice");
+  });
 });
 
 describe("time helpers", () => {

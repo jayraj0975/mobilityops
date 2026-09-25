@@ -1,6 +1,6 @@
 # Forecast evaluation (real data)
 
-_Generated 2026-09-24T13:24:10.158351+00:00 from data run `20260924T132214Z-17545894`; data days 2024-01-01 to 2024-12-31. This file is produced by `python -m mobilityops.cli forecast-report`; do not edit._
+_Generated 2026-09-25T08:33:33.693015+00:00 from data run `20260924T191303Z-e5b0f39f`; data days 2024-01-01 to 2024-12-31. This file is produced by `python -m mobilityops.cli forecast-report`; do not edit._
 
 **Task.** day-ahead hourly pickups per zone; origin = 00:00 of the target day; history features use only earlier days; weather is not a feature.
 

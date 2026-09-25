@@ -1,9 +1,14 @@
 package com.jayraj.mobilityops;
 
+import android.os.Build;
 import android.os.Bundle;
 
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -37,6 +42,19 @@ public final class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (Build.VERSION.SDK_INT >= 35) {
+            // From Android 15 an app that targets it is drawn edge to edge whatever it asks for, so the
+            // content would sit under the status bar. Pad it by the bars. The bottom navigation pads
+            // itself for the gesture bar, and the manifest's adjustResize still resizes the window for the
+            // keyboard, so neither is added here. Older versions keep their original, tested layout.
+            EdgeToEdge.enable(this);
+            ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root), (view, insets) -> {
+                Insets bars = insets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                view.setPadding(bars.left, bars.top, bars.right, 0);
+                return insets;
+            });
+        }
         nav = findViewById(R.id.bottom_nav);
         Settings settings = new Settings(this);
         pune = "pune".equals(settings.mode());

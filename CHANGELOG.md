@@ -1,17 +1,41 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-09-25)
 
-- **Live replay is built at start-up**, in the background, instead of by the first viewer (that first request took about 24 s on
-  Render's free CPU). A lock makes a request that arrives during the build wait for it rather than report the replay unavailable.
+**Behaviour change:** the Docker image no longer starts without an API key. Its default command used to pass
+`--allow-unauthenticated`. A container published to localhost only, or a deliberately public demo, must now say so with
+`MOBILITYOPS_ALLOW_UNAUTHENTICATED=true` (already set on both Render services).
+
+- **Secure Docker default.** `serve --host 0.0.0.0` refuses to start without `MOBILITYOPS_API_KEY` unless `--allow-unauthenticated`
+  or `MOBILITYOPS_ALLOW_UNAUTHENTICATED=true` is given, and then it logs a warning. CI now runs the real image four ways: no key
+  (exit 2), with a key (401 without the header), stopping with a viewer on the stream, and the explicit opt-out.
+- **The live replay no longer blocks the event loop.** It is built once, in a worker thread, at start-up; a viewer that connects
+  during the build awaits that same build (`LiveHub.ensure_replay`) instead of stalling every request behind a lock (which
+  was still possible with the first start-up fix; a test that connects three viewers mid-build and watches the loop now guards it).
+  Cold first request on Render: about 24 s, now about 1 s.
+- **Demo bundles carry a manifest and are checked against the code.** `BUNDLE_MANIFEST.json` records the commit the bundle was
+  packed from, the run and commit that built the database, the model and the data run each artifact came from, the schema
+  fingerprint and a SHA-256 for every file. `mobilityops bundle-check` (and `/api/v1/meta`'s new `bundle` field) report
+  incompatibility and drift, `pack_demo.py` refuses to pack artifacts made from a different run than the database, and CI runs the
+  checker on the bundles `render.yaml` points at. It found real drift: the published New York bundle's model, evaluation and anomaly
+  report came from data run 20260924T132214Z but its database was 20260924T191303Z. The artifacts were regenerated on the current
+  database; every metric reproduced exactly (LightGBM WAPE 19.5% against 26.3%), so only the run ids in the reports changed.
+- **A hosted demo can say what it is.** `MOBILITYOPS_DEMO_NOTICE` shows a notice on every page of both consoles (the Render services say that
+  they sleep after 15 minutes idle, so live processing runs only while awake). `docs/DEPLOYMENT.md` separates portfolio demo,
+  self-hosted and production, and records Open-Meteo's terms (free tier non-commercial, 10,000 calls a day; commercial use needs their paid
+  plan and endpoint), checked against their pages on 2026-09-25.
+- **Android 2.2.0 targets Android 16 (API 36).** Edge-to-edge drawing is enforced from Android 15, and raising `targetSdk` needed its own
+  pass, as the earlier note said. The first API 36 build would have drawn content under the status bar; the app now pads by the bars
+  on 35+ and leaves the older layout untouched. A first attempt at keyboard handling double-counted the keyboard (window resize plus
+  inset) and left a gap above it; that was found on an Android 16 emulator, replaced, and checked on Android 14 and 16, in normal and Pune mode.
 - **Android toolchain upgraded together** (the Dependabot bumps each needed the others): Gradle 9.7.1 (wrapper regenerated,
   checksum pinned), Android Gradle Plugin 9.4.1 with built-in Kotlin, compileSdk 36, androidx appcompat 1.8.0, Material 1.14.0,
   org.json 20260814. 45 unit tests, lint, debug, minified release and AAB builds pass, and the app was re-run on the emulator.
-  `targetSdk` stays 34 (raising it changes window-inset behaviour and needs its own pass).
 - **Second weather provider (MET Norway)** after Open-Meteo answered HTTP 429 to Render's shared address: weather is one need with
   two providers, healthy if either is. Attribution added everywhere; see `docs/PUNE_DATA_SOURCES.md` (source 14).
 - **Pune console on Render's free plan:** `serve --with-worker` runs the worker on a thread (free web services have no background
   workers); `pack_demo.py --mode pune`; the `mobilityops-pune` service in `render.yaml`.
+- The New York bundle now ships only the latest registered model.
 
 ## 0.2.0 (2026-09-25)
 

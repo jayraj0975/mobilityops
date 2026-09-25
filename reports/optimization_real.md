@@ -2,7 +2,7 @@
 
 > **SIMULATED SCENARIO under explicit assumptions; not a forecast of real-world outcomes.**
 
-_Generated 2026-09-24T13:32:39.044071+00:00 from data run `20260924T132214Z-17545894`; days 2024-11-06 to 2024-12-31. Produced by `python -m mobilityops.cli optimize-report`; do not edit._
+_Generated 2026-09-25T08:42:44.364208+00:00 from data run `20260924T191303Z-e5b0f39f`; days 2024-11-06 to 2024-12-31. Produced by `python -m mobilityops.cli optimize-report`; do not edit._
 
 ## What this is and is not
 

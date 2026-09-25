@@ -976,6 +976,46 @@ export interface components {
             /** Zone Name */
             zone_name: string;
         };
+        /**
+         * BundleInfo
+         * @description Provenance of the data bundle being served (see BUNDLE_MANIFEST.json).
+         */
+        BundleInfo: {
+            /**
+             * Code Commit
+             * @description Commit the bundle was packed from.
+             */
+            code_commit?: string | null;
+            /**
+             * Consistent
+             * @description Every artifact was made from the database's own run.
+             */
+            consistent: boolean;
+            /** Data Built At Utc */
+            data_built_at_utc?: string | null;
+            /**
+             * Data Built By Commit
+             * @description Commit that built the database (can be earlier).
+             */
+            data_built_by_commit?: string | null;
+            /** Data Run Id */
+            data_run_id?: string | null;
+            /** Files Sha256 */
+            files_sha256?: string | null;
+            /**
+             * Inconsistencies
+             * @default []
+             */
+            inconsistencies?: string[];
+            /** Kind */
+            kind: string;
+            /** Model Id */
+            model_id?: string | null;
+            /** Package Version */
+            package_version?: string | null;
+            /** Schema Version */
+            schema_version?: number | null;
+        };
         /** CitySeries */
         CitySeries: {
             /** Data Label */
@@ -1221,6 +1261,8 @@ export interface components {
             };
             /** Built At Utc */
             built_at_utc: string;
+            /** @description Where the served data came from, when it was loaded from a demo bundle. */
+            bundle?: components["schemas"]["BundleInfo"] | null;
             /**
              * City
              * @default New York City
@@ -1239,6 +1281,11 @@ export interface components {
              * Format: date-time
              */
             data_start: string;
+            /**
+             * Demo Notice
+             * @description An operator notice shown on every page (e.g. a free demo that sleeps).
+             */
+            demo_notice?: string | null;
             /** Llm Configured */
             llm_configured: boolean;
             /**

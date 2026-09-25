@@ -14,17 +14,32 @@ import argparse
 import hashlib
 import io
 import json
+import sys
 import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-INCLUDE = (
-    "data/processed/real/mobilityops.duckdb",
-    "data/processed/real/quality",
-    "artifacts/real/forecast",
-    "artifacts/real/anomaly",
-    "artifacts/real/optimization",
-)
+
+
+def real_include() -> tuple[str, ...]:
+    """The New York bundle: the database, the latest model only (older registered models stay
+    behind), the evaluation and predictions, the anomaly report and the optimisation backtest."""
+    latest = ROOT / "artifacts/real/forecast/models/latest.json"
+    if not latest.exists():
+        raise SystemExit(
+            "missing artifacts/real/forecast/models/latest.json: run the real pipeline first"
+        )
+    model_id = json.loads(latest.read_text())["model_id"]
+    return (
+        "data/processed/real/mobilityops.duckdb",
+        "data/processed/real/quality",
+        "artifacts/real/forecast/evaluation.json",
+        "artifacts/real/forecast/predictions.parquet",
+        "artifacts/real/forecast/models/latest.json",
+        f"artifacts/real/forecast/models/{model_id}",
+        "artifacts/real/anomaly",
+        "artifacts/real/optimization",
+    )
 
 
 def bundle_note() -> str:
@@ -77,7 +92,7 @@ def pune_note() -> str:
 
 def files(mode: str = "real") -> list[Path]:
     out: list[Path] = []
-    for rel in pune_include() if mode == "pune" else INCLUDE:
+    for rel in pune_include() if mode == "pune" else real_include():
         p = ROOT / rel
         if not p.exists():
             raise SystemExit(f"missing {rel}: run the real pipeline first")
@@ -89,10 +104,25 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--mode", choices=("real", "pune"), default="real")
     ap.add_argument("--out", default=None)
+    ap.add_argument(
+        "--allow-inconsistent",
+        action="store_true",
+        help="pack even if the artifacts were made from a different data run than the database",
+    )
     args = ap.parse_args()
     out = ROOT / (args.out or f"dist/mobilityops-demo-{args.mode}.tar.gz")
     out.parent.mkdir(parents=True, exist_ok=True)
     listing = files(args.mode)
+    from mobilityops.bundle import MANIFEST_NAME, build_manifest
+
+    manifest = build_manifest(ROOT, args.mode, listing)
+    if manifest["inconsistencies"] and not args.allow_inconsistent:
+        for msg in manifest["inconsistencies"]:
+            print(f"inconsistent: {msg}", file=sys.stderr)
+        raise SystemExit(
+            "refusing to pack a bundle whose artifacts and database come from different data runs; "
+            "regenerate the artifacts (docs/EVALUATION.md) or pass --allow-inconsistent"
+        )
     with tarfile.open(out, "w:gz", compresslevel=9) as tar:
         for f in listing:
             info = tar.gettarinfo(f, arcname=str(f.relative_to(ROOT)))
@@ -105,6 +135,10 @@ def main() -> None:
         ti = tarfile.TarInfo("DEMO_README.txt")
         ti.size = len(note)
         tar.addfile(ti, io.BytesIO(note))
+        blob = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
+        mi = tarfile.TarInfo(MANIFEST_NAME)
+        mi.size = len(blob)
+        tar.addfile(mi, io.BytesIO(blob))
     digest = hashlib.sha256(out.read_bytes()).hexdigest()
     (out.parent / (out.name + ".sha256")).write_text(f"{digest}  {out.name}\n")
     print(
@@ -116,6 +150,9 @@ def main() -> None:
                 "bytes": out.stat().st_size,
                 "sha256": digest,
                 "files": len(listing),
+                "code_commit": manifest["code_commit"],
+                "data_run_id": manifest["data_run_id"],
+                "model_id": manifest["model_id"],
             },
             indent=2,
         )

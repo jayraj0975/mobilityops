@@ -354,3 +354,143 @@ def test_without_forecast_artifacts_the_api_explains_instead_of_failing(tmp_path
     assert hello["replay"]["available"] is False
     assert "ingest" in hello["replay"]["reason"]  # no database yet: say what to run first
     assert hub.status()["replay_available"] is False
+
+
+# ------------------------------------------------- the replay build must never block the event loop
+def _slow_build(real, seconds: float, calls: list[float]):  # type: ignore[no-untyped-def]
+    """A build_replay that takes ``seconds`` of blocking CPU-like time, like the free-tier build."""
+    import time
+
+    def slow(*args, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(time.monotonic())
+        time.sleep(seconds)
+        return real(*args, **kwargs)
+
+    return slow
+
+
+def test_viewers_connecting_during_the_replay_build_do_not_block_the_event_loop(
+    live_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The start-up warm-up is building the replay when several viewers connect.
+
+    The build must be shared (one build, not one per viewer) and the event loop must stay
+    responsive throughout: a probe that wakes every 10 ms must never see a stall anywhere near
+    the build's length.
+    """
+    import time
+
+    from mobilityops.live import hub as hub_mod
+
+    build_seconds, calls = 0.8, []  # type: list[float]
+    monkeypatch.setattr(
+        hub_mod, "build_replay", _slow_build(hub_mod.build_replay, build_seconds, calls)
+    )
+    hub = LiveHub(live_settings, Services(live_settings))
+
+    async def go() -> tuple[float, float, list[str]]:
+        lags: list[float] = []
+        stop = False
+
+        async def probe() -> None:
+            last = time.monotonic()
+            while not stop:
+                await asyncio.sleep(0.01)
+                now = time.monotonic()
+                lags.append(now - last - 0.01)
+                last = now
+
+        async def viewer() -> str:
+            async for chunk in hub.stream(limit=1):
+                return chunk
+            raise AssertionError("no event")
+
+        probe_task = asyncio.create_task(probe())
+        started = time.monotonic()
+        warm = asyncio.create_task(hub.ensure_replay())  # what the API's lifespan does at start-up
+        await asyncio.sleep(0.1)  # the build is now running in its worker thread
+        chunks = await asyncio.gather(viewer(), viewer(), viewer())
+        elapsed = time.monotonic() - started
+        await warm
+        stop = True
+        await probe_task
+        return max(lags), elapsed, list(chunks)
+
+    worst_lag, elapsed, chunks = asyncio.run(go())
+    assert len(calls) == 1, "one shared build, not one per viewer"
+    assert elapsed >= build_seconds * 0.9, "the viewers really did wait for the build"
+    assert worst_lag < 0.25, f"event loop stalled {worst_lag:.2f}s during a {build_seconds}s build"
+    assert all(c.startswith("event: hello\n") for c in chunks)
+    assert all(json.loads(c.split("data: ", 1)[1])["replay"]["available"] for c in chunks)
+
+
+def test_a_disconnecting_viewer_cannot_cancel_the_shared_build(
+    live_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mobilityops.live import hub as hub_mod
+
+    calls: list[float] = []
+    monkeypatch.setattr(hub_mod, "build_replay", _slow_build(hub_mod.build_replay, 0.4, calls))
+    hub = LiveHub(live_settings, Services(live_settings))
+
+    async def go() -> Replay | None:
+        impatient = asyncio.create_task(hub.ensure_replay())
+        await asyncio.sleep(0.1)
+        impatient.cancel()  # the viewer goes away mid-build
+        with pytest.raises(asyncio.CancelledError):
+            await impatient
+        return await hub.ensure_replay()  # the next one still gets the same build
+
+    assert asyncio.run(go()) is not None
+    assert len(calls) == 1
+
+
+def test_an_unavailable_replay_is_shared_cached_and_retried_later(
+    live_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mobilityops.live import hub as hub_mod
+
+    attempts: list[int] = []
+
+    def failing(*args, **kwargs):  # type: ignore[no-untyped-def]
+        attempts.append(1)
+        raise ReplayUnavailable("no forecasts yet")
+
+    monkeypatch.setattr(hub_mod, "build_replay", failing)
+    monkeypatch.setattr(hub_mod, "RETRY_REPLAY_SECONDS", 0.2)
+    hub = LiveHub(live_settings, Services(live_settings))
+
+    async def go() -> None:
+        assert await asyncio.gather(*(hub.ensure_replay() for _ in range(4))) == [None] * 4
+        assert len(attempts) == 1  # four concurrent callers, one attempt
+        assert await hub.ensure_replay() is None
+        assert len(attempts) == 1  # inside the retry window: answered from the cached failure
+        await asyncio.sleep(0.25)
+        assert await hub.ensure_replay() is None
+        assert len(attempts) == 2  # after the window: tried again
+
+    asyncio.run(go())
+    assert hub.status()["replay_reason"] == "no forecasts yet"
+
+
+def test_the_api_stays_responsive_while_the_replay_warms_up(
+    live_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End to end through the real app: start-up begins the slow build, and ordinary requests are
+    answered at once instead of waiting for it."""
+    import time
+
+    from mobilityops.live import hub as hub_mod
+
+    calls: list[float] = []
+    monkeypatch.setattr(hub_mod, "build_replay", _slow_build(hub_mod.build_replay, 1.0, calls))
+    with TestClient(create_app(live_settings)) as client:
+        started = time.monotonic()
+        health = [client.get("/health") for _ in range(5)]
+        took = time.monotonic() - started
+        assert all(r.status_code == 200 for r in health)
+        assert took < 0.5, f"health checks took {took:.2f}s while the replay was building"
+        # a worker-thread caller may legitimately wait for the build
+        status = client.get("/api/v1/live/status").json()
+        assert status["replay_available"] is True
+    assert len(calls) == 1

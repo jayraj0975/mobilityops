@@ -96,3 +96,12 @@ def test_live_settings_have_safe_defaults_and_are_validated() -> None:
 def test_invalid_live_settings_fail_clearly(env: dict[str, str], fragment: str) -> None:
     with pytest.raises(ConfigError, match=fragment):
         Settings.from_env(env)
+
+
+def test_demo_notice_is_optional_trimmed_and_bounded() -> None:
+    assert Settings.from_env({}).demo_notice is None
+    assert Settings.from_env({"MOBILITYOPS_DEMO_NOTICE": "   "}).demo_notice is None
+    s = Settings.from_env({"MOBILITYOPS_DEMO_NOTICE": "  Sleeps when idle.  "})
+    assert s.demo_notice == "Sleeps when idle."
+    with pytest.raises(ConfigError, match="500"):
+        Settings.from_env({"MOBILITYOPS_DEMO_NOTICE": "x" * 501})

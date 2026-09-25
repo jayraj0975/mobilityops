@@ -4,6 +4,23 @@ The public demo is one container: the FastAPI service and the built React interf
 real-data snapshot. It runs on Render's free plan. Nothing is stored server side; the API is
 read-only.
 
+## Three kinds of deployment, and which one this is
+
+| | Portfolio demo (the Render services) | Self-hosted | Production |
+|---|---|---|---|
+| Purpose | let a reader try it | run it yourself, on your own machine and domain | serve real users |
+| Hosting | Render **free plan**: sleeps after about 15 minutes without visitors, so live processing runs only while it is awake | your server, Docker or systemd ([SELF_HOSTING](SELF_HOSTING.md), [PRODUCTION](PRODUCTION.md)) | not covered |
+| Access | deliberately public, no key (`MOBILITYOPS_ALLOW_UNAUTHENTICATED=true`), aggregate data only | one shared API key, HTTPS through Caddy | would need real accounts, an audit log, abuse protection and monitoring |
+| Weather data | Open-Meteo **free tier**, which is licensed for **non-commercial** use only | same, unless you buy a plan | needs a commercial weather licence |
+
+The Render services are a demonstration, not a production service, and the console says so on every page
+(`MOBILITYOPS_DEMO_NOTICE`). Open-Meteo's free API allows fewer than 10,000 calls a day, 5,000 an hour and 600 a
+minute, for non-commercial use, with attribution (CC BY 4.0); a commercial deployment must use their paid plans, which
+use a separate endpoint (`customer-api.open-meteo.com`) and an API key
+([terms](https://open-meteo.com/en/terms), [pricing](https://open-meteo.com/en/pricing), checked 2026-09-25). The adapters
+do not read such a key yet, so switching provider means changing the weather adapters and the registry in
+`src/mobilityops/pune/sources/`; nothing else depends on which provider answers.
+
 ## What is deployed
 
 | Piece | Where it comes from |
@@ -32,7 +49,7 @@ serving unknown data.
 ```bash
 docker build -t mobilityops-demo \
   --build-arg DEMO_URL=<release asset url> --build-arg DEMO_SHA256=<sha256> .
-docker run --rm -p 127.0.0.1:8000:8000 -e MOBILITYOPS_MODE=real mobilityops-demo
+docker run --rm -p 127.0.0.1:8000:8000 -e MOBILITYOPS_MODE=real -e MOBILITYOPS_ALLOW_UNAUTHENTICATED=true mobilityops-demo
 ```
 
 ## Known properties of the free plan

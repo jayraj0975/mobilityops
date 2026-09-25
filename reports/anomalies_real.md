@@ -1,6 +1,6 @@
 # Anomaly detection (real data)
 
-_Generated 2026-09-24T13:26:24.110264+00:00 from data run `20260924T132214Z-17545894`; scored days 2024-11-06 to 2024-12-31. Produced by `python -m mobilityops.cli anomaly-report`; do not edit._
+_Generated 2026-09-25T08:36:45.700179+00:00 from data run `20260924T191303Z-e5b0f39f`; scored days 2024-11-06 to 2024-12-31. Produced by `python -m mobilityops.cli anomaly-report`; do not edit._
 
 **Accuracy status: UNVERIFIED: real data has no anomaly labels; only injection-based sensitivity and manual plausibility review are available.**
 
