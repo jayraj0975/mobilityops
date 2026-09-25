@@ -26,7 +26,7 @@ do not read such a key yet, so switching provider means changing the weather ada
 | Piece | Where it comes from |
 |---|---|
 | Code | this repository, `main`, built from the `Dockerfile` |
-| Data | the aggregate-only bundle attached to the GitHub release `demo-data-v3` (all of 2024, all three services; `demo-data-v1` is the earlier January to May snapshot and is left in place), downloaded at build time and checked against a pinned SHA-256 (`scripts/fetch_demo.py`) |
+| Data | the aggregate-only bundle attached to the GitHub release `demo-data-v4` (all of 2024, all three services, with a `BUNDLE_MANIFEST.json`; `demo-data-v3` and `demo-data-v1` are earlier bundles and are left in place), downloaded at build time and checked against a pinned SHA-256 (`scripts/fetch_demo.py`) |
 | Settings | environment variables in [`render.yaml`](../render.yaml): real mode, per-client rate limits, trusted-proxy depth 3 (measured, see below), one model thread, `MALLOC_ARENA_MAX=2` |
 
 The bundle holds pickups per zone per hour, the zone dimension, daily weather, quality results and
@@ -38,7 +38,7 @@ the generated model artifacts. It holds no trip-level rows and no secrets. Sourc
 ```bash
 # regenerate the real-mode artifacts first (commands in docs/EVALUATION.md)
 python scripts/pack_demo.py # writes dist/mobilityops-demo-real.tar.gz and its .sha256
-gh release create demo-data-v3 dist/mobilityops-demo-real.tar.gz --title "Demo data bundle v2"
+gh release create demo-data-vN dist/mobilityops-demo-real.tar.gz dist/mobilityops-demo-real.tar.gz.sha256 --prerelease --title "Demo data vN"
 ```
 
 Then update `DEMO_URL` and `DEMO_SHA256` on the service. A wrong checksum fails the build instead of
@@ -87,7 +87,7 @@ entry let a forged header dodge the limit on the live site; that is fixed and co
 ## The Pune console on Render (added 2026-09-24)
 
 A second free web service, `mobilityops-pune` (<https://mobilityops-pune.onrender.com>), built from the same `Dockerfile`, with
-`MOBILITYOPS_MODE=pune` and the `demo-data-pune-v1` bundle (9.4 MB: the database, the latest model only, the rain cache).
+`MOBILITYOPS_MODE=pune` and the `demo-data-pune-v2` bundle (9.4 MB: the database, the latest model only, the rain cache).
 Its settings are in [`render.yaml`](../render.yaml).
 
 * **The worker runs on a thread inside the API process** (`MOBILITYOPS_WITH_WORKER=true`) because free web services have no
@@ -100,3 +100,17 @@ Its settings are in [`render.yaml`](../render.yaml).
   MET Norway there (a second provider is built in); Open-Meteo's air-quality host is unaffected. See PUNE_DATA_SOURCES.md.
 * **Deploys:** pushes to `main` do not deploy this account's services; trigger a deploy from the dashboard, or change an
   environment variable.
+
+## Bundle manifests and drift
+
+Code and data are released separately, so a bundle can drift from the code that serves it. Every bundle packed since 0.3.0
+carries `BUNDLE_MANIFEST.json`: the commit it was packed from, the pipeline run and commit that built the database, the
+model and data run each artifact came from, a schema fingerprint and a SHA-256 for every file. `pack_demo.py` refuses to pack
+artifacts made from a different run than the database. To check an extracted bundle against the current code:
+
+```bash
+python -m mobilityops.cli bundle-check --root <dir> --mode real --strict     # or --mode pune
+```
+
+CI does this for whichever bundles `render.yaml` points at, so a code change that orphans the deployed data, or a blueprint
+that points at an inconsistent bundle, fails the build. `/api/v1/meta` reports the manifest of the bundle being served.
