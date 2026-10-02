@@ -8,6 +8,7 @@ import { ageText, clock, instant } from "../pune/time";
 import { streamReducer, type StreamState } from "../pune/usePuneStream";
 import type { EventItemData, Geometry, MapLayer, Snapshot, SourceState, TimeSelector, ZoneValue } from "../pune/types";
 import { DataSourceStatus, EmptyState, ErrorState, EventItem, FilterBar, FreshnessIndicator, MapPanel, MetricCard, StatusBadge, TimeRangeSelector } from "../ui";
+import { mockApi } from "./fixtures";
 
 const zone = (id: number, over: Partial<ZoneValue> = {}): ZoneValue => ({
   id, actual: 100, forecast: 100, lo: 80, hi: 120, ratio: 1, z: 0, status: "normal", event_id: null, ...over,
@@ -215,6 +216,31 @@ describe("design-system components", () => {
     expect(screen.getByText("SIMULATED")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Kothrud" }));
     expect(onSelect).toHaveBeenCalledWith(5);
+  });
+  it("opening the recommended-response panel fetches and shows the repositioning scenario", async () => {
+    const e: EventItemData = {
+      id: "e1", zone_id: 5, zone: "Kothrud", kind: "surge", severity: "high", start: "2026-09-24T19:00:00", end: "2026-09-24T21:00:00",
+      actual: 300, expected: 120, score: 11.5, detected_at: "2026-09-24T15:40:00Z", explanation: "no cause claimed", data_class: "SIMULATED",
+    };
+    const fetchMock = mockApi({
+      "/api/v1/state/events/e1/impact": () => ({
+        event: e,
+        scenario: {
+          status: "optimal", message: "", label: "SIMULATED SCENARIO under explicit assumptions; not a forecast of real-world outcomes",
+          fleet: 10, demand_total: 400, served_before: 300, served_after: 380,
+          service_share_before: 0.75, service_share_after: 0.95, vehicles_moved: 2, km_total: 3.4,
+          moves: [{ from_zone: 6, to_zone: 5, vehicles: 2, km: 3.4 }],
+          assumptions: {},
+        },
+      }),
+    });
+    render(<ul><EventItem event={e} /></ul>);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Recommended response"));
+    expect(await screen.findByText(/95\.0% served/)).toBeInTheDocument();
+    expect(screen.getByText(/Zone 6 → zone 5: 2 vehicles/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 });
 

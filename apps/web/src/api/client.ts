@@ -166,6 +166,8 @@ export const state = {
     get<Schemas["CitySeries"]>("/api/v1/state/series", q, s),
   events: (limit = 50, s?: AbortSignal) =>
     get<Schemas["EventItem"][]>("/api/v1/state/events", { limit }, s),
+  eventImpact: (id: string, s?: AbortSignal) =>
+    get<Schemas["EventImpact"]>(`/api/v1/state/events/${id}/impact`, undefined, s),
   sources: (s?: AbortSignal) =>
     get<Schemas["SourceState"][]>("/api/v1/state/sources", undefined, s),
   quality: (s?: AbortSignal) => get<Schemas["DataQuality"]>("/api/v1/state/quality", undefined, s),

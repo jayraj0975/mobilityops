@@ -5,6 +5,26 @@ export type ZoneValue = Schemas["ZoneValue"];
 export type ZoneGeometry = Schemas["ZoneGeometry"];
 export type Geometry = Schemas["Geometry"];
 export type EventItemData = Schemas["EventItem"];
+export type EventImpactData = Schemas["EventImpact"];
+
+/** The shape of ``EventImpactData["scenario"]`` (typed loosely in the API as a free-form
+ * dict since it's `optimization.model.ScenarioResult.to_dict()` - a SIMULATED SCENARIO,
+ * never a forecast). */
+export interface RepositioningScenario {
+  status: "optimal" | "feasible_time_limit" | "infeasible" | "no_solution" | "unbounded" | "solver_error";
+  message: string;
+  label: string;
+  fleet: number;
+  demand_total: number;
+  served_before: number;
+  served_after: number;
+  service_share_before: number | null;
+  service_share_after: number | null;
+  vehicles_moved: number;
+  km_total: number;
+  moves: { from_zone: number; to_zone: number; vehicles: number; km: number }[];
+  assumptions: Record<string, unknown>;
+}
 export type SourceState = Schemas["SourceState"];
 export type ZoneDetail = Schemas["ZoneDetail"];
 export type CitySeries = Schemas["CitySeries"];

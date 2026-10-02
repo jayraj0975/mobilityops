@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { fmtInt } from "../lib/format";
 import { clock } from "../pune/time";
 import type { EventItemData } from "../pune/types";
 import { DataClassTag } from "./DataClassTag";
+import { EventImpactPanel } from "./EventImpactPanel";
 import { StatusBadge, type Tone } from "./StatusBadge";
 
 const SEV: Record<string, Tone> = { low: "info", medium: "warn", high: "bad" };
@@ -17,6 +19,7 @@ export function EventItem({
   selected?: boolean;
 }) {
   const ratio = event.expected > 0 ? event.actual / event.expected : null;
+  const [impactOpen, setImpactOpen] = useState(false);
   return (
     <li className={selected ? "event event-on" : "event"}>
       <header>
@@ -42,6 +45,10 @@ export function EventItem({
       <details>
         <summary className="small">Explanation</summary>
         <p className="small muted">{event.explanation}</p>
+      </details>
+      <details onToggle={(e) => setImpactOpen(e.currentTarget.open)}>
+        <summary className="small">Recommended response</summary>
+        <EventImpactPanel eventId={event.id} open={impactOpen} />
       </details>
     </li>
   );
