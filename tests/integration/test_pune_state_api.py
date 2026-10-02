@@ -171,6 +171,37 @@ def test_an_event_marks_its_zone_in_the_snapshot(settings: Settings, client: Tes
         store.replace_events("2026-09-24", [])
 
 
+def test_event_impact_recommends_a_simulated_repositioning_scenario(
+    settings: Settings, client: TestClient
+) -> None:
+    store = StateStore(settings.state_path)
+    store.replace_events(
+        "2026-09-24",
+        [
+            {
+                "id": "e1", "zone_id": 5, "kind": "surge", "severity": "high",
+                "start_ts": "2026-09-24T19:00:00", "end_ts": "2026-09-24T21:00:00",
+                "actual": 300.0, "expected": 120.0, "score": 11.5,
+                "detected_at": "2026-09-24T15:40:00+00:00", "explanation": "simulated surge",
+            }
+        ],
+    )  # fmt: skip
+    try:
+        r = client.get("/api/v1/state/events/e1/impact")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["event"]["id"] == "e1" and body["event"]["zone_id"] == 5
+        scenario = body["scenario"]
+        if scenario is not None:  # None only if zone 5 has no neighbour within range
+            assert scenario["label"] == "SIMULATED SCENARIO under explicit assumptions; not a forecast of real-world outcomes"
+            assert scenario["status"] in ("optimal", "feasible_time_limit", "infeasible")
+            assert "assumptions" in scenario and "moves" in scenario
+        r = client.get("/api/v1/state/events/no-such-event/impact")
+        assert r.status_code == 404
+    finally:
+        store.replace_events("2026-09-24", [])
+
+
 def test_sources_are_honest_about_what_is_connected(client: TestClient) -> None:
     src = {s["key"]: s for s in client.get("/api/v1/state/sources").json()}
     assert (

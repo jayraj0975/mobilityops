@@ -970,6 +970,33 @@
         "title": "EnvironmentBlock",
         "type": "object"
       },
+      "EventImpact": {
+        "additionalProperties": false,
+        "description": "OBSERVED event + a RECOMMENDED repositioning scenario among its nearby zones.\n\n``scenario`` is ``None`` when no other zone lies within repositioning range. Everything\ninside ``scenario`` is a SIMULATED SCENARIO under stated assumptions (see\noptimization/model.py's ``ScenarioResult``) - never a forecast of real-world outcomes.",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/EventItem"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          }
+        },
+        "required": [
+          "event",
+          "scenario"
+        ],
+        "title": "EventImpact",
+        "type": "object"
+      },
       "EventItem": {
         "additionalProperties": false,
         "properties": {
@@ -5414,6 +5441,65 @@
           }
         },
         "summary": "State Events",
+        "tags": [
+          "state"
+        ]
+      }
+    },
+    "/api/v1/state/events/{event_id}/impact": {
+      "get": {
+        "description": "An event plus a RECOMMENDED repositioning scenario among its nearby zones (a\nSIMULATED SCENARIO under stated assumptions, never a forecast of real outcomes).",
+        "operationId": "state_event_impact_api_v1_state_events__event_id__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventImpact"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "State Event Impact",
         "tags": [
           "state"
         ]

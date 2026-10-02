@@ -547,6 +547,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/state/events/{event_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Event Impact
+         * @description An event plus a RECOMMENDED repositioning scenario among its nearby zones (a
+         *     SIMULATED SCENARIO under stated assumptions, never a forecast of real outcomes).
+         */
+        get: operations["state_event_impact_api_v1_state_events__event_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/state/geometry": {
         parameters: {
             query?: never;
@@ -1122,6 +1143,21 @@ export interface components {
             temperature?: components["schemas"]["Reading"] | null;
             us_aqi?: components["schemas"]["Reading"] | null;
             wind?: components["schemas"]["Reading"] | null;
+        };
+        /**
+         * EventImpact
+         * @description OBSERVED event + a RECOMMENDED repositioning scenario among its nearby zones.
+         *
+         *     ``scenario`` is ``None`` when no other zone lies within repositioning range. Everything
+         *     inside ``scenario`` is a SIMULATED SCENARIO under stated assumptions (see
+         *     optimization/model.py's ``ScenarioResult``) - never a forecast of real-world outcomes.
+         */
+        EventImpact: {
+            event: components["schemas"]["EventItem"];
+            /** Scenario */
+            scenario: {
+                [key: string]: unknown;
+            } | null;
         };
         /** EventItem */
         EventItem: {
@@ -2955,6 +2991,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_event_impact_api_v1_state_events__event_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventImpact"];
                 };
             };
             /** @description Validation Error */

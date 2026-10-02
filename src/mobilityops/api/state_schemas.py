@@ -94,6 +94,17 @@ class EventItem(Model):
     data_class: DataClassName
 
 
+class EventImpact(Model):
+    """OBSERVED event + a RECOMMENDED repositioning scenario among its nearby zones.
+
+    ``scenario`` is ``None`` when no other zone lies within repositioning range. Everything
+    inside ``scenario`` is a SIMULATED SCENARIO under stated assumptions (see
+    optimization/model.py's ``ScenarioResult``) - never a forecast of real-world outcomes."""
+
+    event: EventItem
+    scenario: dict[str, object] | None
+
+
 class Totals(Model):
     actual: float | None
     forecast: float

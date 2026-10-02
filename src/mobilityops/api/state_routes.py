@@ -90,6 +90,15 @@ def register(api: APIRouter, settings: Settings) -> tuple[StateProvider, StateHu
         """Events the live rule found among today's completed hours (SIMULATED demand)."""
         return provider.require().events(now(), limit)
 
+    @api.get("/state/events/{event_id}/impact", response_model=st.EventImpact, tags=["state"])
+    def state_event_impact(event_id: str) -> Any:
+        """An event plus a RECOMMENDED repositioning scenario among its nearby zones (a
+        SIMULATED SCENARIO under stated assumptions, never a forecast of real outcomes)."""
+        impact = provider.require().event_impact(event_id, now())
+        if impact is None:
+            raise NoData(f"unknown event id {event_id}")
+        return impact
+
     @api.get("/state/sources", response_model=list[st.SourceState], tags=["state"])
     def state_sources() -> Any:
         """Every data source: what it is, its licence, and its freshness right now."""

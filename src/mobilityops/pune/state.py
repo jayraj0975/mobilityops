@@ -12,9 +12,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import duckdb
+import numpy as np
 import pandas as pd
 
 from mobilityops.config import Settings
+from mobilityops.geo import haversine_matrix_km
+from mobilityops.optimization.model import Instance, RebalanceParams, solve_rebalancing
+from mobilityops.optimization.scenario import apportion, fleet_size
 from mobilityops.pune import live
 from mobilityops.pune.build import zone_frame
 from mobilityops.pune.freshness import Freshness, classify, worst
@@ -299,6 +303,48 @@ class StateService:
                 }
             )
         return out
+
+    # -------------------------------------------------------------------------- event impact
+    def event_impact(self, event_id: str, now: datetime) -> dict[str, Any] | None:
+        """For one OBSERVED event: a RECOMMENDED repositioning scenario among nearby zones.
+
+        Every number past "event" is a SIMULATED SCENARIO under stated assumptions (see
+        optimization/model.py), never a forecast of what would really happen. Supply is
+        apportioned by each nearby zone's current forecast (a live stand-in for "recent
+        habit"); demand is each zone's current actual where known, else its forecast.
+        """
+        event = next((e for e in self.events(now, 200) if e["id"] == event_id), None)
+        if event is None:
+            return None
+
+        snap = self.snapshot("now", now)
+        by_id = {z["id"]: z for z in snap["zones"]}
+        if event["zone_id"] not in by_id:
+            return {"event": event, "scenario": None}
+
+        zids = self._zones.index.to_numpy()
+        lon = self._zones["centroid_lon"].to_numpy()
+        lat = self._zones["centroid_lat"].to_numpy()
+        dist = haversine_matrix_km(lon, lat)
+        center = int(np.where(zids == event["zone_id"])[0][0])
+        params = RebalanceParams()
+        nearby = np.where(dist[center] <= params.max_km)[0]
+        if len(nearby) < 2:
+            return {"event": event, "scenario": None}
+
+        sub_ids = zids[nearby]
+        forecast = np.array([float(by_id[int(z)]["forecast"]) for z in sub_ids])
+        demand = np.array(
+            [float(by_id[int(z)]["actual"] or by_id[int(z)]["forecast"]) for z in sub_ids]
+        )
+        fleet = fleet_size(float(forecast.sum()), coverage=0.85, trips_per_vehicle=params.trips_per_vehicle)
+        supply = apportion(forecast, fleet).astype(float)
+        inst = Instance(
+            zone_ids=sub_ids.astype(int), demand=demand, supply=supply,
+            lon=lon[nearby], lat=lat[nearby],
+        )
+        result = solve_rebalancing(inst, params)
+        return {"event": event, "scenario": result.to_dict()}
 
     # -------------------------------------------------------------------------- zone detail
     def zone_detail(self, zone_id: int, now: datetime, hours: int = 30) -> dict[str, Any] | None:
