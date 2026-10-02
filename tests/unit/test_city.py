@@ -47,7 +47,7 @@ def test_pune_has_no_daylight_saving_and_nyc_does() -> None:
 def test_unknown_city_is_rejected() -> None:
     with pytest.raises(ValueError, match="unknown city"):
         get_city("atlantis")
-    assert set(CITIES) == {"nyc", "pune"}
+    assert set(CITIES) == {"nyc", "pune", "mumbai"}
 
 
 def test_mode_selects_the_city_and_label() -> None:

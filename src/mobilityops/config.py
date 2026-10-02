@@ -18,9 +18,13 @@ from typing import Literal
 
 from mobilityops.city import CITIES, NYC, City
 
-Mode = Literal["sample", "real", "pune"]
-_VALID_MODES = ("sample", "real", "pune")
+Mode = Literal["sample", "real", "pune", "mumbai"]
+_VALID_MODES = ("sample", "real", "pune", "mumbai")
 _VALID_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+
+# Modes whose trip counts are a simulation conditioned on real weather/geography/holidays,
+# as opposed to "sample" (synthetic, for tests) or "real" (downloaded NYC TLC data).
+SIMULATED_CITY_MODES = ("pune", "mumbai")
 
 
 class ConfigError(ValueError):
@@ -146,16 +150,17 @@ class Settings:
 
     @property
     def city(self) -> City:
-        """The place this mode describes: Pune for ``pune``, New York for the others."""
-        return CITIES["pune"] if self.mode == "pune" else NYC
+        """The place this mode describes: the matching simulated city, or New York otherwise."""
+        return CITIES[self.mode] if self.mode in SIMULATED_CITY_MODES else NYC
 
     @property
     def data_label(self) -> str:
         """How the data must be described wherever it is shown."""
+        if self.mode in SIMULATED_CITY_MODES:
+            return "SIMULATED DEMAND (real weather and geography)"
         return {
             "sample": "TEST / SYNTHETIC DATA",
             "real": "real data",
-            "pune": "SIMULATED DEMAND (real weather and geography)",
         }[self.mode]
 
     @property

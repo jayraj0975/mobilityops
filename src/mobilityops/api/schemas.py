@@ -65,7 +65,7 @@ class BundleInfo(Model):
 
 class Meta(Model):
     api_version: str
-    mode: Literal["sample", "real", "pune"]
+    mode: Literal["sample", "real", "pune", "mumbai"]
     data_label: str
     synthetic: bool
     data_start: datetime

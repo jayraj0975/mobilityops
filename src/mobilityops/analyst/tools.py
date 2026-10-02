@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from mobilityops.analyst.glossary import lookup
 from mobilityops.analytics.queries import AnalyticsError
 from mobilityops.api.services import NotReady, Services
+from mobilityops.config import SIMULATED_CITY_MODES
 from mobilityops.log import get_logger
 from mobilityops.optimization.model import RebalanceParams
 from mobilityops.optimization.run import scenario_report
@@ -262,10 +263,10 @@ def _data_overview(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
     r.add("zones", "Zones", rng.n_zones, n(rng.n_zones))
     r.add("trips", "Valid trips after cleaning", rng.rows_valid, n(rng.rows_valid))
     city = ctx.services.settings.city
-    if rng.mode == "pune":
+    if rng.mode in SIMULATED_CITY_MODES:
         r.notes.append(
-            "Trip counts are SIMULATED: no open source of Pune taxi or ride-hail trips exists. "
-            "Only rain, the holiday calendar and the zone geography are real inputs. "
+            f"Trip counts are SIMULATED: no open source of {city.name} taxi or ride-hail trips "
+            "exists. Only rain, the holiday calendar and the zone geography are real inputs. "
             f"Timestamps are {city.timezone} local time."
         )
     else:
@@ -273,7 +274,7 @@ def _data_overview(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
             "Yellow-taxi trips only (no green cabs, for-hire vehicles or ride-hail); timestamps "
             "are New York local time."
         )
-    if rng.synthetic and rng.mode != "pune":
+    if rng.synthetic and rng.mode not in SIMULATED_CITY_MODES:
         r.notes.append("This is TEST / SYNTHETIC DATA, not real-world demand.")
 
 
@@ -751,7 +752,7 @@ def _optimization_findings(ctx: ToolContext, r: ToolResult, a: NoArgs) -> None:
 
 
 def _glossary(ctx: ToolContext, r: ToolResult, a: GlossaryArgs) -> None:
-    hit = lookup(a.term, ctx.services.settings.mode)
+    hit = lookup(a.term, ctx.services.settings.mode, ctx.services.settings.city.name)
     if hit is None:
         r.ok, r.error = False, f"no definition for '{a.term}'"
         return

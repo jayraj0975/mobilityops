@@ -27,7 +27,7 @@ import httpx
 import lightgbm
 import pandas as pd
 
-from mobilityops.config import Settings
+from mobilityops.config import SIMULATED_CITY_MODES, Settings
 from mobilityops.log import get_logger
 from mobilityops.pipeline import _git_commit, quality_dir
 from mobilityops.pune import simulate
@@ -67,9 +67,9 @@ def default_window(today: date | None = None) -> tuple[date, date]:
     return end - timedelta(days=DEFAULT_DAYS), end
 
 
-def zone_frame() -> pd.DataFrame:
-    """``dim_zone`` for Pune from the committed OpenStreetMap-derived file."""
-    doc = load_zones()
+def zone_frame(city: str = "pune") -> pd.DataFrame:
+    """``dim_zone`` for ``city`` from its committed OpenStreetMap-derived file."""
+    doc = load_zones(city)
     rows = []
     for z in doc["zones"]:
         cos = math.cos(math.radians(z["lat"]))
@@ -328,9 +328,14 @@ def build_pune(
     client: httpx.Client | None = None,
     refresh_weather: bool = False,
 ) -> PuneBuild:
-    """Build and promote the Pune database. ``weather``: hourly frame to use instead of fetching."""
-    if settings.mode != "pune":
-        raise ValueError("Pune data can only be built with MOBILITYOPS_MODE=pune")
+    """Build and promote the simulated-city database (Pune or Mumbai so far).
+
+    ``weather``: hourly frame to use instead of fetching.
+    """
+    if settings.mode not in SIMULATED_CITY_MODES:
+        raise ValueError(
+            f"simulated-city data can only be built with MOBILITYOPS_MODE in {SIMULATED_CITY_MODES}"
+        )
     window = window or default_window()
     if (window[1] - window[0]).days < 28:
         raise ValueError("the window must cover at least 28 days")
@@ -341,7 +346,7 @@ def build_pune(
         if weather is not None
         else load_or_fetch_weather(settings, window, client, refresh_weather)
     )
-    zones = zone_frame()
+    zones = zone_frame(settings.mode)
     model = simulate.build_model(zones)
     days = simulate.date_range(*window)
     events = simulate.plan_events(model, days, seed)

@@ -52,7 +52,7 @@ from mobilityops.api import state_routes
 from mobilityops.api.limits import BodyLimitMiddleware, RateLimiter, client_ip
 from mobilityops.api.metrics import Metrics
 from mobilityops.api.services import NotReady, Services
-from mobilityops.config import Settings
+from mobilityops.config import SIMULATED_CITY_MODES, Settings
 from mobilityops.live.hub import LiveBusy, LiveHub
 from mobilityops.log import get_logger
 from mobilityops.optimization.model import RebalanceParams
@@ -294,10 +294,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return s.Ready(
                 status="degraded", components=comps, hint="run `ingest` and `build` first"
             )
-        # Pune runs no optimisation backtest (it takes an hour), so it is not required there.
+        # Simulated cities run no optimisation backtest (it takes an hour), so it's not required.
         needed = (
             {k: v for k, v in comps.items() if k in ("database", "forecast_model", "live_worker")}
-            if settings.mode == "pune"
+            if settings.mode in SIMULATED_CITY_MODES
             else comps
         )
         return s.Ready(status="ready" if all(needed.values()) else "degraded", components=comps)

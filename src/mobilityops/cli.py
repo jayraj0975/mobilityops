@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 import duckdb
 
-from mobilityops.config import Settings
+from mobilityops.config import _VALID_MODES, SIMULATED_CITY_MODES, Settings
 from mobilityops.ingestion.download import DownloadError
 from mobilityops.ingestion.pipeline import MonthRange, ingest_real, ingest_sample, parse_month
 from mobilityops.log import configure_logging, get_logger
@@ -84,8 +84,8 @@ def cmd_pune_build(settings: Settings, args: argparse.Namespace) -> int:
     from mobilityops.pune.build import build_pune
     from mobilityops.pune.sources.base import SourceError
 
-    if settings.mode != "pune":
-        print("pune-build needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+    if settings.mode not in SIMULATED_CITY_MODES:
+        print(f"pune-build needs MOBILITYOPS_MODE in {SIMULATED_CITY_MODES}", file=sys.stderr)
         return 2
     window = (date.fromisoformat(args.start), date.fromisoformat(args.end)) if args.start else None
     try:
@@ -110,8 +110,8 @@ def cmd_pune_worker(settings: Settings, args: argparse.Namespace) -> int:
     from mobilityops.pune.store import StateStore
     from mobilityops.pune.worker import Worker
 
-    if settings.mode != "pune":
-        print("pune-worker needs MOBILITYOPS_MODE=pune", file=sys.stderr)
+    if settings.mode not in SIMULATED_CITY_MODES:
+        print(f"pune-worker needs MOBILITYOPS_MODE in {SIMULATED_CITY_MODES}", file=sys.stderr)
         return 2
     if not settings.db_path.exists():
         print("no Pune database yet; run `pune-build` first", file=sys.stderr)
@@ -414,11 +414,11 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
         "true",
         "yes",
     ):
-        if settings.mode != "pune":
-            print("--with-worker only applies in pune mode", file=sys.stderr)
+        if settings.mode not in SIMULATED_CITY_MODES:
+            print(f"--with-worker only applies in a simulated-city mode ({SIMULATED_CITY_MODES})", file=sys.stderr)
             return 2
         if not settings.db_path.exists():
-            print("no Pune database yet; run `pune-build` first", file=sys.stderr)
+            print("no database yet for this mode; run `pune-build` first", file=sys.stderr)
             return 1
         from mobilityops.pune.worker import start_worker_thread
 
@@ -611,7 +611,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="check an extracted demo bundle against this code (exit 1 on problems)",
     )
     bc.add_argument("--root", default=".", help="the directory the bundle was extracted into")
-    bc.add_argument("--mode", choices=("real", "pune", "sample"), required=True)
+    bc.add_argument("--mode", choices=_VALID_MODES, required=True)
     bc.add_argument("--strict", action="store_true", help="treat warnings as failures")
     bc.add_argument("--skip-hashes", action="store_true", help="do not re-hash every file")
     bc.set_defaults(func=cmd_bundle_check)

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from mobilityops.analytics.queries import NoData
 from mobilityops.api import state_schemas as st
 from mobilityops.api.services import NotReady
-from mobilityops.config import Settings
+from mobilityops.config import SIMULATED_CITY_MODES, Settings
 from mobilityops.live.hub import LiveBusy
 from mobilityops.pune.hub import StateHub
 from mobilityops.pune.state import StateService
@@ -28,7 +28,7 @@ class StateProvider:
         self.clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 
     def maybe(self) -> StateService | None:
-        if self.settings.mode != "pune":
+        if self.settings.mode not in SIMULATED_CITY_MODES:
             return None
         if self._service is None:
             if not self.settings.state_path.exists():
@@ -39,8 +39,11 @@ class StateProvider:
         return self._service
 
     def require(self) -> StateService:
-        if self.settings.mode != "pune":
-            raise NoData("the live state is only available in pune mode (MOBILITYOPS_MODE=pune)")
+        if self.settings.mode not in SIMULATED_CITY_MODES:
+            raise NoData(
+                "the live state is only available in a simulated-city mode "
+                f"(MOBILITYOPS_MODE in {SIMULATED_CITY_MODES})"
+            )
         svc = self.maybe()
         if svc is None:
             raise NotReady("the ingestion worker has not started; run `pune-worker`")

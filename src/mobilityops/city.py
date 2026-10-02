@@ -86,7 +86,21 @@ PUNE = City(
     scope="simulated Pune mobility demand",
 )
 
-CITIES: dict[str, City] = {c.key: c for c in (NYC, PUNE)}
+MUMBAI = City(
+    key="mumbai",
+    name="Mumbai",
+    timezone="Asia/Kolkata",
+    # Greater Mumbai (island city + suburbs); excludes Navi Mumbai and Thane, which are
+    # administratively separate cities, to keep the study area comparable in scope to Pune's.
+    bbox=(18.89, 72.77, 19.28, 72.99),
+    holiday_lookup=_india_maharashtra,  # Mumbai is also in Maharashtra: same calendar as Pune
+    holiday_label="public holidays of India and Maharashtra",
+    holiday_phrase="public holiday in Maharashtra",
+    holiday_kind="public holiday",
+    scope="simulated Mumbai mobility demand",
+)
+
+CITIES: dict[str, City] = {c.key: c for c in (NYC, PUNE, MUMBAI)}
 DEFAULT_CITY = NYC
 
 

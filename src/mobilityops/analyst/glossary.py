@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mobilityops.config import SIMULATED_CITY_MODES
+
 GLOSSARY: dict[str, str] = {
     "pickups": "Completed yellow-taxi trips that started in a zone during an hour, after cleaning.",
     "dropoffs": "Completed yellow-taxi trips that ended in a zone during an hour.",
@@ -41,19 +43,25 @@ GLOSSARY: dict[str, str] = {
 
 
 # Definitions that differ where the data is not New York taxi trips.
-PUNE_OVERRIDES: dict[str, str] = {
-    "pickups": "SIMULATED trips that started in a zone during an hour. No real Pune trip data "
-    "exists openly; the counts come from a documented model.",
-    "dropoffs": "SIMULATED trips that ended in a zone during an hour.",
-    "revenue": "Simulated fare in rupees of the trips that started in the zone.",
-    "zone": "An analysis area: the part of Pune closer to one OpenStreetMap suburb than to any "
-    "other. Not an administrative ward; identified by a location id.",
-}
+def _simulated_city_overrides(city_name: str) -> dict[str, str]:
+    return {
+        "pickups": f"SIMULATED trips that started in a zone during an hour. No real {city_name} "
+        "trip data exists openly; the counts come from a documented model.",
+        "dropoffs": "SIMULATED trips that ended in a zone during an hour.",
+        "revenue": "Simulated fare in rupees of the trips that started in the zone.",
+        "zone": f"An analysis area: the part of {city_name} closer to one OpenStreetMap suburb "
+        "than to any other. Not an administrative ward; identified by a location id.",
+    }
 
 
-def lookup(term: str, mode: str = "real") -> tuple[str, str] | None:
+# Kept for backward compatibility with anything importing the Pune-specific dict directly.
+PUNE_OVERRIDES: dict[str, str] = _simulated_city_overrides("Pune")
+
+
+def lookup(term: str, mode: str = "real", city_name: str = "Pune") -> tuple[str, str] | None:
     """Find a glossary entry by exact or contained term."""
-    entries = {**GLOSSARY, **PUNE_OVERRIDES} if mode == "pune" else GLOSSARY
+    is_simulated_city = mode in SIMULATED_CITY_MODES
+    entries = {**GLOSSARY, **_simulated_city_overrides(city_name)} if is_simulated_city else GLOSSARY
     t = term.strip().lower()
     if t in entries:
         return t, entries[t]

@@ -231,7 +231,12 @@ def test_state_needs_the_worker_and_the_pune_mode(tmp_path: Path, settings: Sett
         {"MOBILITYOPS_DATA_DIR": str(tmp_path / "s"), "MOBILITYOPS_MODE": "sample"}
     )
     r = TestClient(create_app(sample)).get("/api/v1/state/snapshot")
-    assert r.status_code == 404 and "pune mode" in r.json()["error"]["message"]
+    assert r.status_code == 404 and "simulated-city mode" in r.json()["error"]["message"]
+    mumbai = Settings.from_env(
+        {"MOBILITYOPS_DATA_DIR": str(tmp_path / "m"), "MOBILITYOPS_MODE": "mumbai"}
+    )
+    r = TestClient(create_app(mumbai)).get("/api/v1/state/snapshot")
+    assert r.status_code == 503 and "worker" in r.json()["error"]["message"]
 
 
 def test_state_endpoints_require_the_api_key_when_one_is_set(settings: Settings) -> None:

@@ -11,7 +11,7 @@ import pandas as pd
 
 from mobilityops.anomaly.detect import AnomalyConfig, run_detection
 from mobilityops.anomaly.validate import InjectionSpec, injection_experiment, match_planted
-from mobilityops.config import Settings
+from mobilityops.config import SIMULATED_CITY_MODES, Settings
 from mobilityops.forecasting.evaluate import data_run_id
 from mobilityops.forecasting.features import load_demand
 from mobilityops.sample import SampleSpec
@@ -31,10 +31,10 @@ def load_predictions(settings: Settings) -> pd.DataFrame:
 def accuracy_status(mode: str) -> str:
     if mode == "sample":
         return "verified against planted ground truth (synthetic data only)"
-    if mode == "pune":
+    if mode in SIMULATED_CITY_MODES:
         return (
             "SIMULATED: events are the ones the generator planted, so detection rates describe "
-            "the detector on simulated demand, not real Pune traffic"
+            "the detector on simulated demand, not real traffic"
         )
     return (
         "UNVERIFIED: real data has no anomaly labels; only injection-based sensitivity and "

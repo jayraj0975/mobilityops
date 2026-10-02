@@ -127,7 +127,7 @@ def select_seeds(elements: list[dict[str, Any]], bbox: BBox) -> list[Seed]:
 
 
 def build_zone_document(
-    elements: list[dict[str, Any]], bbox: BBox, fetched_at: str
+    elements: list[dict[str, Any]], bbox: BBox, fetched_at: str, city: str = "pune"
 ) -> dict[str, Any]:
     """The committed zone file: seeds, cells (lon/lat rings) and provenance."""
     seeds = select_seeds(elements, bbox)
@@ -152,7 +152,7 @@ def build_zone_document(
             }
         )
     return {
-        "city": "pune",
+        "city": city,
         "bbox": list(bbox),
         "attribution": ATTRIBUTION,
         "licence": "ODbL 1.0: https://opendatacommons.org/licenses/odbl/1-0/",
@@ -166,8 +166,12 @@ def build_zone_document(
     }
 
 
-def load_zones() -> dict[str, Any]:
-    """The committed zone document."""
-    text = resources.files("mobilityops.pune").joinpath("data/pune_zones.json").read_text("utf-8")
+def load_zones(city: str = "pune") -> dict[str, Any]:
+    """The committed zone document for ``city`` (one file per simulated city, same package)."""
+    text = (
+        resources.files("mobilityops.pune")
+        .joinpath(f"data/{city}_zones.json")
+        .read_text("utf-8")
+    )
     doc: dict[str, Any] = json.loads(text)
     return doc

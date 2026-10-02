@@ -16,7 +16,7 @@ from typing import Any, TypeVar
 import pandas as pd
 
 from mobilityops.analytics.queries import Analytics
-from mobilityops.config import Settings
+from mobilityops.config import SIMULATED_CITY_MODES, Settings
 from mobilityops.forecasting.features import DemandTensor, load_demand
 from mobilityops.forecasting.model import ForecastModel, load_model, models_dir
 
@@ -150,7 +150,7 @@ class Services:
     def available(self) -> dict[str, bool]:
         a = self.artifacts
         live: dict[str, bool] = {}
-        if self.settings.mode == "pune":
+        if self.settings.mode in SIMULATED_CITY_MODES:
             from mobilityops.pune.store import worker_alive
 
             live["live_worker"] = worker_alive(self.settings.state_path)
