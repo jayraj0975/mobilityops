@@ -396,3 +396,40 @@ date, rain), so the batch build and the live worker agree exactly.
 **Consequences.** Results on Pune data measure the pipeline, not Pune. The forecast beating its baselines on simulated
 demand is a statement about the simulator's structure. The model has no weather input and over-forecasts a dry day
 after rainy ones: a real, visible limitation that the console shows rather than hides.
+
+## ADR-022: Mumbai is a second simulated city, built by generalising Pune's machinery rather than copying it
+
+**Context.** Pune's implementation (`src/mobilityops/pune/`) turned out to already separate "what differs between
+cities" (timezone, holiday calendar, bounding box: `src/mobilityops/city.py`'s `City` profile) from the generic
+simulation/forecast/anomaly/API pipeline. Adding Mumbai as a literal copy of the Pune module would have meant two
+codebases to keep in sync for no reason the architecture required.
+
+**Decision.** `MOBILITYOPS_MODE` gained a `mumbai` value alongside `pune`; both are "simulated city" modes
+(`config.SIMULATED_CITY_MODES`). A `MUMBAI` `City` profile was added (Mumbai is also in Maharashtra, so it reuses
+the same `_india_maharashtra` holiday lookup as Pune; only the timezone-irrelevant bbox differs). The ~12 call sites
+that gated behaviour on `mode == "pune"` (API readiness, the live-state routes, the analyst's glossary and notes,
+anomaly accuracy wording, the CLI's `pune-build`/`pune-worker` guards) were generalised to check `SIMULATED_CITY_MODES`
+instead. `pune/zones.py`'s `load_zones()`/`build_zone_document()` took a `city` parameter so each city gets its own
+committed zone file (`pune/data/{city}_zones.json`) from the same Voronoi-tessellation code. The web console's
+`PuneApp` and the Android app's `pune` package (both already generic consumers of `/api/v1/meta` and
+`/api/v1/state/*`) needed their few hardcoded "Pune" display strings parameterised by the server's own `city` field
+rather than any new branching.
+
+**Mumbai's zones are real, not copied.** 698 OpenStreetMap place nodes (suburb/neighbourhood/quarter) were fetched
+from the Overpass API for Mumbai's bounding box (the same kind of query Pune's zones came from) and run through the
+existing seed-selection and Voronoi-clipping code, producing 277 real, named zones (e.g. Colaba, Fort, Malabar Hill,
+Govandi West) — a different count and different geometry than Pune's 91, because Mumbai genuinely has more
+OSM-tagged places at the `MIN_SEED_SEPARATION_M` scale the algorithm uses.
+
+**Verification.** A full year was built end-to-end for Mumbai (`pune-build`, `forecast-train`, `forecast-eval`,
+`anomalies`) and served live (`serve` + `pune-worker`): real Mumbai neighbourhood names appear in both the zone list
+and the anomaly report, forecast WAPE (30.1%) and the anomaly events (more of them rain-linked, consistent with
+Mumbai's heavier monsoon) differ from Pune's own numbers, and `/api/v1/meta` and `/api/v1/state/snapshot` both
+correctly report `"city": "Mumbai"` end to end through a live SSE stream. The Python, web and Android test suites
+were extended with a Mumbai-mode case in each layer that previously assumed Pune was the only simulated city.
+
+**Consequences.** The same honesty rules as Pune apply without new code: Mumbai demand is SIMULATED and labelled as
+such everywhere the label already propagates from `data_label`/`demand_class`. The CLI subcommands kept their
+historical `pune-build`/`pune-worker` names (cosmetic only — they already take `MOBILITYOPS_MODE` as the real
+selector) to avoid breaking the deployed Pune service's existing start commands and docs; a future third city costs
+one `City` profile, one Overpass fetch, and no module to copy.

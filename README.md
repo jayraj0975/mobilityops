@@ -3,9 +3,9 @@
 [![CI](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml/badge.svg)](https://github.com/jayraj0975/mobilityops/actions/workflows/ci.yml)
 
 Urban mobility intelligence and operations. Validated on a full year of public NYC taxi and for-hire data, and
-run as a real-time platform for Pune on **simulated** demand: demand analytics, day-ahead forecasts with honest
-uncertainty, anomaly detection, **simulated** fleet-repositioning scenarios, a real-time view, a REST API, a React
-dashboard, a native Android app and a tightly controlled AI analyst.
+run as a real-time platform for Pune and Mumbai on **simulated** demand: demand analytics, day-ahead forecasts with
+honest uncertainty, anomaly detection, **simulated** fleet-repositioning scenarios, a real-time view, a REST API, a
+React dashboard, a native Android app and a tightly controlled AI analyst.
 
 **Built to be self-hosted:** run it on your own machine or server with Docker Compose or systemd, and
 point the web dashboard or the Android app at it ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)). A public
@@ -17,22 +17,27 @@ results below, including the Live tab.
 
 **Live on Render's free plan** (each sleeps after ~15 minutes idle; the first request takes about half a minute):
 [New York, real data](https://mobilityops.onrender.com) and
-[Pune, **simulated demand** on live weather](https://mobilityops-pune.onrender.com).
+[Pune, **simulated demand** on live weather](https://mobilityops-pune.onrender.com). Mumbai (below) runs the same
+way when self-hosted; it has no public demo deployed yet.
 
-## Pune: a real-time platform on simulated demand
+## Pune and Mumbai: real-time platforms on simulated demand
 
-The same pipeline also runs as a real-time console for **Pune** (`MOBILITYOPS_MODE=pune`). Read this first:
+The same pipeline also runs as a real-time console for **Pune** (`MOBILITYOPS_MODE=pune`) and **Mumbai**
+(`MOBILITYOPS_MODE=mumbai`) — two independent instances, each with its own zones, data and live worker; nothing is
+shared between them. Read this first:
 
-> **No open source of Pune taxi, ride-hail or bus demand exists** (checked source by source in
+> **No open source of Pune or Mumbai taxi, ride-hail or bus demand exists** (checked source by source in
 > [PUNE_DATA_SOURCES](docs/PUNE_DATA_SOURCES.md)). Trip counts are therefore **SIMULATED** by a documented model and are
 > labelled so on every screen, API response and document. What is real: hourly rain and current weather (Open-Meteo,
-> model output, not station readings), modelled air quality, the Maharashtra holiday calendar, and 91 zones built from
-> OpenStreetMap suburbs. Nothing in the Pune console describes real Pune traffic, and nothing in it is called LIVE.
+> model output, not station readings), modelled air quality, the Maharashtra holiday calendar, and each city's zones
+> built from its own OpenStreetMap suburbs (91 for Pune, 277 for Mumbai — a real, independently fetched tessellation,
+> not a relabeled copy; see [ADR-022](docs/DECISIONS.md)). Nothing in either console describes real Pune or Mumbai
+> traffic, and nothing in it is called LIVE.
 
-What it demonstrates is the platform: a separate ingestion worker polling each source on its own schedule, freshness
-(LIVE, DELAYED, STALE, OFFLINE) computed from each source's own timestamps, failures recorded and never papered over, a
-server-sent event stream, a map-based web console with NOW / -15m / -1h / -6h / TODAY / FORECAST, forecast ranges, events and a
-data-quality centre, and an Android app with Kotlin screens.
+What it demonstrates is the platform: a separate ingestion worker per city polling each source on its own schedule,
+freshness (LIVE, DELAYED, STALE, OFFLINE) computed from each source's own timestamps, failures recorded and never
+papered over, a server-sent event stream, a map-based web console with NOW / -15m / -1h / -6h / TODAY / FORECAST,
+forecast ranges, events and a data-quality centre, and an Android app with Kotlin screens.
 
 ```bash
 export MOBILITYOPS_MODE=pune
@@ -175,7 +180,7 @@ The Compose file, a systemd unit and an optional HTTPS proxy are in [docs/SELF_H
 | `anomalies`, `anomaly-report` | residual-based events, sensitivity analysis, generated report |
 | `optimize`, `optimize-backtest`, `optimize-report` | one what-if, the backtest, generated report (all SIMULATED) |
 | `analyst-benchmark`, `analyst-benchmark-report` | AI benchmark (add `--holdout` or `--holdout2` for the held-out sets) |
-| `pune-build`, `pune-worker` | Pune: build the simulated-demand database with a quality gate; run the ingestion worker |
+| `pune-build`, `pune-worker` | Pune or Mumbai (`MOBILITYOPS_MODE=pune`/`mumbai`; the command names are historical): build the simulated-demand database with a quality gate; run the ingestion worker |
 | `serve`, `openapi` | HTTP API, UI and live stream; OpenAPI contract for the frontend types |
 
 Frontend: `make web-check` (lint incl. accessibility rules, types, tests), `make e2e-live` (UI against a running API),
@@ -215,7 +220,7 @@ src/mobilityops/   ingestion/ transform/ quality/   data platform
                    pune/                              zones, simulator, sources, worker, store, freshness, state hub
                    city.py                            per-city timezone, holiday calendar, wording
 apps/web/          React + TypeScript UI, generated API types, unit and browser tests
-apps/android/      native Android app (Gradle, Java and Kotlin): stream client, New York and Pune screens, unit tests
+apps/android/      native Android app (Gradle, Java and Kotlin): stream client, New York and simulated-city (Pune/Mumbai) screens, unit tests
 deploy/            systemd units (API, worker), Caddy config, environment example (docker-compose.yml is at the root)
 benchmarks/        the analyst question sets (development and held-out)
 reports/           generated result reports (committed so the numbers are inspectable)
