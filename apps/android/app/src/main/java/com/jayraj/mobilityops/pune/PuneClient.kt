@@ -13,6 +13,7 @@ class PuneClient(private val api: ApiClient) {
         val a = api.getArray("/api/v1/state/events", mapOf("limit" to "$limit"))
         return List(a.length()) { Parse.event(a.getJSONObject(it)) }
     }
+    fun eventImpact(id: String) = Parse.eventImpact(api.getObject("/api/v1/state/events/$id/impact", null))
     fun quality() = Parse.quality(api.getObject("/api/v1/state/quality", null))
     fun sources(): List<SourceState> {
         val a = api.getArray("/api/v1/state/sources", null)

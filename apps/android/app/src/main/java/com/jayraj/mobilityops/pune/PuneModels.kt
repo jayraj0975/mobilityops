@@ -28,6 +28,28 @@ data class EventItem(
     val explanation: String,
 )
 
+/** One repositioning move, zone centroid to zone centroid. */
+data class RepositioningMove(val fromZone: Int, val toZone: Int, val vehicles: Double, val km: Double)
+
+/** A SIMULATED SCENARIO (never a forecast) from optimization/model.py's MILP solver. */
+data class RepositioningScenario(
+    val status: String,
+    val message: String,
+    val label: String,
+    val fleet: Int,
+    val demandTotal: Double,
+    val servedBefore: Double,
+    val servedAfter: Double,
+    val serviceShareBefore: Double?,
+    val serviceShareAfter: Double?,
+    val vehiclesMoved: Int,
+    val kmTotal: Double,
+    val moves: List<RepositioningMove>,
+)
+
+/** The response of GET /api/v1/state/events/{id}/impact: an event plus its RECOMMENDED response. */
+data class EventImpact(val event: EventItem, val scenario: RepositioningScenario?)
+
 data class SourceState(
     val key: String,
     val label: String,
@@ -120,6 +142,25 @@ object Parse {
         o.getString("start"), o.getString("end"), o.getDouble("actual"), o.getDouble("expected"),
         o.getDouble("score"), o.optString("explanation", ""),
     )
+
+    fun eventImpact(o: JSONObject): EventImpact {
+        val scenarioObj = o.optJSONObject("scenario")
+        val scenario = if (scenarioObj == null) null else {
+            val movesArr = scenarioObj.optJSONArray("moves")
+            val moves = if (movesArr == null) emptyList() else List(movesArr.length()) {
+                val m = movesArr.getJSONObject(it)
+                RepositioningMove(m.getInt("from_zone"), m.getInt("to_zone"), m.getDouble("vehicles"), m.getDouble("km"))
+            }
+            RepositioningScenario(
+                scenarioObj.getString("status"), scenarioObj.optString("message", ""), scenarioObj.getString("label"),
+                scenarioObj.getInt("fleet"), scenarioObj.getDouble("demand_total"),
+                scenarioObj.getDouble("served_before"), scenarioObj.getDouble("served_after"),
+                scenarioObj.dbl("service_share_before"), scenarioObj.dbl("service_share_after"),
+                scenarioObj.getInt("vehicles_moved"), scenarioObj.getDouble("km_total"), moves,
+            )
+        }
+        return EventImpact(event(o.getJSONObject("event")), scenario)
+    }
 
     fun source(o: JSONObject) = SourceState(
         o.getString("key"), o.getString("label"), o.getString("provider"), o.getString("data_class"),

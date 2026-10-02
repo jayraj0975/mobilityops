@@ -42,7 +42,7 @@ class PuneHomeFragment : PuneScreen() {
 
         content.addView(Ui.subheading(c, "Events today"))
         if (s.events.isEmpty()) content.addView(Ui.muted(c, "No events so far. An event needs at least two consecutive hours far outside the forecast range; most days have none."))
-        s.events.take(3).forEach { content.addView(PuneAlertsFragment.eventCard(c, it) { id -> PuneNav.zone(this, id) }) }
+        s.events.take(3).forEach { content.addView(PuneAlertsFragment.eventCard(c, it, { id -> PuneNav.zone(this, id) })) }
 
         content.addView(Ui.subheading(c, "Data sources"))
         s.sources.filter { it.enabled && it.freshness != Freshness.NOT_PERIODIC }.forEach { src ->

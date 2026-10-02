@@ -49,7 +49,7 @@ class PuneZoneFragment : PuneScreen() {
         content.addView(chart)
         content.addView(Ui.subheading(c, "Events in this zone"))
         if (d.events.isEmpty()) content.addView(Ui.muted(c, "None detected."))
-        d.events.forEach { content.addView(PuneAlertsFragment.eventCard(c, it) { }) }
+        d.events.forEach { content.addView(PuneAlertsFragment.eventCard(c, it, {})) }
     }
 
     companion object {
