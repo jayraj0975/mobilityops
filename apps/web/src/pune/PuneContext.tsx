@@ -3,6 +3,8 @@ import type { StreamState } from "./usePuneStream";
 import type { Geometry, MapLayer, Snapshot, TimeSelector } from "./types";
 
 export interface PuneData {
+  /** The simulated city this console is showing (e.g. "Pune" or "Mumbai"). */
+  cityName: string;
   stream: StreamState;
   /** The snapshot for the chosen time selector (the streamed one for NOW). */
   snapshot: Snapshot | undefined;

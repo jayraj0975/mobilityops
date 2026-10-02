@@ -72,7 +72,7 @@ export function ForecastPage() {
               </p>
               <p className="small muted">
                 These errors are measured on simulated demand. They show that the pipeline works; they say nothing about
-                how well it would forecast real Pune traffic.
+                how well it would forecast real {p.cityName} traffic.
               </p>
             </>
           ) : (

@@ -1344,7 +1344,8 @@
             "enum": [
               "sample",
               "real",
-              "pune"
+              "pune",
+              "mumbai"
             ],
             "title": "Mode",
             "type": "string"

@@ -1292,7 +1292,7 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "sample" | "real" | "pune";
+            mode: "sample" | "real" | "pune" | "mumbai";
             /** N Zones */
             n_zones: number;
             /** Rows Valid */

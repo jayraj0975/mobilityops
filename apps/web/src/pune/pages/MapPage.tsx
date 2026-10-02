@@ -26,7 +26,7 @@ export function MapPage() {
         <p className="small muted">{s.window_note}</p>
       </div>
       <div className="split split-wide">
-        <ChartPanel title="Pune zones" kind="SIMULATED" freshness={s.freshness}>
+        <ChartPanel title={`${p.cityName} zones`} kind="SIMULATED" freshness={s.freshness}>
           <MapPanel geometry={p.geometry} values={s.zones} layer={p.layer} onLayerChange={p.setLayer} selectedId={p.zoneId} onSelect={p.setZoneId} />
         </ChartPanel>
         <div className="stack">

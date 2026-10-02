@@ -35,8 +35,9 @@ export default function App() {
     main.current?.focus();
   }, [route]);
 
-  // Pune has its own real-time console; the New York analytics UI stays for the other modes.
-  if (meta.data?.mode === "pune")
+  // Simulated-city modes (Pune, Mumbai) share one real-time console; the New York analytics UI
+  // stays for the other modes.
+  if (meta.data?.mode === "pune" || meta.data?.mode === "mumbai")
     return (
       <Suspense fallback={<Loading what="the console" />}>
         <PuneApp meta={meta.data} />
