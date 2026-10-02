@@ -105,7 +105,7 @@ class Worker:
     _forecast_frame: pd.DataFrame | None = None
 
     def __post_init__(self) -> None:
-        zones = zone_frame()
+        zones = zone_frame(self.settings.city.key)
         self._sim_model = simulate.build_model(zones)
         self._zone_names = dict(zip(zones["location_id"], zones["zone"], strict=True))
         self._grid = weather_grid(self.settings.city.bbox)

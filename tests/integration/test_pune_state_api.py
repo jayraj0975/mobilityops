@@ -239,6 +239,33 @@ def test_state_needs_the_worker_and_the_pune_mode(tmp_path: Path, settings: Sett
     assert r.status_code == 503 and "worker" in r.json()["error"]["message"]
 
 
+def test_state_service_and_worker_load_their_own_citys_zones_not_punes(tmp_path: Path) -> None:
+    """Regression: StateService/Worker once defaulted zone_frame()/load_zones() to Pune
+    regardless of MOBILITYOPS_MODE, so a Mumbai deployment would silently simulate demand
+    over Pune's 91 zones while every display label still said "Mumbai"."""
+    mumbai = Settings.from_env(
+        {"MOBILITYOPS_DATA_DIR": str(tmp_path / "mumbai"), "MOBILITYOPS_MODE": "mumbai"}
+    )
+    pb.build_pune(mumbai, WINDOW, weather=_weather_frame())
+    train_final(mumbai)
+    store = StateStore(mumbai.state_path)
+    client = httpx.Client(transport=httpx.MockTransport(FakeOpenMeteo()))
+    worker = Worker(mumbai, store, client, clock=lambda: NOW)
+    assert len(worker._zone_names) == 277
+    assert "Colaba" in worker._zone_names.values()
+    worker.tick(mono=0.0)
+
+    service = StateService(mumbai, StateStore(mumbai.state_path, read_only=True))
+    assert len(service._zones) == 277
+    assert "Colaba" in service._zones["zone"].to_numpy()
+
+    app = create_app(mumbai)
+    app.state.state_provider.clock = lambda: NOW
+    r = TestClient(app).get("/api/v1/state/geometry")
+    assert r.status_code == 200
+    assert len(r.json()["zones"]) == 277
+
+
 def test_state_endpoints_require_the_api_key_when_one_is_set(settings: Settings) -> None:
     keyed = Settings.from_env(
         {

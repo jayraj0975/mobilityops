@@ -50,8 +50,8 @@ class StateService:
     def __init__(self, settings: Settings, store: StateStore) -> None:
         self.settings = settings
         self.store = store
-        self._zones = zone_frame().set_index("location_id")
-        self._doc = load_zones()
+        self._zones = zone_frame(settings.city.key).set_index("location_id")
+        self._doc = load_zones(settings.city.key)
 
     # ------------------------------------------------------------------------- geometry
     def geometry(self) -> dict[str, Any]:
