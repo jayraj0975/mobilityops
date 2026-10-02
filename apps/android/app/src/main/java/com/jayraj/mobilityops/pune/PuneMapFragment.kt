@@ -70,7 +70,7 @@ class PuneMapFragment : PuneScreen() {
             setGeometry(g)
             setData(s.zones, layer)
             selectedId = selected
-            contentDescription = "Map of ${g.zones.size} Pune zones coloured by ${layer.label.lowercase()}. Use the zone list below for a screen-reader route."
+            contentDescription = "Map of ${g.zones.size} ${st.snapshot?.city ?: ""} zones coloured by ${layer.label.lowercase()}. Use the zone list below for a screen-reader route."
             onZoneTap = { id -> selected = id; redraw() }
         }
         content.addView(map, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))

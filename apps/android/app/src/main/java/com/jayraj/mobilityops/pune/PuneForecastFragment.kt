@@ -70,7 +70,7 @@ class PuneForecastFragment : PuneScreen() {
                             (if (bl != null && !bl.isNull("wape")) " against ${String.format(java.util.Locale.US, "%.1f%%", bl.getDouble("wape") * 100)} for the best baseline ($base)." else "."),
                     ),
                 )
-                content.addView(Ui.muted(c, "Measured on simulated demand: it shows the pipeline works, not how well it would forecast real Pune traffic."))
+                content.addView(Ui.muted(c, "Measured on simulated demand: it shows the pipeline works, not how well it would forecast real ${st.snapshot?.city ?: "this city"} traffic."))
             }
         }
     }

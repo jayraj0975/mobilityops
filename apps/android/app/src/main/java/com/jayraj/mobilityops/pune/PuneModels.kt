@@ -50,9 +50,11 @@ data class Snapshot(
     val serverTime: String,
     val selector: String,
     val windowNote: String,
-    /** Naive local (Pune) time the window ends at: the moment these numbers describe. */
+    /** Naive local time the window ends at: the moment these numbers describe. */
     val windowEnd: String,
     val dataLabel: String,
+    /** The simulated city this snapshot describes (e.g. "Pune" or "Mumbai"). */
+    val city: String,
     val seq: Long,
     val freshness: Freshness,
     val workerFreshness: Freshness,
@@ -144,6 +146,7 @@ object Parse {
             windowNote = o.optString("window_note"),
             windowEnd = o.optString("window_end", o.getString("server_time")),
             dataLabel = o.getString("data_label"),
+            city = o.optString("city", "Pune"),
             seq = o.optLong("seq"),
             freshness = Freshness.parse(o.str("freshness")),
             workerFreshness = Freshness.parse(o.optJSONObject("worker")?.str("freshness")),

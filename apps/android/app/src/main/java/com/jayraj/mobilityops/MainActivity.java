@@ -36,6 +36,11 @@ public final class MainActivity extends AppCompatActivity {
     private static final String KEY_TAB = "tab";
     private BottomNavigationView nav;
     private boolean pune;
+
+    /** True for any simulated-city mode (Pune, Mumbai, ...), which all share the real-time console. */
+    private static boolean isSimCity(String mode) {
+        return "pune".equals(mode) || "mumbai".equals(mode);
+    }
     private Async.Task detect;
 
     @Override
@@ -57,7 +62,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         nav = findViewById(R.id.bottom_nav);
         Settings settings = new Settings(this);
-        pune = "pune".equals(settings.mode());
+        pune = isSimCity(settings.mode());
         if (pune) {
             nav.getMenu().clear();
             nav.inflateMenu(R.menu.bottom_nav_pune);
@@ -85,7 +90,7 @@ public final class MainActivity extends AppCompatActivity {
                 () -> new ApiClient(settings.serverUrl(), settings.apiKey()).getObject("/api/v1/meta", null).optString("mode", ""),
                 mode -> {
                     settings.saveMode(mode);
-                    applyMode("pune".equals(mode));
+                    applyMode(isSimCity(mode));
                 },
                 e -> { /* unreachable server: keep the tabs we have; each screen explains the error */ });
     }

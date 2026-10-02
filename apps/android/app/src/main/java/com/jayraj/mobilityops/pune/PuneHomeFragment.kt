@@ -13,7 +13,7 @@ class PuneHomeFragment : PuneScreen() {
     }
 
     override fun render(c: Context) {
-        header(c, "Pune now")
+        header(c, "${st.snapshot?.city ?: "City"} now")
         val s = st.snapshot ?: return
         val env = s.environment
         val tiles = ArrayList<Array<String>>()
