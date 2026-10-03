@@ -46,6 +46,7 @@ from mobilityops import bundle as bundle_mod
 from mobilityops.analyst.agent import Analyst, tool_catalog
 from mobilityops.analyst.llm import AnthropicPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
+from mobilityops.analyst.regions import REGION_LABELS, RegionRegistry
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
 from mobilityops.api import schemas as s
 from mobilityops.api import state_routes
@@ -115,7 +116,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.llm_configured
         else RulePlanner()
     )
-    analyst = Analyst(services, planner)
+    regions = RegionRegistry(settings, planner)
+    analyst = Analyst(services, planner, registry=regions)
+    if settings.mode in REGION_LABELS:
+        regions.seed(settings.mode, analyst)
     hub = LiveHub(settings, services)
 
     @asynccontextmanager
@@ -693,10 +697,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def analyst_tools() -> list[dict[str, Any]]:
         return tool_catalog()
 
+    @api.get("/analyst/regions", tags=["analyst"])
+    def analyst_regions() -> dict[str, str]:
+        """Regions the AI copilot can answer about (always the same three; a region with no
+        data yet still appears here and answers honestly that its data is not ready)."""
+        return dict(REGION_LABELS)
+
     @api.post("/analyst/ask", response_model=s.AnalystResponse, tags=["analyst"])
     def analyst_ask(req: s.AnalystRequest) -> Any:
-        """Ask a question. Refusals, clarifications and partial answers are normal results."""
-        ans = analyst.ask(req.question)
+        """Ask a question, optionally about a specific region (default: this server's own mode).
+        Refusals, clarifications and partial answers are normal results."""
+        target = regions.analyst_for(req.region) if req.region is not None else analyst
+        region_name = req.region if req.region is not None else settings.mode
+        ans = target.ask(req.question)
         metrics.analyst_outcome(
             ans.status,
             ans.grounding.get("removed", 0),
@@ -704,6 +717,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return s.AnalystResponse(
             question=ans.question,
+            region=region_name,
             status=ans.status,
             mode=ans.mode,
             intent=ans.intent,

@@ -359,6 +359,7 @@ class ScenarioResponse(Model):
 # --------------------------------------------------------------------------------- analyst
 class AnalystRequest(Model):
     question: str = Field(min_length=1, max_length=500)
+    region: Literal["real", "pune", "mumbai"] | None = None  # None = this server's own mode
 
 
 class AnalystStatement(Model):
@@ -385,6 +386,7 @@ class AnalystToolTrace(Model):
 
 class AnalystResponse(Model):
     question: str
+    region: str  # the region actually answered (the internal mode name: real/pune/mumbai/sample)
     status: Literal["answered", "partial", "clarify", "refused", "no_data"]
     mode: str
     intent: str

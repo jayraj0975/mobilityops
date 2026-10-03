@@ -77,10 +77,13 @@ def jsonable(x: Any, depth: int = 0) -> Any:
 
 
 class Analyst:
-    def __init__(self, services: Services, planner: Planner | None = None) -> None:
+    def __init__(
+        self, services: Services, planner: Planner | None = None, registry: Any = None
+    ) -> None:
         self.services = services
         self.planner: Planner = planner or RulePlanner()
         self._fallback = RulePlanner()
+        self.registry = registry  # RegionRegistry; lets compare_regions see other regions
 
     # ------------------------------------------------------------------------ context
     def _context(self) -> PlanningContext:
@@ -141,7 +144,7 @@ class Analyst:
                 warnings=warnings, data_label=label, intent=plan.intent,
             )  # fmt: skip
         results = [
-            call_tool(self.services, f"c{i}", pc.name, pc.args)
+            call_tool(self.services, f"c{i}", pc.name, pc.args, registry=self.registry)
             for i, pc in enumerate(plan.calls[:MAX_CALLS], start=1)
         ]
         statements = compose(results, plan.assumptions)

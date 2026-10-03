@@ -252,7 +252,7 @@ def test_tools_validate_arguments_and_report_errors_instead_of_raising(services)
 
 
 def test_every_tool_is_read_only_by_construction() -> None:
-    assert len(TOOLS) == 13
+    assert len(TOOLS) == 14
     forbidden = ("write", "delete", "drop", "update", "insert", "exec", "shell")
     assert not any(any(f in name for f in forbidden) for name in TOOLS)
 
@@ -303,7 +303,7 @@ def test_llm_planner_selects_only_whitelisted_tools_and_leaks_nothing(services, 
     assert isinstance(body, dict) and body["messages"] == [
         {"role": "user", "content": "Which zones led demand last week?"}
     ]
-    assert len(body["tools"]) == 13 and body["tool_choice"] == {"type": "auto"}
+    assert len(body["tools"]) == 14 and body["tool_choice"] == {"type": "auto"}
     assert seen["headers"]["x-api-key"] == KEY  # type: ignore[index]
     assert KEY not in json.dumps(body) and KEY not in caplog.text and KEY not in repr(planner)
 
@@ -367,8 +367,8 @@ def test_llm_choosing_no_tool_yields_a_clarification(services) -> None:  # type:
 def test_analyst_api_endpoints(settings) -> None:  # type: ignore[no-untyped-def]
     client = TestClient(create_app(settings))
     st = client.get("/api/v1/analyst/status").json()
-    assert st["planner"] == "deterministic" and st["llm_configured"] is False and st["tools"] == 13
-    assert len(client.get("/api/v1/analyst/tools").json()) == 13
+    assert st["planner"] == "deterministic" and st["llm_configured"] is False and st["tools"] == 14
+    assert len(client.get("/api/v1/analyst/tools").json()) == 14
     r = client.post("/api/v1/analyst/ask", json={"question": "What were the busiest zones?"})
     body = r.json()
     assert r.status_code == 200 and body["status"] == "answered"

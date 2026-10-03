@@ -175,6 +175,11 @@ class GlossaryArgs(Args):
     term: str = Field(min_length=1, max_length=60)
 
 
+class CompareRegionsArgs(Args):
+    region_a: Literal["real", "pune", "mumbai"]
+    region_b: Literal["real", "pune", "mumbai"]
+
+
 # ------------------------------------------------------------------------------ zones
 @dataclass(frozen=True)
 class ZoneRef:
@@ -213,6 +218,7 @@ Tool = Callable[["ToolContext", ToolResult, Any], None]
 @dataclass
 class ToolContext:
     services: Services
+    registry: Any = None  # RegionRegistry; only compare_regions uses it, never imported to avoid a cycle
 
     def zone(self, ref: Zone, result: ToolResult) -> ZoneRef | None:
         """Resolve an optional zone reference; on failure fill in ``result`` and return None."""
@@ -762,6 +768,71 @@ def _glossary(ctx: ToolContext, r: ToolResult, a: GlossaryArgs) -> None:
     r.add("definition", "Definition", text)
 
 
+def _region_snapshot(services: Services) -> dict[str, Any]:
+    """The same facts ``get_data_overview`` reports, for one region, as plain data (not added to
+    a ToolResult) so ``_compare_regions`` can label two of them side by side without merging
+    them into one pool of numbers."""
+    out: dict[str, Any] = {"city": services.settings.city.name, "mode": services.settings.mode}
+    try:
+        rng = services.analytics().data_range()
+    except (AnalyticsError, NotReady) as exc:
+        out["available"] = False
+        out["reason"] = str(exc)
+        return out
+    out.update(
+        available=True,
+        data_label=services.data_label,
+        zones=rng.n_zones,
+        trips=rng.rows_valid,
+        start=str(rng.start.date()),
+        end=str((rng.end - timedelta(days=1)).date()),
+        simulated=rng.mode in SIMULATED_CITY_MODES,
+    )
+    try:
+        ev = services.evaluation()
+        out["forecast_wape"] = float(ev["overall"]["lightgbm"]["wape"])
+    except (NotReady, KeyError):
+        out["forecast_wape"] = None
+    try:
+        out["open_anomalies"] = int(len(services.events()))
+    except (AnalyticsError, NotReady):
+        out["open_anomalies"] = None
+    return out
+
+
+def _compare_regions(ctx: ToolContext, r: ToolResult, a: CompareRegionsArgs) -> None:
+    if ctx.registry is None:
+        r.ok, r.error = False, "region comparison is not available in this deployment"
+        return
+    if a.region_a == a.region_b:
+        r.ok, r.error = False, "region_a and region_b must be different"
+        return
+    snaps = {
+        side: _region_snapshot(Services(ctx.registry.settings_for(region)))
+        for side, region in (("a", a.region_a), ("b", a.region_b))
+    }
+    r.data = {"a": snaps["a"], "b": snaps["b"]}
+    for side, region in (("a", a.region_a), ("b", a.region_b)):
+        s = snaps[side]
+        r.add(f"{side}.region", f"Region {side}", s["city"])
+        if not s.get("available"):
+            r.add(f"{side}.status", f"Region {side} data status", f"not ready: {s.get('reason', 'no data')}")
+            continue
+        r.add(f"{side}.label", f"Region {side} data label", s["data_label"])
+        r.add(f"{side}.zones", f"Region {side} zones", s["zones"], n(s["zones"]))
+        r.add(f"{side}.trips", f"Region {side} trips in its data", s["trips"], n(s["trips"]))
+        r.add(f"{side}.period", f"Region {side} data period", f"{s['start']} to {s['end']}")
+        if s.get("forecast_wape") is not None:
+            r.add(f"{side}.wape", f"Region {side} forecast error (WAPE)", s["forecast_wape"], pct(s["forecast_wape"]))
+        if s.get("open_anomalies") is not None:
+            r.add(f"{side}.anomalies", f"Region {side} detected anomaly events", s["open_anomalies"], n(s["open_anomalies"]))
+    r.notes.append(
+        "Each region's demand comes from its own separate dataset (real for New York, SIMULATED "
+        "for Pune and Mumbai); these figures are shown side by side, never combined or averaged "
+        "together, and no causal relationship between the two regions is implied."
+    )
+
+
 TOOLS: dict[str, ToolSpec] = {
     t.name: t
     for t in (
@@ -778,11 +849,14 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec("run_rebalancing_scenario", "SIMULATED vehicle repositioning what-if for a date and window.", ScenarioArgs, _scenario),
         ToolSpec("get_optimization_findings", "Results of the repositioning backtest (simulated).", NoArgs, _optimization_findings),
         ToolSpec("get_glossary", "Definition of a term used in the analysis.", GlossaryArgs, _glossary),
+        ToolSpec("compare_regions", "Compare New York, Pune and Mumbai side by side (data volume, forecast error, anomaly count) - never merges their numbers.", CompareRegionsArgs, _compare_regions),
     )
 }  # fmt: skip
 
 
-def call_tool(services: Services, call_id: str, name: str, raw_args: dict[str, Any]) -> ToolResult:
+def call_tool(
+    services: Services, call_id: str, name: str, raw_args: dict[str, Any], registry: Any = None
+) -> ToolResult:
     """Validate and run one tool. Expected failures come back as ``ok=False``, never raised."""
     result = ToolResult(call_id=call_id, name=name, args=raw_args, ok=True)
     spec = TOOLS.get(name)
@@ -794,7 +868,7 @@ def call_tool(services: Services, call_id: str, name: str, raw_args: dict[str, A
         result.args = {
             k: str(v) if isinstance(v, date) else v for k, v in args.model_dump().items()
         }
-        spec.run(ToolContext(services), result, args)
+        spec.run(ToolContext(services, registry), result, args)
     except ValidationError as exc:
         result.ok = False
         result.error = "; ".join(

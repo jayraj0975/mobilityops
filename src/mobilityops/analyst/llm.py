@@ -16,6 +16,8 @@ Safety properties, all enforced outside the model:
 
 from __future__ import annotations
 
+import time
+
 import httpx
 
 from mobilityops.analyst.planner import Plan, PlannedCall, PlanningContext
@@ -78,6 +80,7 @@ class AnthropicPlanner:
             "tool_choice": {"type": "auto"},
             "messages": [{"role": "user", "content": question}],
         }
+        started = time.monotonic()
         try:
             resp = self._client.post(
                 API_URL,
@@ -91,8 +94,30 @@ class AnthropicPlanner:
             resp.raise_for_status()
             payload = resp.json()
         except (httpx.HTTPError, ValueError) as exc:
-            log.warning("llm request failed", extra={"ctx": {"error": type(exc).__name__}})
+            log.warning(
+                "llm request failed",
+                extra={
+                    "ctx": {
+                        "error": type(exc).__name__,
+                        "model": self._model,
+                        "latency_ms": round(1000 * (time.monotonic() - started)),
+                    }
+                },
+            )
             raise LLMUnavailable("the language-model service could not be reached") from None
+        usage = payload.get("usage") or {}
+        log.info(
+            "llm request",
+            extra={
+                "ctx": {
+                    "model": self._model,
+                    "latency_ms": round(1000 * (time.monotonic() - started)),
+                    "input_tokens": usage.get("input_tokens"),
+                    "output_tokens": usage.get("output_tokens"),
+                    "stop_reason": payload.get("stop_reason"),
+                }
+            },
+        )  # never logs the question or the key, only shape/cost signals
         calls: list[PlannedCall] = []
         for block in payload.get("content", []):
             if isinstance(block, dict) and block.get("type") == "tool_use":
