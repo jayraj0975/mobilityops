@@ -36,7 +36,7 @@ class Settings:
     data_dir: Path
     mode: Mode
     log_level: str
-    anthropic_api_key: str | None
+    gemini_api_key: str | None
     llm_model: str | None
     threads: int = 0  # LightGBM threads; 0 = all cores. Cap it when several jobs share a machine.
     rate_limit: int = 0  # requests per minute per client on /api/v1 (0 = off)
@@ -60,7 +60,7 @@ class Settings:
             raise ConfigError(
                 f"MOBILITYOPS_LOG_LEVEL must be one of {_VALID_LEVELS}, got {level!r}"
             )
-        key = (e.get("ANTHROPIC_API_KEY") or "").strip() or None
+        key = (e.get("GEMINI_API_KEY") or "").strip() or None
         model = (e.get("MOBILITYOPS_LLM_MODEL") or "").strip() or None
         api_key = (e.get("MOBILITYOPS_API_KEY") or "").strip() or None
 
@@ -108,7 +108,7 @@ class Settings:
             data_dir=Path(e.get("MOBILITYOPS_DATA_DIR", "./data")).expanduser().resolve(),
             mode=mode,  # type: ignore[arg-type]
             log_level=level,
-            anthropic_api_key=key,
+            gemini_api_key=key,
             llm_model=model,
             threads=int(raw_threads),
             rate_limit=rate_limit,
@@ -170,17 +170,17 @@ class Settings:
 
     @property
     def llm_configured(self) -> bool:
-        return self.anthropic_api_key is not None and self.llm_model is not None
+        return self.gemini_api_key is not None and self.llm_model is not None
 
     def ensure_dirs(self) -> None:
         for d in (self.raw_dir, self.processed_dir, self.manifests_dir, self.artifacts_dir):
             d.mkdir(parents=True, exist_ok=True)
 
     def __repr__(self) -> str:  # never leak the key through logs or tracebacks
-        key = "set" if self.anthropic_api_key else "unset"
+        key = "set" if self.gemini_api_key else "unset"
         api = "set" if self.api_key else "unset"
         return (
             f"Settings(mode={self.mode!r}, data_dir={str(self.data_dir)!r}, "
-            f"log_level={self.log_level!r}, anthropic_api_key=<{key}>, "
+            f"log_level={self.log_level!r}, gemini_api_key=<{key}>, "
             f"llm_model={self.llm_model!r}, api_key=<{api}>)"
         )

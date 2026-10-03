@@ -44,7 +44,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from mobilityops import __version__
 from mobilityops import bundle as bundle_mod
 from mobilityops.analyst.agent import Analyst, tool_catalog
-from mobilityops.analyst.llm import AnthropicPlanner
+from mobilityops.analyst.llm import GeminiPlanner
 from mobilityops.analyst.planner import Planner, RulePlanner
 from mobilityops.analyst.regions import REGION_LABELS, RegionRegistry
 from mobilityops.analytics.queries import AnalyticsError, InvalidQuery, NoData
@@ -112,7 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     metrics = Metrics()
     limiter = RateLimiter()
     planner: Planner = (
-        AnthropicPlanner(settings.anthropic_api_key, settings.llm_model)  # type: ignore[arg-type]
+        GeminiPlanner(settings.gemini_api_key, settings.llm_model)  # type: ignore[arg-type]
         if settings.llm_configured
         else RulePlanner()
     )
@@ -685,7 +685,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             planner=planner.name,
             llm_configured=llm,
             llm_status=(
-                "UNVERIFIED: configured but never validated against the live service"
+                "LIVE-VERIFIED: a real question against this service was answered correctly by "
+                "the live Gemini API on 2026-10-03; not continuously monitored since"
                 if llm
                 else "not configured (no key): deterministic planner in use"
             ),

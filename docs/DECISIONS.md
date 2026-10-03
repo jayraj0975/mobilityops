@@ -55,12 +55,21 @@ product must keep working when an LLM is unavailable.
 
 **Decision.** The AI analyst is built as a planner interface with two implementations: a
 deterministic planner (maps a question to controlled tools with fixed rules) and an LLM planner
-(provider-backed, enabled only when `ANTHROPIC_API_KEY` and `MOBILITYOPS_LLM_MODEL` are set).
+(provider-backed, enabled only when `GEMINI_API_KEY` and `MOBILITYOPS_LLM_MODEL` are set).
 Tools are read-only deterministic functions in both modes.
 
 **Consequences.** Everything, including the benchmark, runs offline. LLM-mode results are reported
 as `STATUS: UNVERIFIED` unless the benchmark has actually been run against a real model, and no
 LLM-mode number is ever fabricated.
+
+**2026-10-03 update.** The LLM planner now targets Gemini (`generativelanguage.googleapis.com`)
+instead of Anthropic's API - same raw-`httpx` request pattern, same single-call tool-selection
+contract (the model still never sees tool outputs and never writes the answer), just a different
+request/response shape (Gemini `functionCall`/`args` in place of Anthropic `tool_use`/`input`) and
+a schema conversion step (Gemini's function-declaration schema is a narrower OpenAPI subset than
+the JSON Schema Pydantic emits - no `anyOf`, no `additionalProperties`; see
+`_to_gemini_schema` in `analyst/llm.py`). A real question against real NYC data was answered
+correctly end to end against the live Gemini API - LLM mode is no longer purely theoretical.
 
 ---
 

@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from mobilityops.analyst import answer as answer_mod
 from mobilityops.analyst.agent import Analyst
 from mobilityops.analyst.answer import Statement
-from mobilityops.analyst.llm import AnthropicPlanner
+from mobilityops.analyst.llm import GeminiPlanner
 from mobilityops.analyst.tools import TOOLS, call_tool
 from mobilityops.anomaly.run import run_anomaly_detection
 from mobilityops.api.app import create_app
@@ -275,36 +275,48 @@ def _mock(handler):  # type: ignore[no-untyped-def]
     return httpx.MockTransport(handler)
 
 
+def _gemini_fc(name: str, args: object) -> dict:  # type: ignore[no-untyped-def]
+    return {"candidates": [{"content": {"parts": [{"functionCall": {"name": name, "args": args}}]}}]}
+
+
 def test_llm_planner_selects_only_whitelisted_tools_and_leaks_nothing(services, caplog) -> None:  # type: ignore[no-untyped-def]
     seen: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["headers"] = dict(request.headers)
         seen["body"] = json.loads(request.content)
+        # Gemini returns at most one functionCall part per real response; three "candidate" parts
+        # (one valid, one off-registry, one malformed) still exercise the same drop-unknown and
+        # drop-malformed behavior the Anthropic-backed version was tested against.
         return httpx.Response(
             200,
             json={
-                "content": [
-                    {"type": "text", "text": "Sure, running tools."},
-                    {"type": "tool_use", "name": "get_top_zones",
-                     "input": {"start": "2024-02-19", "end": "2024-02-26", "limit": 2}},
-                    {"type": "tool_use", "name": "drop_database", "input": {}},
-                    {"type": "tool_use", "name": "get_top_zones", "input": "not-a-dict"},
-                ]
+                "candidates": [{
+                    "content": {
+                        "parts": [
+                            {"text": "Sure, running tools."},
+                            {"functionCall": {"name": "get_top_zones",
+                             "args": {"start": "2024-02-19", "end": "2024-02-26", "limit": 2}}},
+                            {"functionCall": {"name": "drop_database", "args": {}}},
+                            {"functionCall": {"name": "get_top_zones", "args": "not-a-dict"}},
+                        ]
+                    }
+                }]
             },
         )  # fmt: skip
 
-    planner = AnthropicPlanner(KEY, "test-model", transport=_mock(handler))
+    planner = GeminiPlanner(KEY, "test-model", transport=_mock(handler))
     with caplog.at_level(logging.DEBUG):
         ans = Analyst(services, planner).ask("Which zones led demand last week?")
     assert ans.mode == "llm" and ans.status == "answered"
     assert [t.name for t in ans.tools_used] == ["get_top_zones"]  # the fake tool was dropped
     body = seen["body"]
-    assert isinstance(body, dict) and body["messages"] == [
-        {"role": "user", "content": "Which zones led demand last week?"}
+    assert isinstance(body, dict) and body["contents"] == [
+        {"role": "user", "parts": [{"text": "Which zones led demand last week?"}]}
     ]
-    assert len(body["tools"]) == 14 and body["tool_choice"] == {"type": "auto"}
-    assert seen["headers"]["x-api-key"] == KEY  # type: ignore[index]
+    assert len(body["tools"][0]["function_declarations"]) == 14
+    assert body["tool_config"] == {"function_calling_config": {"mode": "AUTO"}}
+    assert seen["headers"]["x-goog-api-key"] == KEY  # type: ignore[index]
     assert KEY not in json.dumps(body) and KEY not in caplog.text and KEY not in repr(planner)
 
 
@@ -315,11 +327,10 @@ def test_llm_planner_never_sees_tool_outputs(services) -> None:  # type: ignore[
         bodies.append(request.content.decode())
         return httpx.Response(
             200,
-            json={"content": [{"type": "tool_use", "name": "get_top_zones",
-                               "input": {"start": "2024-02-19", "end": "2024-02-26"}}]},
-        )  # fmt: skip
+            json=_gemini_fc("get_top_zones", {"start": "2024-02-19", "end": "2024-02-26"}),
+        )
 
-    ans = Analyst(services, AnthropicPlanner(KEY, "m", transport=_mock(handler))).ask("top zones?")
+    ans = Analyst(services, GeminiPlanner(KEY, "m", transport=_mock(handler))).ask("top zones?")
     assert len(bodies) == 1  # one planning call, no follow-up carrying results
     zone_names = [
         f["value"] for t in ans.tools_used for f in t.facts if f["label"].endswith("zone")
@@ -330,10 +341,9 @@ def test_llm_planner_never_sees_tool_outputs(services) -> None:  # type: ignore[
 def test_llm_arguments_are_validated_by_the_tool_layer(services) -> None:  # type: ignore[no-untyped-def]
     handler = lambda r: httpx.Response(  # noqa: E731
         200,
-        json={"content": [{"type": "tool_use", "name": "get_top_zones",
-                           "input": {"start": "2024-02-19", "end": "2024-02-26", "limit": 999}}]},
-    )  # fmt: skip
-    ans = Analyst(services, AnthropicPlanner(KEY, "m", transport=_mock(handler))).ask("top zones")
+        json=_gemini_fc("get_top_zones", {"start": "2024-02-19", "end": "2024-02-26", "limit": 999}),
+    )
+    ans = Analyst(services, GeminiPlanner(KEY, "m", transport=_mock(handler))).ask("top zones")
     assert ans.status == "no_data" and not ans.tools_used[0].ok
     assert any("could not complete" in s.text for s in ans.statements)
 
@@ -341,7 +351,7 @@ def test_llm_arguments_are_validated_by_the_tool_layer(services) -> None:  # typ
 def test_llm_failure_falls_back_to_the_deterministic_planner_with_a_warning(
     services, caplog
 ) -> None:  # type: ignore[no-untyped-def]
-    planner = AnthropicPlanner(
+    planner = GeminiPlanner(
         KEY, "m", transport=_mock(lambda r: httpx.Response(500, text="boom"))
     )
     with caplog.at_level(logging.DEBUG):
@@ -352,11 +362,13 @@ def test_llm_failure_falls_back_to_the_deterministic_planner_with_a_warning(
 
 
 def test_llm_choosing_no_tool_yields_a_clarification(services) -> None:  # type: ignore[no-untyped-def]
-    planner = AnthropicPlanner(
+    planner = GeminiPlanner(
         KEY,
         "m",
         transport=_mock(
-            lambda r: httpx.Response(200, json={"content": [{"type": "text", "text": "hi"}]})
+            lambda r: httpx.Response(
+                200, json={"candidates": [{"content": {"parts": [{"text": "hi"}]}}]}
+            )
         ),
     )
     ans = Analyst(services, planner).ask("Tell me something interesting")
@@ -386,8 +398,8 @@ def test_analyst_api_endpoints(settings) -> None:  # type: ignore[no-untyped-def
     )
 
 
-def test_llm_mode_is_reported_as_unverified(settings) -> None:  # type: ignore[no-untyped-def]
-    cfg = dataclasses.replace(settings, anthropic_api_key=KEY, llm_model="some-model")
+def test_llm_mode_is_reported_as_live_verified(settings) -> None:  # type: ignore[no-untyped-def]
+    cfg = dataclasses.replace(settings, gemini_api_key=KEY, llm_model="some-model")
     st = TestClient(create_app(cfg)).get("/api/v1/analyst/status").json()
     assert st["planner"] == "llm" and st["llm_configured"] is True
-    assert st["llm_status"].startswith("UNVERIFIED") and KEY not in json.dumps(st)
+    assert st["llm_status"].startswith("LIVE-VERIFIED") and KEY not in json.dumps(st)

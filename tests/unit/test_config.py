@@ -9,7 +9,7 @@ def test_defaults_are_safe_sample_mode() -> None:
     s = Settings.from_env({})
     assert s.mode == "sample"
     assert s.log_level == "INFO"
-    assert s.anthropic_api_key is None
+    assert s.gemini_api_key is None
     assert not s.llm_configured
 
 
@@ -34,15 +34,15 @@ def test_invalid_values_fail_clearly(env: dict[str, str], fragment: str) -> None
 
 
 def test_llm_needs_both_key_and_model() -> None:
-    assert not Settings.from_env({"ANTHROPIC_API_KEY": "k"}).llm_configured
+    assert not Settings.from_env({"GEMINI_API_KEY": "k"}).llm_configured
     assert Settings.from_env(
-        {"ANTHROPIC_API_KEY": "k", "MOBILITYOPS_LLM_MODEL": "m"}
+        {"GEMINI_API_KEY": "k", "MOBILITYOPS_LLM_MODEL": "m"}
     ).llm_configured
-    assert not Settings.from_env({"ANTHROPIC_API_KEY": "  "}).llm_configured
+    assert not Settings.from_env({"GEMINI_API_KEY": "  "}).llm_configured
 
 
 def test_secret_never_appears_in_repr() -> None:
-    s = Settings.from_env({"ANTHROPIC_API_KEY": "sk-super-secret-value"})
+    s = Settings.from_env({"GEMINI_API_KEY": "sk-super-secret-value"})
     assert "sk-super-secret-value" not in repr(s)
     assert "sk-super-secret-value" not in str(s)
 
