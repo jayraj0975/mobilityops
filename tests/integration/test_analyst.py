@@ -354,9 +354,7 @@ def test_llm_arguments_are_validated_by_the_tool_layer(services) -> None:  # typ
 def test_llm_failure_falls_back_to_the_deterministic_planner_with_a_warning(
     services, caplog
 ) -> None:  # type: ignore[no-untyped-def]
-    planner = GeminiPlanner(
-        KEY, "m", transport=_mock(lambda r: httpx.Response(500, text="boom"))
-    )
+    planner = GeminiPlanner(KEY, "m", transport=_mock(lambda r: httpx.Response(500, text="boom")))
     with caplog.at_level(logging.DEBUG):
         ans = Analyst(services, planner).ask("What were the busiest zones last week?")
     assert ans.status == "answered" and ans.mode == "deterministic (LLM unavailable)"

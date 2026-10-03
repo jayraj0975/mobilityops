@@ -169,9 +169,7 @@ def build_zone_document(
 def load_zones(city: str = "pune") -> dict[str, Any]:
     """The committed zone document for ``city`` (one file per simulated city, same package)."""
     text = (
-        resources.files("mobilityops.pune")
-        .joinpath(f"data/{city}_zones.json")
-        .read_text("utf-8")
+        resources.files("mobilityops.pune").joinpath(f"data/{city}_zones.json").read_text("utf-8")
     )
     doc: dict[str, Any] = json.loads(text)
     return doc

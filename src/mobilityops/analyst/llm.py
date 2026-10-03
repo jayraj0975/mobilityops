@@ -37,7 +37,11 @@ MAX_CALLS = 4
 # tool selection, the tool layer independently validates every argument with the real Pydantic
 # model regardless of what the LLM sends.
 _UNSUPPORTED_KEYS = {
-    "title", "additionalProperties", "default", "exclusiveMinimum", "exclusiveMaximum"
+    "title",
+    "additionalProperties",
+    "default",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
 }
 
 
@@ -63,11 +67,7 @@ def _to_gemini_schema(node: Any) -> Any:
             if is_nullable and isinstance(out, dict):
                 out = {**out, "nullable": True}
             return out
-        return {
-            k: _to_gemini_schema(v)
-            for k, v in node.items()
-            if k not in _UNSUPPORTED_KEYS
-        }
+        return {k: _to_gemini_schema(v) for k, v in node.items() if k not in _UNSUPPORTED_KEYS}
     if isinstance(node, list):
         return [_to_gemini_schema(v) for v in node]
     return node
@@ -114,24 +114,30 @@ class GeminiPlanner:
         )
         body = {
             "system_instruction": {
-                "parts": [{
-                    "text": SYSTEM.format(
-                        scope=ctx.city.scope, first=ctx.data_first, last=ctx.data_last,
-                        eval_note=eval_note,
-                    )
-                }]
+                "parts": [
+                    {
+                        "text": SYSTEM.format(
+                            scope=ctx.city.scope,
+                            first=ctx.data_first,
+                            last=ctx.data_last,
+                            eval_note=eval_note,
+                        )
+                    }
+                ]
             },
             "contents": [{"role": "user", "parts": [{"text": question}]}],
-            "tools": [{
-                "function_declarations": [
-                    {
-                        "name": spec.name,
-                        "description": spec.description,
-                        "parameters": _to_gemini_schema(spec.args.model_json_schema()),
-                    }
-                    for spec in TOOLS.values()
-                ]
-            }],
+            "tools": [
+                {
+                    "function_declarations": [
+                        {
+                            "name": spec.name,
+                            "description": spec.description,
+                            "parameters": _to_gemini_schema(spec.args.model_json_schema()),
+                        }
+                        for spec in TOOLS.values()
+                    ]
+                }
+            ],
             "tool_config": {"function_calling_config": {"mode": "AUTO"}},
         }
         started = time.monotonic()

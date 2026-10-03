@@ -218,7 +218,9 @@ Tool = Callable[["ToolContext", ToolResult, Any], None]
 @dataclass
 class ToolContext:
     services: Services
-    registry: Any = None  # RegionRegistry; only compare_regions uses it, never imported to avoid a cycle
+    registry: Any = (
+        None  # RegionRegistry; only compare_regions uses it, never imported to avoid a cycle
+    )
 
     def zone(self, ref: Zone, result: ToolResult) -> ZoneRef | None:
         """Resolve an optional zone reference; on failure fill in ``result`` and return None."""
@@ -816,16 +818,30 @@ def _compare_regions(ctx: ToolContext, r: ToolResult, a: CompareRegionsArgs) -> 
         s = snaps[side]
         r.add(f"{side}.region", f"Region {side}", s["city"])
         if not s.get("available"):
-            r.add(f"{side}.status", f"Region {side} data status", f"not ready: {s.get('reason', 'no data')}")
+            r.add(
+                f"{side}.status",
+                f"Region {side} data status",
+                f"not ready: {s.get('reason', 'no data')}",
+            )
             continue
         r.add(f"{side}.label", f"Region {side} data label", s["data_label"])
         r.add(f"{side}.zones", f"Region {side} zones", s["zones"], n(s["zones"]))
         r.add(f"{side}.trips", f"Region {side} trips in its data", s["trips"], n(s["trips"]))
         r.add(f"{side}.period", f"Region {side} data period", f"{s['start']} to {s['end']}")
         if s.get("forecast_wape") is not None:
-            r.add(f"{side}.wape", f"Region {side} forecast error (WAPE)", s["forecast_wape"], pct(s["forecast_wape"]))
+            r.add(
+                f"{side}.wape",
+                f"Region {side} forecast error (WAPE)",
+                s["forecast_wape"],
+                pct(s["forecast_wape"]),
+            )
         if s.get("open_anomalies") is not None:
-            r.add(f"{side}.anomalies", f"Region {side} detected anomaly events", s["open_anomalies"], n(s["open_anomalies"]))
+            r.add(
+                f"{side}.anomalies",
+                f"Region {side} detected anomaly events",
+                s["open_anomalies"],
+                n(s["open_anomalies"]),
+            )
     r.notes.append(
         "Each region's demand comes from its own separate dataset (real for New York, SIMULATED "
         "for Pune and Mumbai); these figures are shown side by side, never combined or averaged "

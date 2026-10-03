@@ -342,8 +342,11 @@ class StateService:
         )
         supply = apportion(forecast, fleet).astype(float)
         inst = Instance(
-            zone_ids=sub_ids.astype(int), demand=demand, supply=supply,
-            lon=lon[nearby], lat=lat[nearby],
+            zone_ids=sub_ids.astype(int),
+            demand=demand,
+            supply=supply,
+            lon=lon[nearby],
+            lat=lat[nearby],
         )
         result = solve_rebalancing(inst, params)
         return {"event": event, "scenario": result.to_dict()}

@@ -35,9 +35,7 @@ def test_invalid_values_fail_clearly(env: dict[str, str], fragment: str) -> None
 
 def test_llm_needs_both_key_and_model() -> None:
     assert not Settings.from_env({"GEMINI_API_KEY": "k"}).llm_configured
-    assert Settings.from_env(
-        {"GEMINI_API_KEY": "k", "MOBILITYOPS_LLM_MODEL": "m"}
-    ).llm_configured
+    assert Settings.from_env({"GEMINI_API_KEY": "k", "MOBILITYOPS_LLM_MODEL": "m"}).llm_configured
     assert not Settings.from_env({"GEMINI_API_KEY": "  "}).llm_configured
 
 
