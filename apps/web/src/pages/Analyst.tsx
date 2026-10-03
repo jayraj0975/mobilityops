@@ -22,7 +22,7 @@ function Answer({ a }: { a: Schemas["AnalystResponse"] }) {
   return (
     <article className={`answer answer-${a.status}`} aria-label={`Answer to: ${a.question}`}>
       <p className="muted small">
-        Status: <strong>{a.status}</strong> · planner: {a.mode} · {a.data_label}
+        Region: <strong>{a.region}</strong> · Status: <strong>{a.status}</strong> · planner: {a.mode} · {a.data_label}
         {(a.grounding.checked ?? 0) > 0 &&
           ` · grounding: ${(a.grounding.checked ?? 0) - (a.grounding.removed ?? 0)} of ${a.grounding.checked ?? 0} statements verified`}
       </p>
@@ -63,6 +63,8 @@ function Answer({ a }: { a: Schemas["AnalystResponse"] }) {
 
 export function Analyst() {
   const status = useAsync((s) => api.analystStatus(s), []);
+  const regions = useAsync((s) => api.analystRegions(s), []);
+  const [region, setRegion] = useState<string | null>(null); // null = this server's own region
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -79,7 +81,7 @@ export function Analyst() {
     setBusy(true);
     setError(null);
     try {
-      const a = await api.analystAsk(question);
+      const a = await api.analystAsk(question, region);
       setHistory((h) => [...h, a]);
       setQ("");
     } catch (e) {
@@ -93,6 +95,19 @@ export function Analyst() {
     <>
       <section aria-labelledby="an-h">
         <h2 id="an-h">Ask about the data</h2>
+        {regions.data && (
+          <div className="row" style={{ alignItems: "center" }}>
+            <label htmlFor="region">Region</label>
+            <select id="region" value={region ?? ""} onChange={(e) => setRegion(e.target.value || null)}>
+              <option value="">This server's region</option>
+              {Object.entries(regions.data).map(([mode, label]) => (
+                <option key={mode} value={mode}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {status.data && (
           <p className="notice">
             <strong>How this works:</strong> the analyst only picks from {status.data.tools} fixed read-only tools; every number in an

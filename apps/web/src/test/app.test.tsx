@@ -272,7 +272,7 @@ describe("analyst", () => {
     mockApi(baseRoutes);
     render(<App />);
     await goTo("Analyst");
-    expect(await screen.findByText(/only picks from 13 fixed read-only tools/)).toBeInTheDocument();
+    expect(await screen.findByText(/only picks from 14 fixed read-only tools/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Your question"), "What were the busiest zones?");
     await userEvent.click(screen.getByRole("button", { name: "Ask" }));
     const answer = await screen.findByRole("article");
@@ -283,6 +283,26 @@ describe("analyst", () => {
     await userEvent.click(within(answer).getByText(/Tools used and what they returned \(1\)/));
     expect(within(answer).getByText("get_top_zones")).toBeInTheDocument();
     expect(within(answer).getByText(/pickups in rank 1 zone: 5,123/)).toBeInTheDocument();
+  });
+
+  it("lets you pick a region and sends it with the question", async () => {
+    let sentRegion: unknown;
+    mockApi({
+      ...baseRoutes,
+      "/api/v1/analyst/ask": (_url: URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { region?: string | null };
+        sentRegion = body.region;
+        return analystAnswer({ region: body.region ?? "real" });
+      },
+    });
+    render(<App />);
+    await goTo("Analyst");
+    await screen.findByLabelText("Region");
+    await userEvent.selectOptions(screen.getByLabelText("Region"), "mumbai");
+    await userEvent.type(screen.getByLabelText("Your question"), "How many zones?");
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByRole("article");
+    expect(sentRegion).toBe("mumbai");
   });
 
   it("shows refusals as refusals", async () => {

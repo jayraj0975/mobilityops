@@ -15,9 +15,31 @@ export interface paths {
         put?: never;
         /**
          * Analyst Ask
-         * @description Ask a question. Refusals, clarifications and partial answers are normal results.
+         * @description Ask a question, optionally about a specific region (default: this server's own mode).
+         *     Refusals, clarifications and partial answers are normal results.
          */
         post: operations["analyst_ask_api_v1_analyst_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analyst/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Analyst Regions
+         * @description Regions the AI copilot can answer about (always the same three; a region with no
+         *     data yet still appears here and answers honestly that its data is not ready).
+         */
+        get: operations["analyst_regions_api_v1_analyst_regions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -827,6 +849,8 @@ export interface components {
         AnalystRequest: {
             /** Question */
             question: string;
+            /** Region */
+            region?: ("real" | "pune" | "mumbai") | null;
         };
         /** AnalystResponse */
         AnalystResponse: {
@@ -842,6 +866,8 @@ export interface components {
             mode: string;
             /** Question */
             question: string;
+            /** Region */
+            region: string;
             /** Statements */
             statements: components["schemas"]["AnalystStatement"][];
             /**
@@ -2035,6 +2061,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalystResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyst_regions_api_v1_analyst_regions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
             /** @description Validation Error */

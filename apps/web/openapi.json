@@ -33,6 +33,22 @@
             "minLength": 1,
             "title": "Question",
             "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "enum": [
+                  "real",
+                  "pune",
+                  "mumbai"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
           }
         },
         "required": [
@@ -65,6 +81,10 @@
           },
           "question": {
             "title": "Question",
+            "type": "string"
+          },
+          "region": {
+            "title": "Region",
             "type": "string"
           },
           "statements": {
@@ -102,6 +122,7 @@
         },
         "required": [
           "question",
+          "region",
           "status",
           "mode",
           "intent",
@@ -3234,7 +3255,7 @@
   "paths": {
     "/api/v1/analyst/ask": {
       "post": {
-        "description": "Ask a question. Refusals, clarifications and partial answers are normal results.",
+        "description": "Ask a question, optionally about a specific region (default: this server's own mode).\nRefusals, clarifications and partial answers are normal results.",
         "operationId": "analyst_ask_api_v1_analyst_ask_post",
         "parameters": [
           {
@@ -3287,6 +3308,60 @@
           }
         },
         "summary": "Analyst Ask",
+        "tags": [
+          "analyst"
+        ]
+      }
+    },
+    "/api/v1/analyst/regions": {
+      "get": {
+        "description": "Regions the AI copilot can answer about (always the same three; a region with no\ndata yet still appears here and answers honestly that its data is not ready).",
+        "operationId": "analyst_regions_api_v1_analyst_regions_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Analyst Regions Api V1 Analyst Regions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyst Regions",
         "tags": [
           "analyst"
         ]

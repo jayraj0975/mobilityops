@@ -204,11 +204,12 @@ export const analystStatus: Schemas["AnalystStatus"] = {
   planner: "deterministic",
   llm_configured: false,
   llm_status: "not configured (no key): deterministic planner in use",
-  tools: 13,
+  tools: 14,
   note: "Answers are built only from read-only tool results and checked for grounding.",
 };
 export const analystAnswer = (over: Partial<Schemas["AnalystResponse"]> = {}): Schemas["AnalystResponse"] => ({
   question: "What were the busiest zones?",
+  region: "sample",
   status: "answered",
   mode: "deterministic",
   intent: "top_zones",
@@ -271,5 +272,6 @@ export const baseRoutes = {
   "/api/v1/optimization/backtest": optBacktest,
   "/api/v1/optimization/scenario": () => scenario(),
   "/api/v1/analyst/status": analystStatus,
+  "/api/v1/analyst/regions": () => ({ real: "New York", pune: "Pune", mumbai: "Mumbai" }),
   "/api/v1/analyst/ask": () => analystAnswer(),
 };

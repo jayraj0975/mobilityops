@@ -48,10 +48,10 @@ describe("api client", () => {
 
   it("posts JSON bodies", async () => {
     const fn = mockApi({ "/api/v1/analyst/ask": { ok: true } });
-    await api.analystAsk("hello");
+    await api.analystAsk("hello", null);
     const init = fn.mock.calls[0]?.[1];
     expect(init?.method).toBe("POST");
-    expect(JSON.parse(String(init?.body))).toEqual({ question: "hello" });
+    expect(JSON.parse(String(init?.body))).toEqual({ question: "hello", region: null });
     expect((init?.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
   });
 });

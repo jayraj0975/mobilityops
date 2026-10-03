@@ -225,6 +225,8 @@ export const api = {
     post<Schemas["ScenarioResponse"]>("/api/v1/optimization/scenario", body, s),
   analystStatus: (s?: AbortSignal) =>
     get<Schemas["AnalystStatus"]>("/api/v1/analyst/status", undefined, s),
-  analystAsk: (question: string, s?: AbortSignal) =>
-    post<Schemas["AnalystResponse"]>("/api/v1/analyst/ask", { question }, s),
+  analystRegions: (s?: AbortSignal) =>
+    get<Record<string, string>>("/api/v1/analyst/regions", undefined, s),
+  analystAsk: (question: string, region: string | null, s?: AbortSignal) =>
+    post<Schemas["AnalystResponse"]>("/api/v1/analyst/ask", { question, region }, s),
 };
