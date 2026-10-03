@@ -415,7 +415,10 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
         "yes",
     ):
         if settings.mode not in SIMULATED_CITY_MODES:
-            print(f"--with-worker only applies in a simulated-city mode ({SIMULATED_CITY_MODES})", file=sys.stderr)
+            print(
+                f"--with-worker only applies in a simulated-city mode ({SIMULATED_CITY_MODES})",
+                file=sys.stderr,
+            )
             return 2
         if not settings.db_path.exists():
             print("no database yet for this mode; run `pune-build` first", file=sys.stderr)

@@ -59,7 +59,11 @@ def test_a_mumbai_only_zone_does_not_resolve_in_pune(registry) -> None:  # type:
 def test_compare_regions_keeps_every_number_scoped_to_its_side(registry) -> None:  # type: ignore[no-untyped-def]
     pune = registry.analyst_for("pune")
     r = call_tool(
-        pune.services, "c1", "compare_regions", {"region_a": "pune", "region_b": "mumbai"}, registry=registry
+        pune.services,
+        "c1",
+        "compare_regions",
+        {"region_a": "pune", "region_b": "mumbai"},
+        registry=registry,
     )
     assert r.ok, r.error
     assert r.data["a"]["city"] == "Pune" and r.data["b"]["city"] == "Mumbai"
@@ -74,25 +78,37 @@ def test_compare_regions_keeps_every_number_scoped_to_its_side(registry) -> None
 def test_compare_regions_refuses_to_compare_a_region_with_itself(registry) -> None:  # type: ignore[no-untyped-def]
     pune = registry.analyst_for("pune")
     r = call_tool(
-        pune.services, "c1", "compare_regions", {"region_a": "pune", "region_b": "pune"}, registry=registry
+        pune.services,
+        "c1",
+        "compare_regions",
+        {"region_a": "pune", "region_b": "pune"},
+        registry=registry,
     )
     assert r.ok is False
 
 
-def test_compare_regions_is_honest_when_one_side_has_no_data(pune_settings, mumbai_settings) -> None:  # type: ignore[no-untyped-def]
+def test_compare_regions_is_honest_when_one_side_has_no_data(
+    pune_settings, mumbai_settings
+) -> None:  # type: ignore[no-untyped-def]
     # A fresh registry pointed only at a data_dir that has Pune but never built real's NYC data:
     # the real-mode side must say so, not invent numbers or silently omit the side.
     registry = RegionRegistry(pune_settings, RulePlanner())
     pune = registry.analyst_for("pune")
     r = call_tool(
-        pune.services, "c1", "compare_regions", {"region_a": "pune", "region_b": "real"}, registry=registry
+        pune.services,
+        "c1",
+        "compare_regions",
+        {"region_a": "pune", "region_b": "real"},
+        registry=registry,
     )
     assert r.ok
     assert r.data["b"]["available"] is False
     assert "c1.b.status" in r.facts and "not ready" in r.facts["c1.b.status"].value
 
 
-def test_ask_endpoint_switches_region_live_without_restarting_the_app(pune_settings, mumbai_settings) -> None:  # type: ignore[no-untyped-def]
+def test_ask_endpoint_switches_region_live_without_restarting_the_app(
+    pune_settings, mumbai_settings
+) -> None:  # type: ignore[no-untyped-def]
     # One running app, started in Pune's own mode - proves region switching happens per request,
     # not by picking which process/deployment you talk to.
     client = TestClient(create_app(pune_settings))

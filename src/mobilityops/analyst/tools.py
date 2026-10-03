@@ -794,7 +794,7 @@ def _region_snapshot(services: Services) -> dict[str, Any]:
     except (NotReady, KeyError):
         out["forecast_wape"] = None
     try:
-        out["open_anomalies"] = int(len(services.events()))
+        out["open_anomalies"] = len(services.events())
     except (AnalyticsError, NotReady):
         out["open_anomalies"] = None
     return out
@@ -812,7 +812,7 @@ def _compare_regions(ctx: ToolContext, r: ToolResult, a: CompareRegionsArgs) -> 
         for side, region in (("a", a.region_a), ("b", a.region_b))
     }
     r.data = {"a": snaps["a"], "b": snaps["b"]}
-    for side, region in (("a", a.region_a), ("b", a.region_b)):
+    for side in ("a", "b"):
         s = snaps[side]
         r.add(f"{side}.region", f"Region {side}", s["city"])
         if not s.get("available"):

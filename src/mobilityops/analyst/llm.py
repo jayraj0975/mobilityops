@@ -36,7 +36,9 @@ MAX_CALLS = 4
 # OpenAPI 3.0 subset) does not accept. Stripping them is safe: this schema only guides the model's
 # tool selection, the tool layer independently validates every argument with the real Pydantic
 # model regardless of what the LLM sends.
-_UNSUPPORTED_KEYS = {"title", "additionalProperties", "default", "exclusiveMinimum", "exclusiveMaximum"}
+_UNSUPPORTED_KEYS = {
+    "title", "additionalProperties", "default", "exclusiveMinimum", "exclusiveMaximum"
+}
 
 
 def _to_gemini_schema(node: Any) -> Any:

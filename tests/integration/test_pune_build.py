@@ -126,7 +126,9 @@ def test_pune_build_refuses_other_modes_and_short_windows(tmp_path: Path) -> Non
 
 def test_pune_build_accepts_mumbai_mode_too(tmp_path: Path) -> None:
     """``build_pune`` is the shared builder for every simulated city, not just Pune."""
-    mumbai = Settings.from_env({"MOBILITYOPS_DATA_DIR": str(tmp_path), "MOBILITYOPS_MODE": "mumbai"})
+    mumbai = Settings.from_env(
+        {"MOBILITYOPS_DATA_DIR": str(tmp_path), "MOBILITYOPS_MODE": "mumbai"}
+    )
     with pytest.raises(ValueError, match="28 days"):
         pb.build_pune(mumbai, (date(2026, 9, 1), date(2026, 9, 10)), weather=_weather())
 

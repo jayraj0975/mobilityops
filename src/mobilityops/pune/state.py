@@ -337,7 +337,9 @@ class StateService:
         demand = np.array(
             [float(by_id[int(z)]["actual"] or by_id[int(z)]["forecast"]) for z in sub_ids]
         )
-        fleet = fleet_size(float(forecast.sum()), coverage=0.85, trips_per_vehicle=params.trips_per_vehicle)
+        fleet = fleet_size(
+            float(forecast.sum()), coverage=0.85, trips_per_vehicle=params.trips_per_vehicle
+        )
         supply = apportion(forecast, fleet).astype(float)
         inst = Instance(
             zone_ids=sub_ids.astype(int), demand=demand, supply=supply,

@@ -61,7 +61,9 @@ PUNE_OVERRIDES: dict[str, str] = _simulated_city_overrides("Pune")
 def lookup(term: str, mode: str = "real", city_name: str = "Pune") -> tuple[str, str] | None:
     """Find a glossary entry by exact or contained term."""
     is_simulated_city = mode in SIMULATED_CITY_MODES
-    entries = {**GLOSSARY, **_simulated_city_overrides(city_name)} if is_simulated_city else GLOSSARY
+    entries = (
+        {**GLOSSARY, **_simulated_city_overrides(city_name)} if is_simulated_city else GLOSSARY
+    )
     t = term.strip().lower()
     if t in entries:
         return t, entries[t]

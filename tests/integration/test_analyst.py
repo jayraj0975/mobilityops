@@ -276,7 +276,8 @@ def _mock(handler):  # type: ignore[no-untyped-def]
 
 
 def _gemini_fc(name: str, args: object) -> dict:  # type: ignore[no-untyped-def]
-    return {"candidates": [{"content": {"parts": [{"functionCall": {"name": name, "args": args}}]}}]}
+    part = {"functionCall": {"name": name, "args": args}}
+    return {"candidates": [{"content": {"parts": [part]}}]}
 
 
 def test_llm_planner_selects_only_whitelisted_tools_and_leaks_nothing(services, caplog) -> None:  # type: ignore[no-untyped-def]
@@ -341,7 +342,9 @@ def test_llm_planner_never_sees_tool_outputs(services) -> None:  # type: ignore[
 def test_llm_arguments_are_validated_by_the_tool_layer(services) -> None:  # type: ignore[no-untyped-def]
     handler = lambda r: httpx.Response(  # noqa: E731
         200,
-        json=_gemini_fc("get_top_zones", {"start": "2024-02-19", "end": "2024-02-26", "limit": 999}),
+        json=_gemini_fc(
+            "get_top_zones", {"start": "2024-02-19", "end": "2024-02-26", "limit": 999}
+        ),
     )
     ans = Analyst(services, GeminiPlanner(KEY, "m", transport=_mock(handler))).ask("top zones")
     assert ans.status == "no_data" and not ans.tools_used[0].ok

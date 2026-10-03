@@ -193,7 +193,10 @@ def test_event_impact_recommends_a_simulated_repositioning_scenario(
         assert body["event"]["id"] == "e1" and body["event"]["zone_id"] == 5
         scenario = body["scenario"]
         if scenario is not None:  # None only if zone 5 has no neighbour within range
-            assert scenario["label"] == "SIMULATED SCENARIO under explicit assumptions; not a forecast of real-world outcomes"
+            assert scenario["label"] == (
+                "SIMULATED SCENARIO under explicit assumptions; "
+                "not a forecast of real-world outcomes"
+            )
             assert scenario["status"] in ("optimal", "feasible_time_limit", "infeasible")
             assert "assumptions" in scenario and "moves" in scenario
         r = client.get("/api/v1/state/events/no-such-event/impact")
