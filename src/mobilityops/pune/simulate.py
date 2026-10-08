@@ -45,7 +45,6 @@ RAIN_PER_MM = 0.06
 RAIN_CAP = 0.30
 DAY_SIGMA = 0.06  # city-wide day-to-day variation
 ZONE_DAY_SIGMA = 0.05  # zone-level day-to-day variation
-CENTRE = (18.5204, 73.8567)  # Pune city centre (used for the sector label and residential term)
 RESIDENTIAL_WEIGHT = 0.12
 RESIDENTIAL_DECAY_KM = 6.0
 
@@ -62,7 +61,7 @@ class Hub:
     decay_km: float = 2.5
 
 
-HUBS: tuple[Hub, ...] = (
+PUNE_HUBS: tuple[Hub, ...] = (
     Hub("Hinjewadi IT Park", 18.5912, 73.7389, "business", 1.6, 3.0),
     Hub("Kharadi", 18.5515, 73.9400, "business", 1.2, 2.5),
     Hub("Magarpatta", 18.5146, 73.9287, "business", 1.0, 2.0),
@@ -74,6 +73,28 @@ HUBS: tuple[Hub, ...] = (
     Hub("Koregaon Park", 18.5362, 73.8938, "leisure", 0.9, 1.8),
     Hub("Deccan-FC Road", 18.5169, 73.8412, "leisure", 0.9, 1.6),
 )
+
+MUMBAI_HUBS: tuple[Hub, ...] = (
+    Hub("Bandra Kurla Complex", 19.0660, 72.8679, "business", 1.6, 2.5),
+    Hub("Nariman Point-Fort", 18.9256, 72.8242, "business", 1.4, 2.0),
+    Hub("Lower Parel", 19.0000, 72.8300, "business", 1.1, 2.0),
+    Hub("Andheri East-SEEPZ", 19.1136, 72.8697, "business", 1.2, 2.5),
+    Hub("Powai", 19.1176, 72.9060, "business", 0.9, 2.0),
+    Hub("CSMT", 18.9398, 72.8355, "transit", 1.2, 1.6),
+    Hub("Dadar", 19.0178, 72.8478, "transit", 1.3, 1.6),
+    Hub("Andheri Station", 19.1197, 72.8464, "transit", 1.0, 1.6),
+    Hub("Mumbai Airport", 19.0974, 72.8742, "transit", 0.8, 2.0),
+    Hub("Bandra West", 19.0596, 72.8295, "leisure", 0.9, 1.8),
+    Hub("Colaba", 18.9067, 72.8147, "leisure", 0.7, 1.6),
+    Hub("Juhu", 19.1075, 72.8263, "leisure", 0.7, 1.8),
+)
+
+# Each simulated city's centre (sector labels and the residential term) and its hubs. Landmark
+# coordinates are approximate: an assumption, not data. A city must never borrow another's.
+SITES: dict[str, tuple[tuple[float, float], tuple[Hub, ...]]] = {
+    "pune": ((18.5204, 73.8567), PUNE_HUBS),
+    "mumbai": ((19.0760, 72.8777), MUMBAI_HUBS),
+}
 
 # fmt: off
 _RESIDENTIAL = np.array(
@@ -120,12 +141,13 @@ def _dist_km(lat1: float, lon1: float, lat2: np.ndarray, lon2: np.ndarray) -> np
     return np.asarray(np.hypot(x, y) * EARTH_RADIUS_M / 1000.0)
 
 
-def sector(lat: float, lon: float) -> str:
+def sector(lat: float, lon: float, city: str = "pune") -> str:
     """Compass sector of the city centre, or ``Central`` within 3 km. Used as the zone group."""
-    d = float(_dist_km(CENTRE[0], CENTRE[1], np.array([lat]), np.array([lon]))[0])
+    centre = SITES[city][0]
+    d = float(_dist_km(centre[0], centre[1], np.array([lat]), np.array([lon]))[0])
     if d < 3.0:
         return "Central"
-    brg = (math.degrees(math.atan2(lon - CENTRE[1], lat - CENTRE[0])) + 360) % 360
+    brg = (math.degrees(math.atan2(lon - centre[1], lat - centre[0])) + 360) % 360
     names = (
         "North",
         "North-East",
@@ -151,17 +173,18 @@ class ZoneModel:
     fare_inr: np.ndarray  # (Z,) mean fare of a trip starting in the zone
 
 
-def build_model(zones: pd.DataFrame) -> ZoneModel:
-    """Derive the demand model from ``zones`` (location_id, centroid_lat, centroid_lon)."""
+def build_model(zones: pd.DataFrame, city: str = "pune") -> ZoneModel:
+    """Derive ``city``'s demand model from ``zones`` (location_id, centroid_lat, centroid_lon)."""
+    centre, hubs = SITES[city]
     ids = zones["location_id"].to_numpy(dtype=int)
     lat = zones["centroid_lat"].to_numpy(dtype=float)
     lon = zones["centroid_lon"].to_numpy(dtype=float)
     n = len(ids)
     mass = {"business": np.zeros(n), "transit": np.zeros(n), "leisure": np.zeros(n)}
-    for hub in HUBS:
+    for hub in hubs:
         d = _dist_km(hub.lat, hub.lon, lat, lon)
         mass[hub.kind] += hub.weight * np.exp(-d / hub.decay_km)
-    d_centre = _dist_km(CENTRE[0], CENTRE[1], lat, lon)
+    d_centre = _dist_km(centre[0], centre[1], lat, lon)
     resid = RESIDENTIAL_WEIGHT * np.exp(-d_centre / RESIDENTIAL_DECAY_KM)
     biz = mass["business"] + 0.5 * mass["transit"]
     lei = mass["leisure"] + 0.5 * mass["transit"]
@@ -180,7 +203,7 @@ def build_model(zones: pd.DataFrame) -> ZoneModel:
     )
     # gravity destinations: trips go to places with the same mass that lie within ~5 km
     pair = np.hypot(
-        (lon[:, None] - lon[None, :]) * math.cos(math.radians(CENTRE[0])),
+        (lon[:, None] - lon[None, :]) * math.cos(math.radians(centre[0])),
         lat[:, None] - lat[None, :],
     ) * (math.pi / 180.0 * EARTH_RADIUS_M / 1000.0)
     attract = weight[None, :] * np.exp(-pair / 5.0)
@@ -315,7 +338,7 @@ def simulate_range(
     return pd.concat(frames, ignore_index=True)
 
 
-def model_card() -> dict[str, Any]:
+def model_card(city: str = "pune") -> dict[str, Any]:
     """The assumptions, for the API and documentation."""
     return {
         "label": SIMULATED_LABEL,
@@ -323,7 +346,8 @@ def model_card() -> dict[str, Any]:
         "rain_effect": f"+{RAIN_PER_MM:.0%} per mm, capped at +{RAIN_CAP:.0%}",
         "day_noise_sigma": DAY_SIGMA,
         "zone_day_noise_sigma": ZONE_DAY_SIGMA,
-        "hubs": [asdict(h) for h in HUBS],
+        "centre": SITES[city][0],
+        "hubs": [asdict(h) for h in SITES[city][1]],
         "holiday_factor": HOLIDAY_FACTOR,
         "caveat": "Demand is generated by this model. It is conditioned on real rain and the real "
         "holiday calendar, but its level and shape are assumptions.",

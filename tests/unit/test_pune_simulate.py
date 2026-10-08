@@ -152,3 +152,30 @@ def test_counts_are_poisson_distributed(model: sim.ZoneModel) -> None:
     assert len(x) >= 10 and x.mean() > 10
     # day-level noise (6%) inflates variance slightly beyond Poisson; it must still be close
     assert 0.5 < x.var(ddof=1) / x.mean() < 2.5
+
+
+@pytest.mark.parametrize("city", sorted(sim.SITES))
+def test_each_city_uses_its_own_centre_and_hubs(city: str) -> None:
+    # Mumbai once borrowed Pune's centre and hubs: every zone was ~120 km from every hub, so its
+    # demand weights came from distance to Pune and nearly every zone was labelled North-West.
+    from mobilityops.city import get_city
+
+    min_lat, min_lon, max_lat, max_lon = get_city(city).bbox
+    centre, hubs = sim.SITES[city]
+    for lat, lon in [centre, *((h.lat, h.lon) for h in hubs)]:
+        assert min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
+    zones = zone_frame(city)
+    model = sim.build_model(zones, city)
+    busiest = zones.set_index("location_id").loc[model.zone_ids[np.argsort(model.weight)[-5:]]]
+    for lat, lon in zip(busiest["centroid_lat"], busiest["centroid_lon"], strict=True):
+        assert (
+            min(
+                float(sim._dist_km(h.lat, h.lon, np.array([lat]), np.array([lon]))[0]) for h in hubs
+            )
+            < 3.0
+        )
+    sectors = {
+        sim.sector(lat, lon, city)
+        for lat, lon in zip(zones["centroid_lat"], zones["centroid_lon"], strict=True)
+    }
+    assert len(sectors) >= 5

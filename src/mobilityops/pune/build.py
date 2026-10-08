@@ -77,7 +77,7 @@ def zone_frame(city: str = "pune") -> pd.DataFrame:
         rows.append(
             {
                 "location_id": int(z["id"]),
-                "borough": simulate.sector(z["lat"], z["lon"]),
+                "borough": simulate.sector(z["lat"], z["lon"], city),
                 "zone": z["name"],
                 "service_zone": z["place"],
                 "centroid_lon": float(z["lon"]),
@@ -347,7 +347,7 @@ def build_pune(
         else load_or_fetch_weather(settings, window, client, refresh_weather)
     )
     zones = zone_frame(settings.mode)
-    model = simulate.build_model(zones)
+    model = simulate.build_model(zones, city.key)
     days = simulate.date_range(*window)
     events = simulate.plan_events(model, days, seed)
     fact = simulate.simulate_range(model, days, hourly, city, seed, events)
@@ -404,7 +404,7 @@ def build_pune(
                 "seed": seed,
                 "window": [window[0].isoformat(), window[1].isoformat()],
                 "events": [e.__dict__ for e in events],
-                "model": simulate.model_card(),
+                "model": simulate.model_card(city.key),
             },
             indent=2,
         )

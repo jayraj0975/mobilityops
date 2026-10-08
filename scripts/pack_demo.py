@@ -58,33 +58,35 @@ def bundle_note() -> str:
     )
 
 
-def pune_include() -> tuple[str, ...]:
-    """The Pune bundle: the database, the latest model only, and the worker's rain cache."""
-    latest = ROOT / "artifacts/pune/forecast/models/latest.json"
+def city_include(city: str) -> tuple[str, ...]:
+    """A simulated-city bundle (Pune, Mumbai): the database, the latest model only, and the
+    worker's rain cache."""
+    latest = ROOT / f"artifacts/{city}/forecast/models/latest.json"
     if not latest.exists():
         raise SystemExit(
-            "missing artifacts/pune/forecast/models/latest.json: run the Pune pipeline first"
+            f"missing artifacts/{city}/forecast/models/latest.json: run the {city} pipeline first"
         )
     model_id = json.loads(latest.read_text())["model_id"]
     return (
-        "data/processed/pune/mobilityops.duckdb",
-        "data/processed/pune/quality",
-        "data/raw/pune/weather_hourly.parquet",
-        "data/raw/pune/weather_provenance.json",
-        "artifacts/pune/forecast/evaluation.json",
-        "artifacts/pune/forecast/predictions.parquet",
-        "artifacts/pune/forecast/models/latest.json",
-        f"artifacts/pune/forecast/models/{model_id}",
-        "artifacts/pune/anomaly",
+        f"data/processed/{city}/mobilityops.duckdb",
+        f"data/processed/{city}/quality",
+        f"data/raw/{city}/weather_hourly.parquet",
+        f"data/raw/{city}/weather_provenance.json",
+        f"artifacts/{city}/forecast/evaluation.json",
+        f"artifacts/{city}/forecast/predictions.parquet",
+        f"artifacts/{city}/forecast/models/latest.json",
+        f"artifacts/{city}/forecast/models/{model_id}",
+        f"artifacts/{city}/anomaly",
     )
 
 
-def pune_note() -> str:
+def city_note(city: str) -> str:
+    name = city.capitalize()
     return (
-        "MobilityOps Pune bundle: the analytical database (SIMULATED trip counts on real rain, the "
+        f"MobilityOps {name} bundle: the analytical database (SIMULATED trip counts on real rain, the "
         "Maharashtra holiday calendar and OpenStreetMap zones), the registered forecast model and "
         "its evaluation, the anomaly report and the cached rain history with its provenance. "
-        "Nothing here describes real Pune traffic. Weather data by Open-Meteo.com (CC BY 4.0); "
+        f"Nothing here describes real {name} traffic. Weather data by Open-Meteo.com (CC BY 4.0); "
         "map data (c) "
         "OpenStreetMap contributors (ODbL). See docs/PUNE_DATA_SOURCES.md.\n"
     )
@@ -92,7 +94,7 @@ def pune_note() -> str:
 
 def files(mode: str = "real") -> list[Path]:
     out: list[Path] = []
-    for rel in pune_include() if mode == "pune" else real_include():
+    for rel in real_include() if mode == "real" else city_include(mode):
         p = ROOT / rel
         if not p.exists():
             raise SystemExit(f"missing {rel}: run the real pipeline first")
@@ -102,7 +104,7 @@ def files(mode: str = "real") -> list[Path]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--mode", choices=("real", "pune"), default="real")
+    ap.add_argument("--mode", choices=("real", "pune", "mumbai"), default="real")
     ap.add_argument("--out", default=None)
     ap.add_argument(
         "--allow-inconsistent",
@@ -131,7 +133,7 @@ def main() -> None:
             info.mtime = 0  # deterministic archive
             with f.open("rb") as fh:
                 tar.addfile(info, fh)
-        note = (bundle_note() if args.mode == "real" else pune_note()).encode()
+        note = (bundle_note() if args.mode == "real" else city_note(args.mode)).encode()
         ti = tarfile.TarInfo("DEMO_README.txt")
         ti.size = len(note)
         tar.addfile(ti, io.BytesIO(note))
