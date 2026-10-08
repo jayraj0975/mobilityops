@@ -18,7 +18,7 @@ results below, including the Live tab.
 **Live on Render's free plan** (each sleeps after ~15 minutes idle; the first request takes about half a minute):
 [New York, real data](https://mobilityops.onrender.com) and
 [Pune, **simulated demand** on live weather](https://mobilityops-pune.onrender.com). Mumbai (below) runs the same
-way when self-hosted; it has no public demo deployed yet.
+way; its Render service is defined and tested but not yet deployed ([DEPLOYMENT](docs/DEPLOYMENT.md)).
 
 ## Pune and Mumbai: real-time platforms on simulated demand
 
@@ -98,7 +98,7 @@ because the test window moved from April and May to November and December.
 | AI analyst (deterministic) | Development set 80 questions: 90.0% first run, 100% after fixes made against that set (optimistic). Three held-out sets of 40, each run once before any fix: **77.5%**, **60.0%** and **80.0%** (72.5% pooled, 87 of 120); all are development data from then on. Re-run on the full-year data, the four sets score 187 of 200: 11 failures are questions naming May days that are no longer held-out (the analyst correctly says there is no data), 2 are older known failures, and the re-run exposed two real defects the old data had hidden (an ignored "low severity" filter and a past date silently replaced by tomorrow's forecast), now fixed. Grounding and non-causal wording held at 100%. Expect roughly 60 to 80% on new phrasing. [Report](reports/ai_evaluation_real.md) | VERIFIED as measured |
 | AI analyst (LLM mode) | Implemented, tested only against a mocked transport; never run with a real key | **UNVERIFIED** |
 | Real time | A labelled replay of the held-out days plus live Citi Bike and weather feeds, on a server-sent-events stream; checked end to end against the real feeds and through a hardened container | VERIFIED |
-| Android app | Native, built with Gradle (Java and Kotlin); the New York and Pune tabs (release 2.2.0, signed APK, targets Android 16) were run on Android 14 and Android 16 emulators against real servers; 45 unit tests, lint clean | VERIFIED on an emulator (not a physical phone) |
+| Android app | Native, built with Gradle (Java and Kotlin); the New York, Pune and Mumbai tabs (release 2.3.0, signed APK, targets Android 16; 2.2.0 was the build run on emulators) were run on Android 14 and Android 16 emulators against real servers; 45 unit tests, lint clean | VERIFIED on an emulator (not a physical phone) |
 | Self-hosting | Docker Compose, systemd, optional HTTPS; the image was built and run with a read-only filesystem, no capabilities and read-only data mounts: 401 without a key, data with it, live stream through it | VERIFIED locally (Compose itself was not run: the plugin is not installed here) |
 | API | Contract tests including the service and live endpoints, plus a concurrency smoke test on the earlier data: 0 errors in 420 requests, p95 415 ms on a 12-thread machine | VERIFIED |
 | Interface | Component tests (run under 4 timezones) and real-browser tests including axe-core WCAG 2.1 A/AA scans in light and dark mode, keyboard use, phone width, and a dropped live stream recovering | VERIFIED |
@@ -123,7 +123,7 @@ The **Live** tab streams two clearly different things over server-sent events, e
   last good reading stays on screen and says it is not current.
 
 The same stream feeds the **native Android app** ([apps/android](apps/android/README.md)), built with
-Gradle (signed APK: [Releases, android-v2.2.0](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.2.0): includes the Pune tabs; earlier releases remain)): Live, Overview, Forecast, Anomalies and Settings tabs, verified on Android 14 and Android 16 emulators against the
+Gradle (signed APK: [Releases, android-v2.3.0](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.3.0): opens on the public New York demo, with one-tap New York, Pune and Mumbai choices in Settings; earlier releases remain)): Live, Overview, Forecast, Anomalies and Settings tabs, verified on Android 14 and Android 16 emulators against the
 real-data server (not on a physical phone).
 
 | Live (replay) | Live (feeds) | Overview | Forecast | Anomalies |

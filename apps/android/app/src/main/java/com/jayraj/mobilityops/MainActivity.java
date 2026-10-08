@@ -38,7 +38,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean pune;
 
     /** True for any simulated-city mode (Pune, Mumbai, ...), which all share the real-time console. */
-    private static boolean isSimCity(String mode) {
+    public static boolean isSimCity(String mode) {
         return "pune".equals(mode) || "mumbai".equals(mode);
     }
     private Async.Task detect;

@@ -84,6 +84,14 @@ entry let a forged header dodge the limit on the live site; that is fixed and co
 (`tests/unit/test_limits.py`). If the hosting provider changes its proxy chain, re-measure.
 
 
+## The Mumbai console (added 2026-10-09)
+
+A third service, `mobilityops-mumbai`, is defined in [`render.yaml`](../render.yaml) with the same settings as Pune,
+`MOBILITYOPS_MODE=mumbai` and the `demo-data-mumbai-v1` bundle (21.6 MB). The image was built and run locally with a
+512 MB memory limit and half a CPU: about 230 MiB in use with the worker running, the live weather source LIVE, and
+the API and console answering. **It is not deployed yet:** create it from the Blueprint in the Render dashboard
+(it then lives at <https://mobilityops-mumbai.onrender.com> if that name is free).
+
 ## The Pune console on Render (added 2026-09-24)
 
 A second free web service, `mobilityops-pune` (<https://mobilityops-pune.onrender.com>), built from the same `Dockerfile`, with

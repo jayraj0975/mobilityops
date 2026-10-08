@@ -437,6 +437,13 @@ Mumbai's heavier monsoon) differ from Pune's own numbers, and `/api/v1/meta` and
 correctly report `"city": "Mumbai"` end to end through a live SSE stream. The Python, web and Android test suites
 were extended with a Mumbai-mode case in each layer that previously assumed Pune was the only simulated city.
 
+**Correction (2026-10-09).** The generalisation missed the simulator itself: `simulate.py` kept Pune's centre and
+landmark hubs as module constants, so Mumbai's zone weights were set by distance to Pune (about 120 km from every
+Mumbai zone), the south-eastern zones nearest Pune dominated, and nearly every zone was labelled North-West. The
+30.1% WAPE above came from that model. Each simulated city now has its own centre and hubs (`simulate.SITES`,
+approximate landmarks, an assumption), a test checks no city borrows another's, and the rebuilt Mumbai year gives
+LightGBM WAPE 29.0% against 33.3% for the best baseline, with 80.0% interval coverage (still simulated demand).
+
 **Consequences.** The same honesty rules as Pune apply without new code: Mumbai demand is SIMULATED and labelled as
 such everywhere the label already propagates from `data_label`/`demand_class`. The CLI subcommands kept their
 historical `pune-build`/`pune-worker` names (cosmetic only — they already take `MOBILITYOPS_MODE` as the real

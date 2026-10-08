@@ -1,6 +1,7 @@
 package com.jayraj.mobilityops.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -38,6 +39,11 @@ public class UtilTest {
         assertEquals("https://example.org", Settings.normalizeUrl("https://example.org//"));
         assertEquals(Settings.DEFAULT_URL, Settings.normalizeUrl(""));
         assertEquals(Settings.DEFAULT_URL, Settings.normalizeUrl(null));
+        // A release install must never default to the emulator's host or a LAN address.
+        assertTrue(Settings.DEFAULT_URL.startsWith("https://"));
+        for (String[] demo : Settings.DEMOS) {
+            assertTrue(demo[1], demo[1].startsWith("https://") && demo[1].equals(Settings.normalizeUrl(demo[1])));
+        }
     }
 
     @Test

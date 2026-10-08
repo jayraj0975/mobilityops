@@ -5,8 +5,15 @@ import android.content.SharedPreferences;
 
 /** Where the server is and how to authenticate. Stored in private app preferences. */
 public final class Settings {
-    /** 10.0.2.2 is the host machine as seen from the Android emulator. */
-    public static final String DEFAULT_URL = "http://10.0.2.2:8000";
+    /** The public New York demo, so a fresh install on a phone shows something real. */
+    public static final String DEFAULT_URL = "https://mobilityops.onrender.com";
+
+    /** The public demos, offered as one-tap choices in Settings: {label, address}. */
+    public static final String[][] DEMOS = {
+        {"New York", DEFAULT_URL},
+        {"Pune", "https://mobilityops-pune.onrender.com"},
+        {"Mumbai", "https://mobilityops-mumbai.onrender.com"},
+    };
 
     private static final String FILE = "mobilityops";
     private static final String KEY_URL = "server_url";
@@ -27,7 +34,7 @@ public final class Settings {
         return prefs.getString(KEY_API_KEY, "");
     }
 
-    /** The data mode the server last reported ("pune", "real", "sample"); remembered so a start is instant. */
+    /** The data mode the server last reported ("pune", "mumbai", "real", "sample"); remembered so a start is instant. */
     public String mode() {
         return prefs.getString(KEY_MODE, "");
     }

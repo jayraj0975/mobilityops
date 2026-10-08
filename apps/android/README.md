@@ -20,7 +20,7 @@ It uses only platform networking (`HttpURLConnection`) and AndroidX/Material, so
 third-party network library to trust. Minimum Android 7.0 (API 24); it targets Android 16 (API 36) and has been run on Android 14 and Android 16 emulators (not on a physical phone).
 
 **Download:** the signed release APK and its checksum are on the
-[Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.2.0) (`android-v2.2.0`; earlier releases remain).
+[Releases page](https://github.com/jayraj0975/mobilityops/releases/tag/android-v2.3.0) (`android-v2.3.0`; earlier releases remain).
 
 ## Screens
 
@@ -68,7 +68,9 @@ installed copy**; back it up.
 
 ## Connecting to the server
 
-Open **Settings** on first launch. From the Android emulator the host computer is
+A fresh install points at the public New York demo (`https://mobilityops.onrender.com`), and **Settings**
+offers one-tap New York, Pune and Mumbai demos (the Mumbai service is defined but not yet deployed, see
+docs/DEPLOYMENT.md). For your own server, type its address: from the Android emulator the host computer is
 `http://10.0.2.2:8000`; on a phone use the server's address on your network. Plain `http://` is
 allowed (a home server rarely has a certificate); use the HTTPS setup in the self-hosting guide for
 anything beyond your local network.

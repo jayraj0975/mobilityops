@@ -228,7 +228,7 @@ jobs:
           import pathlib, re, subprocess, sys
           text = pathlib.Path("render.yaml").read_text()
           blocks = re.split(r"(?m)^  - type: web\s*$", text)[1:]
-          assert len(blocks) == 2, "expected the New York and Pune services"
+          assert len(blocks) == 3, "expected the New York, Pune and Mumbai services"
           for block in blocks:
               url = re.search(r"key: DEMO_URL\s+value: (\S+)", block).group(1)
               sha = re.search(r"key: DEMO_SHA256\s+value: (\S+)", block).group(1)
