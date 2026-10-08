@@ -191,7 +191,7 @@ def test_public_demo_services_opt_in_explicitly() -> None:
 
     text = (Path(__file__).resolve().parents[2] / "render.yaml").read_text()
     blocks = re.split(r"(?m)^  - type: web\s*$", text)[1:]
-    assert len(blocks) == 2  # the New York and Pune demo services
+    assert len(blocks) == 3  # the New York, Pune and Mumbai demo services
     for block in blocks:
         assert re.search(r"key: MOBILITYOPS_ALLOW_UNAUTHENTICATED\s+value: \"true\"", block), (
             block.splitlines()[1]
