@@ -747,6 +747,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/state/track-record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State Track Record
+         * @description How the published forecasts did, day by day, against the demand that followed and a
+         *     same-hour-last-week baseline. Only forecasts made before their hour began are scored
+         *     (SIMULATED demand).
+         */
+        get: operations["state_track_record_api_v1_state_track_record_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/state/zones/{zone_id}": {
         parameters: {
             query?: never;
@@ -1842,6 +1864,66 @@ export interface components {
             lo: number;
             /** Ratio */
             ratio: number | null;
+        };
+        /** TrackDay */
+        TrackDay: {
+            /** Baseline Mae */
+            baseline_mae: number | null;
+            /** Baseline Zone Hours */
+            baseline_zone_hours: number;
+            /** Bias */
+            bias: number;
+            /** Coverage */
+            coverage: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Lead Hours Median */
+            lead_hours_median: number;
+            /** Mae */
+            mae: number;
+            /** Mae On Baseline Hours */
+            mae_on_baseline_hours: number | null;
+            /** Zone Hours */
+            zone_hours: number;
+        };
+        /** TrackRecord */
+        TrackRecord: {
+            /** Data Label */
+            data_label: string;
+            /** Days */
+            days: components["schemas"]["TrackDay"][];
+            /** Excluded Late */
+            excluded_late: number;
+            /** Note */
+            note: string;
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+            total: components["schemas"]["TrackSummary"] | null;
+        };
+        /** TrackSummary */
+        TrackSummary: {
+            /** Baseline Mae */
+            baseline_mae: number | null;
+            /** Baseline Zone Hours */
+            baseline_zone_hours: number;
+            /** Bias */
+            bias: number;
+            /** Coverage */
+            coverage: number;
+            /** Lead Hours Median */
+            lead_hours_median: number;
+            /** Mae */
+            mae: number;
+            /** Mae On Baseline Hours */
+            mae_on_baseline_hours: number | null;
+            /** Zone Hours */
+            zone_hours: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -3342,6 +3424,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StreamStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    state_track_record_api_v1_state_track_record_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                "x-api-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackRecord"];
                 };
             };
             /** @description Validation Error */

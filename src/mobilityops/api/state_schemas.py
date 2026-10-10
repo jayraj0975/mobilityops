@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -173,6 +173,30 @@ class ZoneDetail(Model):
     events: list[EventItem]
     today_actual: float
     today_forecast: float
+
+
+class TrackSummary(Model):
+    zone_hours: int
+    mae: float
+    baseline_mae: float | None
+    mae_on_baseline_hours: float | None
+    baseline_zone_hours: int
+    coverage: float
+    bias: float
+    lead_hours_median: float
+
+
+class TrackDay(TrackSummary):
+    day: date
+
+
+class TrackRecord(Model):
+    server_time: datetime
+    data_label: str
+    note: str
+    days: list[TrackDay]
+    total: TrackSummary | None
+    excluded_late: int
 
 
 class CitySeries(Model):
