@@ -6256,7 +6256,7 @@
     },
     "/api/v1/state/track-record": {
       "get": {
-        "description": "How the published forecasts did, day by day, against the demand that followed and a same-hour-last-week\nbaseline. Only forecasts made before their hour began are scored (SIMULATED demand).",
+        "description": "How the published forecasts did, day by day, against the demand that followed and a\nsame-hour-last-week baseline. Only forecasts made before their hour began are scored\n(SIMULATED demand).",
         "operationId": "state_track_record_api_v1_state_track_record_get",
         "parameters": [
           {

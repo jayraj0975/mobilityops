@@ -756,8 +756,9 @@ export interface paths {
         };
         /**
          * State Track Record
-         * @description How the published forecasts did, day by day, against the demand that followed and a same-hour-last-week
-         *     baseline. Only forecasts made before their hour began are scored (SIMULATED demand).
+         * @description How the published forecasts did, day by day, against the demand that followed and a
+         *     same-hour-last-week baseline. Only forecasts made before their hour began are scored
+         *     (SIMULATED demand).
          */
         get: operations["state_track_record_api_v1_state_track_record_get"];
         put?: never;
