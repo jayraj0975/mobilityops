@@ -515,3 +515,13 @@ def test_hostile_input_is_rejected_or_harmless(
         assert r.json() == []
     # and the store is intact
     assert StateStore(settings.state_path).version() > 0
+
+
+def test_track_record_is_labelled_and_never_grades_forecasts_made_after_their_hour(client: TestClient) -> None:
+    r = client.get("/api/v1/state/track-record")
+    assert r.status_code == 200 and "SIMULATED" in r.json()["data_label"]
+    body = r.json()
+    # The worker made today's forecast at NOW, after today's earlier hours had happened: none of those is graded.
+    assert body["excluded_late"] > 0
+    assert all(d["zone_hours"] > 0 and 0 <= d["coverage"] <= 1 and d["lead_hours_median"] > 0 for d in body["days"])
+    assert client.get("/api/v1/state/track-record?days=99").status_code == 422

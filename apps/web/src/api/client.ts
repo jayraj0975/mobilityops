@@ -173,6 +173,8 @@ export const state = {
   quality: (s?: AbortSignal) => get<Schemas["DataQuality"]>("/api/v1/state/quality", undefined, s),
   runs: (q: { limit?: number; source?: string }, s?: AbortSignal) =>
     get<Schemas["IngestionRun"][]>("/api/v1/state/runs", q, s),
+  trackRecord: (days = 14, s?: AbortSignal) =>
+    get<Schemas["TrackRecord"]>("/api/v1/state/track-record", { days }, s),
 };
 
 export const api = {

@@ -2651,6 +2651,187 @@
         "title": "Totals",
         "type": "object"
       },
+      "TrackDay": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_mae": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Mae"
+          },
+          "baseline_zone_hours": {
+            "title": "Baseline Zone Hours",
+            "type": "integer"
+          },
+          "bias": {
+            "title": "Bias",
+            "type": "number"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "number"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "lead_hours_median": {
+            "title": "Lead Hours Median",
+            "type": "number"
+          },
+          "mae": {
+            "title": "Mae",
+            "type": "number"
+          },
+          "mae_on_baseline_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae On Baseline Hours"
+          },
+          "zone_hours": {
+            "title": "Zone Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "zone_hours",
+          "mae",
+          "baseline_mae",
+          "mae_on_baseline_hours",
+          "baseline_zone_hours",
+          "coverage",
+          "bias",
+          "lead_hours_median",
+          "day"
+        ],
+        "title": "TrackDay",
+        "type": "object"
+      },
+      "TrackRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "data_label": {
+            "title": "Data Label",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/TrackDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "excluded_late": {
+            "title": "Excluded Late",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "server_time": {
+            "format": "date-time",
+            "title": "Server Time",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "server_time",
+          "data_label",
+          "note",
+          "days",
+          "total",
+          "excluded_late"
+        ],
+        "title": "TrackRecord",
+        "type": "object"
+      },
+      "TrackSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_mae": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Mae"
+          },
+          "baseline_zone_hours": {
+            "title": "Baseline Zone Hours",
+            "type": "integer"
+          },
+          "bias": {
+            "title": "Bias",
+            "type": "number"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "number"
+          },
+          "lead_hours_median": {
+            "title": "Lead Hours Median",
+            "type": "number"
+          },
+          "mae": {
+            "title": "Mae",
+            "type": "number"
+          },
+          "mae_on_baseline_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae On Baseline Hours"
+          },
+          "zone_hours": {
+            "title": "Zone Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "zone_hours",
+          "mae",
+          "baseline_mae",
+          "mae_on_baseline_hours",
+          "baseline_zone_hours",
+          "coverage",
+          "bias",
+          "lead_hours_median"
+        ],
+        "title": "TrackSummary",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -6068,6 +6249,68 @@
           }
         },
         "summary": "State Stream Status",
+        "tags": [
+          "state"
+        ]
+      }
+    },
+    "/api/v1/state/track-record": {
+      "get": {
+        "description": "How the published forecasts did, day by day, against the demand that followed and a same-hour-last-week\nbaseline. Only forecasts made before their hour began are scored (SIMULATED demand).",
+        "operationId": "state_track_record_api_v1_state_track_record_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 14,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "State Track Record",
         "tags": [
           "state"
         ]
