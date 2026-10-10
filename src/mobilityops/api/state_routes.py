@@ -87,8 +87,9 @@ def register(api: APIRouter, settings: Settings) -> tuple[StateProvider, StateHu
 
     @api.get("/state/track-record", response_model=st.TrackRecord, tags=["state"])
     def state_track_record(days: Annotated[int, Query(ge=1, le=14)] = 14) -> Any:
-        """How the published forecasts did, day by day, against the demand that followed and a same-hour-last-week
-        baseline. Only forecasts made before their hour began are scored (SIMULATED demand)."""
+        """How the published forecasts did, day by day, against the demand that followed and a
+        same-hour-last-week baseline. Only forecasts made before their hour began are scored
+        (SIMULATED demand)."""
         return provider.require().track_record(now(), days)
 
     @api.get("/state/events", response_model=list[st.EventItem], tags=["state"])

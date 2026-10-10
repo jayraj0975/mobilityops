@@ -51,9 +51,10 @@ def _dt(text: str | None) -> datetime | None:
 
 
 TRACK_NOTE = (
-    "Each forecast is scored against the demand that followed, only when it was made before its hour began. The "
-    "baseline repeats the same zone and hour from a week earlier, compared on the same zone-hours. Demand is SIMULATED: "
-    "this shows the monitoring loop working, not accuracy on real riders. The 80% ranges should hold about 80% of the time."
+    "Each forecast is scored against the demand that followed, only when it was made before its "
+    "hour began. The baseline repeats the same zone and hour from a week earlier, compared on the "
+    "same zone-hours. Demand is SIMULATED: this shows the monitoring loop working, not accuracy on "
+    "real riders. The 80% ranges should hold about 80% of the time."
 )
 
 
@@ -410,28 +411,47 @@ class StateService:
     def track_record(self, now: datetime, days: int = 14) -> dict[str, Any]:
         """How the published forecasts did once the hours they were for had happened.
 
-        A zone-hour is scored only if its forecast was made BEFORE the hour began (a forecast rebuilt after a restart
-        replaces the stored one, and must not be graded on hours it already saw). Compared with the same zone and hour
-        a week earlier, on exactly the same zone-hours. Demand here is SIMULATED, so this measures the forecaster
-        against the simulator: a monitoring loop shown working, not accuracy on real riders.
+        A zone-hour is scored only if its forecast was made BEFORE the hour began (a forecast
+        rebuilt after a restart replaces the stored one, and must not be graded on hours it had
+        already seen). Compared with the same zone and hour a week earlier, on exactly the same
+        zone-hours. Demand here is SIMULATED, so this measures the forecaster against the
+        simulator: a monitoring loop shown working, not accuracy on real riders.
         """
         local = pd.Timestamp(live.local_naive(now))
         done = local.floor("h")  # hours that started before this one are complete
         start = done.normalize() - pd.Timedelta(days=days - 1)
         act = self.store.zone_hours((start - pd.Timedelta(days=7)).isoformat(), done.isoformat())
         fc = self.store.forecast(start.isoformat(), done.isoformat())
-        empty = {"server_time": now, "data_label": self.settings.data_label, "days": [], "total": None,
-                 "excluded_late": 0, "note": TRACK_NOTE}
+        empty = {
+            "server_time": now,
+            "data_label": self.settings.data_label,
+            "days": [],
+            "total": None,
+            "excluded_late": 0,
+            "note": TRACK_NOTE,
+        }
         if fc.empty or act.empty:
             return empty
         act = act[act["partial"] == 0].assign(hour_ts=lambda d: pd.to_datetime(d["hour_ts"]))
-        fc = fc.assign(hour_ts=lambda d: pd.to_datetime(d["hour_ts"]),
-                       made=lambda d: pd.to_datetime(d["made_at"], utc=True).dt.tz_convert(live.LOCAL).dt.tz_localize(None))
+        fc = fc.assign(
+            hour_ts=lambda d: pd.to_datetime(d["hour_ts"]),
+            made=lambda d: (
+                pd.to_datetime(d["made_at"], utc=True)
+                .dt.tz_convert(live.LOCAL)
+                .dt.tz_localize(None)
+            ),
+        )
         m = fc.merge(act[["zone_id", "hour_ts", "pickups"]], on=["zone_id", "hour_ts"])
         late = m["made"] >= m["hour_ts"]
         m = m[~late]
-        last_week = act.assign(hour_ts=act["hour_ts"] + pd.Timedelta(days=7))[["zone_id", "hour_ts", "pickups"]]
-        m = m.merge(last_week.rename(columns={"pickups": "last_week"}), on=["zone_id", "hour_ts"], how="left")
+        last_week = act.assign(hour_ts=act["hour_ts"] + pd.Timedelta(days=7))[
+            ["zone_id", "hour_ts", "pickups"]
+        ]
+        m = m.merge(
+            last_week.rename(columns={"pickups": "last_week"}),
+            on=["zone_id", "hour_ts"],
+            how="left",
+        )
         if m.empty:
             return empty | {"excluded_late": int(late.sum())}
         m["err"] = (m["pred"] - m["pickups"]).abs()
@@ -440,21 +460,31 @@ class StateService:
         m["lead_h"] = (m["hour_ts"] - m["made"]).dt.total_seconds() / 3600
 
         def summary(g: pd.DataFrame) -> dict[str, Any]:
-            both = g.dropna(subset=["last_week"])  # model and baseline compared on the same zone-hours only
+            both = g.dropna(
+                subset=["last_week"]
+            )  # model and baseline compared on the same zone-hours only
             return {
-                "zone_hours": int(len(g)),
+                "zone_hours": len(g),
                 "mae": round(float(g["err"].mean()), 2),
                 "baseline_mae": round(float(both["base_err"].mean()), 2) if len(both) else None,
                 "mae_on_baseline_hours": round(float(both["err"].mean()), 2) if len(both) else None,
-                "baseline_zone_hours": int(len(both)),
+                "baseline_zone_hours": len(both),
                 "coverage": round(float(g["inside"].mean()), 3),
                 "bias": round(float((g["pred"] - g["pickups"]).mean()), 2),
                 "lead_hours_median": round(float(g["lead_h"].median()), 1),
             }
 
-        out_days = [{"day": d.date(), **summary(g)} for d, g in m.groupby(m["hour_ts"].dt.normalize())]
-        return {"server_time": now, "data_label": self.settings.data_label, "days": out_days, "total": summary(m),
-                "excluded_late": int(late.sum()), "note": TRACK_NOTE}
+        out_days = [
+            {"day": d.date(), **summary(g)} for d, g in m.groupby(m["hour_ts"].dt.normalize())
+        ]
+        return {
+            "server_time": now,
+            "data_label": self.settings.data_label,
+            "days": out_days,
+            "total": summary(m),
+            "excluded_late": int(late.sum()),
+            "note": TRACK_NOTE,
+        }
 
     def city_series(self, now: datetime, back: int = 30, ahead: int = 24) -> dict[str, Any]:
         """Citywide hourly demand against its forecast, with the running hour pro-rated.
